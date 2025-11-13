@@ -1,0 +1,193 @@
+{% extends 'base.html' %}
+
+{% block title %}Hurtig Kampagne Builder{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <!-- Header -->
+    <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-green-500 to-green-700 rounded-full mb-4 shadow-xl">
+            <i data-lucide="zap" class="w-10 h-10 text-white"></i>
+        </div>
+        <h1 class="text-4xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent mb-4">
+            Hurtig Kampagne Builder
+        </h1>
+        <p class="text-xl text-gray-600">Opret en komplet Google Ads kampagne på 2 minutter</p>
+    </div>
+
+    <!-- Quick Builder Form -->
+    <form method="post" class="bg-white rounded-lg shadow-md p-8">
+        {% csrf_token %}
+        
+        <!-- Basic Info -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-semibold text-gray-900 mb-4">📋 Grundlæggende Information</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Firmanavn *</label>
+                    <input type="text" name="client_name" required 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+                           placeholder="f.eks. Hansen VVS">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Brand navn (til keywords)</label>
+                    <input type="text" name="brand_name" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+                           placeholder="Lad stå tom for at bruge firmanavn">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Hjemmeside *</label>
+                    <input type="url" name="website_url" required 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+                           placeholder="https://www.eksempel.dk">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Branche *</label>
+                    <select name="industry" required 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
+                        <option value="">Vælg branche</option>
+                        {% for industry in industries %}
+                        <option value="{{ industry.id }}">{{ industry.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Lokation</label>
+                    <input type="text" name="location" value="Danmark"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+                           placeholder="f.eks. København, Aarhus">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Dagligt budget (DKK)</label>
+                    <input type="number" name="daily_budget" value="500" min="100" max="10000"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+                           placeholder="500">
+                </div>
+            </div>
+        </div>
+
+        <!-- Services -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-semibold text-gray-900 mb-4">🔧 Services/Produkter</h2>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Primære services (adskil med komma)
+                </label>
+                <input type="text" name="service_keywords" 
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+                       placeholder="f.eks. badeværelse renovering, køkken installation, rørarbejde">
+                <p class="text-sm text-gray-500 mt-1">Disse bruges til at generere relevante keywords</p>
+            </div>
+        </div>
+
+        <!-- USPs -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-semibold text-gray-900 mb-4">💎 Unikke Salgspunkter (USPs)</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">USP 1</label>
+                    <input type="text" name="usp1" value="Professionel service"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+                           placeholder="f.eks. 25 års erfaring">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">USP 2</label>
+                    <input type="text" name="usp2" value="Hurtig levering"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+                           placeholder="f.eks. Samme dag service">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">USP 3</label>
+                    <input type="text" name="usp3" value="Konkurrencedygtige priser"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+                           placeholder="f.eks. Gratis tilbud">
+                </div>
+            </div>
+        </div>
+
+        <!-- Preview -->
+        <div class="mb-8 p-6 bg-blue-50 border border-blue-200 rounded-lg">
+            <h3 class="text-lg font-semibold text-blue-900 mb-4">📋 Hvad bliver genereret:</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                    <div class="font-medium text-blue-800 mb-2">📁 3 Annoncegrupper:</div>
+                    <ul class="text-blue-700 space-y-1">
+                        <li>• Brand Keywords (exact match)</li>
+                        <li>• Service Keywords (phrase match)</li>
+                        <li>• Generiske Keywords (phrase/broad)</li>
+                    </ul>
+                </div>
+                <div>
+                    <div class="font-medium text-blue-800 mb-2">🔍 Keywords:</div>
+                    <ul class="text-blue-700 space-y-1">
+                        <li>• Branded keywords</li>
+                        <li>• Service + lokation</li>
+                        <li>• Industri keywords</li>
+                        <li>• Long-tail varianter</li>
+                    </ul>
+                </div>
+                <div>
+                    <div class="font-medium text-blue-800 mb-2">📝 Annoncer:</div>
+                    <ul class="text-blue-700 space-y-1">
+                        <li>• 3 responsive search ads</li>
+                        <li>• Bruger dine USPs</li>
+                        <li>• Lokalbaserede headlines</li>
+                        <li>• Call-to-action inkluderet</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit -->
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+            <button type="submit" 
+                    class="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-200 flex items-center space-x-2 shadow-lg">
+                <i data-lucide="zap" class="w-5 h-5"></i>
+                <span>Generer Kampagne (2 min)</span>
+            </button>
+            <a href="{% url 'geo_campaign_builder_v2' %}" 
+               class="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-200 flex items-center space-x-2 shadow-lg">
+                <i data-lucide="map" class="w-5 h-5"></i>
+                <span>Geografisk Kampagne</span>
+            </a>
+        </div>
+    </form>
+
+    <!-- Tips -->
+    <div class="mt-8 p-6 bg-gray-50 rounded-lg">
+        <h3 class="text-lg font-semibold text-gray-900 mb-3">💡 Tips til bedre resultater:</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700">
+            <div>
+                <strong>Services:</strong> Vær specifik. "Køkken renovation" er bedre end bare "renovation"
+            </div>
+            <div>
+                <strong>USPs:</strong> Fokuser på fordele kunden får, ikke kun features
+            </div>
+            <div>
+                <strong>Budget:</strong> Start med 300-500 DKK/dag for test, skalér op senere
+            </div>
+            <div>
+                <strong>Lokation:</strong> Vær præcis hvis du kun dækker bestemte områder
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.icon-bounce {
+    animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-10px);
+    }
+    60% {
+        transform: translateY(-5px);
+    }
+}
+</style>
+{% endblock %}

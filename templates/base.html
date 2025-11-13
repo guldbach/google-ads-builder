@@ -1,0 +1,157 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Google Ads Builder{% endblock %}</title>
+    <link href="{% static 'css/style.css' %}" rel="stylesheet">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <!-- Custom Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom styles for better UX */
+        .form-step {
+            display: none;
+        }
+        .form-step.active {
+            display: block;
+        }
+        .progress-bar {
+            transition: width 0.3s ease;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #34a853 0%, #0f9d58 100%);
+        }
+        
+        .google-green {
+            background: #34a853;
+        }
+        
+        .google-green-light {
+            background: #4caf50;
+        }
+        
+        .google-green-dark {
+            background: #0f9d58;
+        }
+        
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+        
+        .icon-bounce {
+            animation: bounce 2s infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: translateY(0);
+            }
+            40% {
+                transform: translateY(-10px);
+            }
+            60% {
+                transform: translateY(-5px);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Navigation -->
+    <nav class="gradient-bg shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
+                            <i data-lucide="zap" class="w-5 h-5 text-green-600"></i>
+                        </div>
+                        <h1 class="text-xl font-bold text-white">
+                            Google Ads <span class="text-green-200">Builder</span>
+                        </h1>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    {% if user.is_authenticated %}
+                        <span class="text-green-100">Hej, {{ user.first_name|default:user.username }}</span>
+                        <a href="{% url 'admin:index' %}" class="text-green-100 hover:text-white transition-colors duration-200 flex items-center space-x-1">
+                            <i data-lucide="settings" class="w-4 h-4"></i>
+                            <span>Admin</span>
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 mt-12">
+        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+            <p class="text-center text-gray-500 text-sm">
+                © 2025 Google Ads Builder - Intelligent kampagne oprettelse
+            </p>
+        </div>
+    </footer>
+
+    <script>
+        // Form step navigation
+        function showStep(stepNumber) {
+            document.querySelectorAll('.form-step').forEach(step => {
+                step.classList.remove('active');
+            });
+            document.getElementById('step-' + stepNumber).classList.add('active');
+            
+            // Update progress bar
+            const progress = (stepNumber / 4) * 100;
+            document.getElementById('progress-bar').style.width = progress + '%';
+            
+            // Update step indicators
+            document.querySelectorAll('.step-indicator').forEach((indicator, index) => {
+                if (index < stepNumber) {
+                    indicator.classList.add('bg-blue-600', 'text-white');
+                    indicator.classList.remove('bg-gray-200', 'text-gray-600');
+                } else {
+                    indicator.classList.remove('bg-blue-600', 'text-white');
+                    indicator.classList.add('bg-gray-200', 'text-gray-600');
+                }
+            });
+        }
+
+        // Auto-crawl website when URL is entered
+        function crawlWebsite() {
+            const url = document.getElementById('website_url').value;
+            if (url) {
+                htmx.ajax('POST', '/crawl-website/', {
+                    values: {website_url: url},
+                    target: '#crawl-results',
+                    swap: 'innerHTML'
+                });
+            }
+        }
+        
+        // Initialize icons after page load
+        document.addEventListener('DOMContentLoaded', function() {
+            lucide.createIcons();
+        });
+    </script>
+</body>
+</html>

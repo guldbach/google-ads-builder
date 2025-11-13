@@ -1,0 +1,405 @@
+{% extends 'base.html' %}
+
+{% block title %}Geografisk Kampagne Builder{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-blue-500 to-blue-700 rounded-full mb-4 shadow-xl">
+            <i data-lucide="map" class="w-10 h-10 text-white"></i>
+        </div>
+        <h1 class="text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent mb-4">
+            Geografisk Kampagne Builder
+        </h1>
+        <p class="text-xl text-gray-600">Tegn områder på kortet og generer Google Ads kampagne + WordPress landing pages automatisk</p>
+    </div>
+
+    <!-- Main Grid Layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        
+        <!-- Kort Sektion -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">🗺️ Vælg Geografiske Områder</h2>
+            
+            <!-- Kort Container -->
+            <div id="map" style="height: 400px; width: 100%;" class="border border-gray-300 rounded-lg mb-4"></div>
+            
+            <!-- Kort Instruktioner -->
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <h3 class="font-semibold text-blue-900 mb-2">📍 Kort Instruktioner:</h3>
+                <ul class="text-sm text-blue-800 space-y-1">
+                    <li>• <strong>Klik</strong> på kortet for at lave ny cirkel</li>
+                    <li>• <strong>Klik</strong> på cirkel for at slette den igen</li>
+                    <li>• <strong>Træk</strong> rundt på cirkel for at ændre placering</li>
+                    <li>• <strong>Træk</strong> på små hvide boller for at ændre radius</li>
+                </ul>
+            </div>
+            
+            <!-- Valgte Byer -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Valgte Byer:</label>
+                <textarea id="cities" readonly class="w-full h-24 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm"
+                          placeholder="Tegn cirkler på kortet for at vælge byer..."></textarea>
+                <p class="text-xs text-gray-500 mt-1">Disse byer bliver automatisk valgt baseret på dine cirkler</p>
+            </div>
+        </div>
+
+        <!-- Kampagne Form -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">🎯 Kampagne Indstillinger</h2>
+            
+            <form method="post" id="geoForm">
+                {% csrf_token %}
+                
+                <!-- Hidden field for selected cities -->
+                <input type="hidden" name="selected_cities" id="selected_cities">
+                
+                <!-- Basic Info -->
+                <div class="space-y-4 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Firmanavn *</label>
+                        <input type="text" name="client_name" required 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="f.eks. Hansen VVS">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Service Type *</label>
+                        <input type="text" name="service_name" id="service_name" required 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="f.eks. Fugemand, Murer, VVS">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Hjemmeside *</label>
+                        <input type="url" name="website_url" required 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="https://www.eksempel.dk">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Domæne (til landing pages)</label>
+                        <input type="text" name="domain" id="domain"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="f.eks. lundsfugeservice.dk">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Branche</label>
+                        <select name="industry" required 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">Vælg branche</option>
+                            {% for industry in industries %}
+                            <option value="{{ industry.id }}">{{ industry.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Template Indstillinger -->
+                <div class="border-t border-gray-200 pt-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">📝 Landing Page Templates</h3>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Meta Titel Template
+                                <span class="text-xs text-gray-500">(Brug {SERVICE} og {BYNAVN} placeholders)</span>
+                            </label>
+                            <input type="text" name="meta_title_template" 
+                                   value="{SERVICE} {BYNAVN} - 5/5 Stjerner på Trustpilot - Ring idag"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Meta Beskrivelse Template
+                                <span class="text-xs text-gray-500">(Brug {SERVICE} og {BYNAVN} placeholders)</span>
+                            </label>
+                            <textarea name="meta_description_template" rows="2"
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">Skal du bruge en dygtig {SERVICE} i {BYNAVN}, vi har hjælpet mere end 500 kunder. Kontakt os idag, vi køre dagligt i {BYNAVN}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Preview Sektion -->
+                <div class="border-t border-gray-200 pt-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">👁️ Live Preview</h3>
+                    <div id="preview-section" class="bg-gray-50 rounded-lg p-4">
+                        <p class="text-sm text-gray-500">Vælg service type og byer på kortet for at se preview...</p>
+                    </div>
+                    <button type="button" id="preview-btn" 
+                            class="mt-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200">
+                        🔄 Opdater Preview
+                    </button>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="border-t border-gray-200 pt-6">
+                    <button type="submit" id="submit-btn"
+                            class="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg">
+                        <span class="text-xl mr-2">🚀</span>
+                        <span>Generer Geo Kampagne</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Kort Script (Dit eksisterende kort-tool) -->
+<script src="https://code.jquery.com/jquery-2.2.4.min.js"></script>
+<script>
+    var map;
+    var cities;
+    var selectedcities = [];
+    var d2r = Math.PI / 180;
+    
+    function deg2rad(x) {
+        return x * d2r;
+    }
+
+    // Load danske postnumre fra DAWA API
+    $.ajax({
+        url: 'https://dawa.aws.dk/postnumre/',
+        success: function (data) {
+            cities = data;
+            for (var city of cities) {
+                if (city.visueltcenter) {
+                    city.lat_rad = deg2rad(city.visueltcenter[1]);
+                    city.lng_rad = deg2rad(city.visueltcenter[0]);
+                } else {
+                    console.log(city);
+                }
+            }
+            select_cities();
+        },
+        error: function () {
+            alert("Fejl ved indlæsning af danske postnumre. Prøv igen.");
+        },
+        timeout: 10000,
+        dataType: 'json'
+    });
+
+    var circles_def = [
+        { lat: 55.610, lng: 12.323, radius: 10.0 },  // vestegnen
+        { lat: 55.610, lng: 12.600, radius: 6.0 },   // kastrup
+        { lat: 55.670, lng: 12.583, radius: 4.3 }    // kbh
+    ];
+    var circles = [];
+    
+    function initMap() {
+        map = new google.maps.Map(document.getElementById('map'), {
+            center: { lat: 55.670523, lng: 12.583819 },
+            zoom: 10
+        });
+
+        // Tilføj standard cirkler
+        for (var c of circles_def) {
+            add_circle(c.lat, c.lng, c.radius);
+        }
+        
+        // Klik for at tilføje nye cirkler
+        map.addListener('click', function (e) {
+            add_circle(e.latLng.lat(), e.latLng.lng(), 2);
+            select_cities();
+        });
+        
+        select_cities();
+    }
+
+    function add_circle(lat, lng, rad) {
+        let circle = new google.maps.Circle({
+            strokeColor: '#3B82F6',
+            strokeOpacity: 0.5,
+            strokeWeight: 2,
+            fillColor: '#3B82F6',
+            fillOpacity: 0.15,
+            map: map,
+            clickable: true,
+            draggable: true,
+            editable: true,
+            center: { lat: lat, lng: lng },
+            radius: rad * 1000
+        });
+        
+        // Klik for at slette cirkel
+        google.maps.event.addListener(circle, 'click', function (ev) {
+            circle.set('strokeColor', '#EF4444');
+            circle.setMap(null);
+            circles = circles.filter(c => c !== circle);
+            select_cities();
+        });
+        
+        // Drag og radius change events
+        google.maps.event.addListener(circle, 'dragend', function () {
+            select_cities();
+        });
+        google.maps.event.addListener(circle, 'radius_changed', function () {
+            select_cities();
+        });
+        
+        circles.push(circle);
+    }
+
+    function within_circle(c_lat_rad, c_lng_rad, c_radius_km, p_lat_rad, p_lng_rad) {
+        return Math.acos(
+            Math.sin(p_lat_rad) * Math.sin(c_lat_rad) +
+            Math.cos(p_lat_rad) * Math.cos(c_lat_rad) * Math.cos(c_lng_rad - p_lng_rad)
+        ) * 6371 < c_radius_km
+    }
+
+    function select_cities() {
+        if (!cities || cities.length === 0) return;
+        
+        // Opdater circle data
+        for (var circle of circles) {
+            if (circle.getMap()) {
+                let center = circle.getCenter();
+                circle.lat_rad = deg2rad(center.lat());
+                circle.lng_rad = deg2rad(center.lng());
+                circle.radius_km = circle.getRadius()/1000;
+            }
+        }
+        
+        // Find byer inden for cirkler
+        selectedcities = jQuery.grep(
+            cities,
+            function (city, idx) {
+                for (var circle of circles) {
+                    if (
+                        circle.getMap() != null && within_circle(
+                            circle.lat_rad,
+                            circle.lng_rad,
+                            circle.radius_km,
+                            city.lat_rad,
+                            city.lng_rad
+                        )
+                    ) return true;
+                }
+                return false;
+            }
+        );
+        
+        // Opret unik liste af bynavne
+        var names = [];
+        for (var city of selectedcities) {
+            names[city.navn] = 1;
+        }
+        var result = [];
+        for (var name in names) result.push(name);
+        result.sort();
+        
+        // Opdater UI
+        $('#cities').html(result.join("\n"));
+        $('#selected_cities').val(result.join(","));
+        
+        // Trigger preview update hvis der er data
+        if (result.length > 0) {
+            updatePreview();
+        }
+    }
+
+    // Preview funktionalitet
+    function updatePreview() {
+        const serviceName = $('#service_name').val();
+        const cities = $('#selected_cities').val();
+        const domain = $('#domain').val();
+        
+        if (!serviceName || !cities) {
+            $('#preview-section').html('<p class="text-sm text-gray-500">Indtast service type og vælg byer for at se preview...</p>');
+            return;
+        }
+        
+        $('#preview-section').html('<p class="text-sm text-gray-500">Indlæser preview...</p>');
+        
+        // AJAX call til preview endpoint
+        $.post('{% url "preview_geo_data" %}', {
+            'service_name': serviceName,
+            'cities': cities,
+            'domain': domain,
+            'csrfmiddlewaretoken': '{{ csrf_token }}'
+        })
+        .done(function(data) {
+            if (data.success) {
+                let previewHTML = '<div class="space-y-4">';
+                
+                // Statistics
+                previewHTML += '<div class="grid grid-cols-2 gap-4 mb-4">';
+                previewHTML += '<div class="bg-blue-50 p-3 rounded"><div class="text-lg font-semibold text-blue-700">' + data.total_keywords + '</div><div class="text-sm text-blue-600">Keywords</div></div>';
+                previewHTML += '<div class="bg-green-50 p-3 rounded"><div class="text-lg font-semibold text-green-700">' + data.cities_count + '</div><div class="text-sm text-green-600">Landing Pages</div></div>';
+                previewHTML += '</div>';
+                
+                // Sample keywords
+                previewHTML += '<div><h4 class="font-semibold text-gray-700 mb-2">📝 Sample Keywords:</h4>';
+                previewHTML += '<div class="space-y-1">';
+                for (let kw of data.keywords_sample) {
+                    previewHTML += '<div class="text-sm bg-white p-2 rounded border">';
+                    previewHTML += '<span class="font-medium">' + kw.keyword_text + '</span>';
+                    previewHTML += '<span class="text-gray-500 ml-2">→ ' + kw.final_url + '</span>';
+                    previewHTML += '</div>';
+                }
+                previewHTML += '</div></div>';
+                
+                // Sample WordPress data
+                previewHTML += '<div><h4 class="font-semibold text-gray-700 mb-2">🌐 Sample WordPress Data:</h4>';
+                previewHTML += '<div class="space-y-1">';
+                for (let wp of data.wordpress_sample) {
+                    previewHTML += '<div class="text-sm bg-white p-2 rounded border">';
+                    previewHTML += '<div class="font-medium">' + wp.meta_title + '</div>';
+                    previewHTML += '<div class="text-gray-500">' + wp.url_slug + '</div>';
+                    previewHTML += '</div>';
+                }
+                previewHTML += '</div></div>';
+                
+                previewHTML += '</div>';
+                
+                $('#preview-section').html(previewHTML);
+            } else {
+                $('#preview-section').html('<p class="text-sm text-red-500">Fejl ved preview: ' + data.error + '</p>');
+            }
+        })
+        .fail(function() {
+            $('#preview-section').html('<p class="text-sm text-red-500">Fejl ved preview - prøv igen</p>');
+        });
+    }
+
+    // Event listeners
+    $(document).ready(function() {
+        // Initialize Lucide icons
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+        
+        $('#preview-btn').click(updatePreview);
+        $('#service_name, #domain').on('input', function() {
+            // Auto-update preview when typing
+            clearTimeout(this.previewTimer);
+            this.previewTimer = setTimeout(updatePreview, 1000);
+        });
+    });
+</script>
+
+<!-- Google Maps API (din eksisterende API key) -->
+<script async src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMap"></script>
+
+<style>
+/* Kort styling */
+#map {
+    border-radius: 8px;
+}
+
+/* Preview styling */
+#preview-section {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+/* Form styling enhancements */
+.form-section {
+    border-left: 4px solid #3B82F6;
+    padding-left: 1rem;
+}
+</style>
+{% endblock %}

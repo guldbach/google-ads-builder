@@ -1,0 +1,249 @@
+{% extends 'base.html' %}
+
+{% block title %}Geo Kampagne Oprettet - {{ campaign.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <!-- Success Header -->
+    <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-green-500 to-green-700 rounded-full mb-4 shadow-xl icon-bounce">
+            <i data-lucide="map-pin" class="w-10 h-10 text-white"></i>
+        </div>
+        <h1 class="text-4xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent mb-4">
+            Geo Kampagne Oprettet!
+        </h1>
+        <p class="text-xl text-gray-600">{{ campaign.name }} med {{ cities_count }} byer er klar til eksport</p>
+    </div>
+
+    <!-- Campaign Statistics -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white p-6 rounded-lg shadow-md text-center">
+            <div class="text-2xl font-bold text-blue-600">{{ geo_keywords_count }}</div>
+            <div class="text-gray-600">Geo Keywords</div>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow-md text-center">
+            <div class="text-2xl font-bold text-green-600">{{ cities_count }}</div>
+            <div class="text-gray-600">Byer</div>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow-md text-center">
+            <div class="text-2xl font-bold text-purple-600">{{ cities_count }}</div>
+            <div class="text-gray-600">Landing Pages</div>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow-md text-center">
+            <div class="text-2xl font-bold text-orange-600">{{ campaign.budget_daily }} DKK</div>
+            <div class="text-gray-600">Dagligt budget</div>
+        </div>
+    </div>
+
+    <!-- Export Options - Main Feature -->
+    <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+        <h2 class="text-2xl font-semibold text-gray-900 mb-6 text-center">📤 Download Kampagne Filer</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Google Ads Export -->
+            <div class="border-2 border-blue-200 rounded-lg p-6 hover:border-blue-300 transition-colors">
+                <div class="text-center mb-4">
+                    <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
+                        <i data-lucide="target" class="w-8 h-8 text-blue-600"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900">Google Ads Import</h3>
+                    <p class="text-sm text-gray-600 mt-2">Excel fil ready til Google Ads Editor. Indeholder kampagne, ad groups, keywords og annoncer.</p>
+                </div>
+                <a href="{% url 'export_geo_campaign' campaign.id 'google_ads' %}" 
+                   class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg">
+                    <i data-lucide="download" class="w-5 h-5"></i>
+                    <span>Download Google Ads</span>
+                </a>
+            </div>
+
+            <!-- WordPress Export -->
+            <div class="border-2 border-green-200 rounded-lg p-6 hover:border-green-300 transition-colors">
+                <div class="text-center mb-4">
+                    <div class="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
+                        <i data-lucide="globe" class="w-8 h-8 text-green-600"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900">WordPress Landing Pages</h3>
+                    <p class="text-sm text-gray-600 mt-2">WP All Import ready Excel fil med URL slugs, meta titler og beskrivelser per by.</p>
+                </div>
+                <a href="{% url 'export_geo_campaign' campaign.id 'wordpress' %}" 
+                   class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg">
+                    <i data-lucide="download" class="w-5 h-5"></i>
+                    <span>Download WordPress</span>
+                </a>
+            </div>
+
+            <!-- Combined Export -->
+            <div class="border-2 border-purple-200 rounded-lg p-6 hover:border-purple-300 transition-colors">
+                <div class="text-center mb-4">
+                    <div class="inline-flex items-center justify-center w-16 h-16 bg-purple-100 rounded-full mb-4">
+                        <i data-lucide="package" class="w-8 h-8 text-purple-600"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900">Komplet Pakke</h3>
+                    <p class="text-sm text-gray-600 mt-2">ZIP fil med begge eksporter - Google Ads og WordPress filer samlet.</p>
+                </div>
+                <a href="{% url 'export_geo_campaign' campaign.id 'combined' %}" 
+                   class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg">
+                    <i data-lucide="download" class="w-5 h-5"></i>
+                    <span>Download Alt</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Usage Instructions -->
+        <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div class="flex items-start">
+                <i data-lucide="info" class="w-5 h-5 text-blue-600 mr-3 mt-0.5"></i>
+                <div class="text-sm text-blue-800">
+                    <h4 class="font-semibold mb-1">📋 Sådan Bruger Du Filerne:</h4>
+                    <div class="space-y-1">
+                        <div><strong>Google Ads:</strong> Åbn Google Ads Editor → Konto → Importer → Vælg Excel fil</div>
+                        <div><strong>WordPress:</strong> WP Admin → WP All Import → New Import → Upload Excel fil</div>
+                        <div><strong>Note:</strong> Alle elementer starter som "Paused" så du kan reviewe før aktivering</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Campaign Details -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        
+        <!-- Campaign Info -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">📋 Kampagne Detaljer</h2>
+            <div class="space-y-3">
+                <div class="flex justify-between">
+                    <span class="font-medium text-gray-700">Service:</span>
+                    <span class="text-gray-900">{{ service_name }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="font-medium text-gray-700">Client:</span>
+                    <span class="text-gray-900">{{ campaign.client.name }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="font-medium text-gray-700">Template:</span>
+                    <span class="text-gray-900">{{ template.name }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="font-medium text-gray-700">Type:</span>
+                    <span class="text-gray-900">{{ campaign.get_campaign_type_display }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="font-medium text-gray-700">Status:</span>
+                    <span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800">
+                        {{ campaign.get_status_display|default:"Draft" }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Selected Cities -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">🏙️ Valgte Byer</h2>
+            <div class="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                {% for city in cities %}
+                <div class="flex items-center p-2 bg-gray-50 rounded text-sm">
+                    <i data-lucide="map-pin" class="w-4 h-4 text-blue-500 mr-2"></i>
+                    <span>{{ city }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Sample Keywords Preview -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">🔍 Sample Keywords & URLs</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% for keyword in sample_keywords %}
+            <div class="border border-gray-200 rounded-lg p-4">
+                <div class="font-medium text-gray-900 mb-1">{{ keyword.keyword_text }}</div>
+                <div class="text-sm text-gray-500 mb-2">{{ keyword.get_match_type_display }} Match</div>
+                <div class="text-sm text-blue-600 break-all">{{ keyword.final_url }}</div>
+                <div class="text-xs text-gray-400 mt-1">Meta: {{ keyword.meta_title|truncatechars:50 }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        {% if geo_keywords_count > sample_keywords|length %}
+        <div class="mt-4 text-center text-sm text-gray-500">
+            ... og {{ geo_keywords_count|add:"-5" }} flere keywords
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+        <a href="{% url 'geo_campaign_builder' %}" 
+           class="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg">
+            <i data-lucide="map" class="w-5 h-5"></i>
+            <span>Ny Geo Kampagne</span>
+        </a>
+        <a href="{% url 'quick_campaign' %}" 
+           class="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg">
+            <i data-lucide="zap" class="w-5 h-5"></i>
+            <span>Hurtig Kampagne</span>
+        </a>
+        <a href="{% url 'admin:campaigns_campaign_change' campaign.id %}" 
+           class="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg">
+            <i data-lucide="settings" class="w-5 h-5"></i>
+            <span>Rediger Kampagne</span>
+        </a>
+    </div>
+
+    <!-- Next Steps Guide -->
+    <div class="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-6">
+        <div class="flex items-center space-x-2 mb-4">
+            <i data-lucide="trending-up" class="w-6 h-6 text-blue-700"></i>
+            <h3 class="text-lg font-semibold text-blue-900">Næste Skridt</h3>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-blue-800">
+            <div>
+                <h4 class="font-semibold mb-2">🎯 Google Ads Setup:</h4>
+                <ul class="space-y-1 text-sm">
+                    <li>1. Download Google Ads fil</li>
+                    <li>2. Åbn Google Ads Editor</li>
+                    <li>3. Importer kampagne</li>
+                    <li>4. Review og aktiver keywords</li>
+                    <li>5. Start kampagne</li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="font-semibold mb-2">🌐 WordPress Landing Pages:</h4>
+                <ul class="space-y-1 text-sm">
+                    <li>1. Download WordPress fil</li>
+                    <li>2. Åbn WP All Import</li>
+                    <li>3. Upload og map felter</li>
+                    <li>4. Generer {{ cities_count }} landing pages</li>
+                    <li>5. Test URLs og SEO</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.icon-bounce {
+    animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-10px);
+    }
+    60% {
+        transform: translateY(-5px);
+    }
+}
+
+/* Card hover effects */
+.border-2:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+</style>
+{% endblock %}

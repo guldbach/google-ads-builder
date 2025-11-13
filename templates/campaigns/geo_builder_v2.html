@@ -1,0 +1,1269 @@
+{% extends 'base.html' %}
+
+{% block title %}Geografisk Kampagne Builder - Multi-Step v1.1{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <!-- Header -->
+    <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-blue-500 to-blue-700 rounded-full mb-4 shadow-xl">
+            <i data-lucide="map" class="w-10 h-10 text-white"></i>
+        </div>
+        <h1 class="text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent mb-4">
+            Geografisk Kampagne Builder
+        </h1>
+        <p class="text-xl text-gray-600">Opret en komplet geo-kampagne i 3 trin</p>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center space-x-4">
+                <div class="step-indicator bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold">1</div>
+                <span class="text-gray-600">Indstillinger</span>
+            </div>
+            <div class="flex-1 h-1 mx-4 bg-gray-200 rounded">
+                <div id="progress-bar" class="h-1 bg-blue-600 rounded progress-bar" style="width: 33%"></div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <div class="step-indicator bg-gray-200 text-gray-600 w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold">2</div>
+                <span class="text-gray-600">Geografi</span>
+            </div>
+            <div class="flex-1 h-1 mx-4 bg-gray-200 rounded"></div>
+            <div class="flex items-center space-x-4">
+                <div class="step-indicator bg-gray-200 text-gray-600 w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold">3</div>
+                <span class="text-gray-600">Annoncer</span>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" id="multiStepForm">
+        {% csrf_token %}
+        
+        <!-- Step 1: Campaign Settings -->
+        <div id="step-1" class="form-step active">
+            <div class="bg-white rounded-lg shadow-md p-8 mb-6">
+                <h2 class="text-2xl font-semibold text-gray-900 mb-6 flex items-center">
+                    <i data-lucide="settings" class="w-6 h-6 mr-2 text-blue-600"></i>
+                    Step 1: Kampagne Indstillinger
+                </h2>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Basic Campaign Settings -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">📋 Grundlæggende Info</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Firmanavn *</label>
+                                <input type="text" name="client_name" required 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                       placeholder="f.eks. Hansen VVS">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Service Type *</label>
+                                <input type="text" name="service_name" id="service_name" required 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                       placeholder="f.eks. Fugemand, Murer, VVS">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Hjemmeside *</label>
+                                <input type="url" name="website_url" required 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                       placeholder="https://www.eksempel.dk">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Domæne (til landing pages)</label>
+                                <input type="text" name="domain" id="domain"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                       placeholder="f.eks. lundsfugeservice.dk">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Branche</label>
+                                <select name="industry" required 
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="">Vælg branche</option>
+                                    {% for industry in industries %}
+                                    <option value="{{ industry.id }}">{{ industry.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Advanced Campaign Settings -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">⚙️ Kampagne Indstillinger</h3>
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Budget (DKK/dag)</label>
+                                    <input type="number" name="budget_daily" value="500" min="50" max="50000"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                           placeholder="500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Budget Type</label>
+                                    <select name="budget_type" 
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="daily">Dagligt Budget</option>
+                                        <option value="total">Total Kampagne</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Ad Rotation</label>
+                                <select name="ad_rotation" 
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="optimize">Optimize (Anbefalet)</option>
+                                    <option value="rotate_evenly">Rotate Evenly</option>
+                                    <option value="rotate_indefinitely">Rotate Indefinitely</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Bidding Strategy</label>
+                                <select name="bidding_strategy" id="bidding_strategy"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="enhanced_cpc">Enhanced CPC (Anbefalet)</option>
+                                    <option value="manual_cpc">Manual CPC</option>
+                                    <option value="target_cpa">Target CPA</option>
+                                    <option value="maximize_clicks">Maximize Clicks</option>
+                                    <option value="target_roas">Target ROAS</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Default Bid (DKK)</label>
+                                <input type="number" name="default_bid" value="15.00" min="1" max="500" step="0.50"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                       placeholder="15.00">
+                            </div>
+                            
+                            <!-- Conditional fields for specific bidding strategies -->
+                            <div id="target_cpa_field" style="display: none;">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Target CPA (DKK)</label>
+                                <input type="number" name="target_cpa" min="1" max="10000" step="1"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                       placeholder="250">
+                            </div>
+                            
+                            <div id="target_roas_field" style="display: none;">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Target ROAS (%)</label>
+                                <input type="number" name="target_roas" min="100" max="2000" step="10"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                       placeholder="300">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Default Match Type</label>
+                                <select name="default_match_type" 
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="phrase">Phrase Match (Anbefalet)</option>
+                                    <option value="exact">Exact Match</option>
+                                    <option value="broad">Broad Match</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Geography Selection -->
+        <div id="step-2" class="form-step">
+            <div class="bg-white rounded-lg shadow-md p-8 mb-6">
+                <h2 class="text-2xl font-semibold text-gray-900 mb-6 flex items-center">
+                    <i data-lucide="map-pin" class="w-6 h-6 mr-2 text-blue-600"></i>
+                    Step 2: Vælg Geografiske Områder
+                </h2>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2">
+                        <!-- Map Container -->
+                        <div id="map" style="height: 500px; width: 100%;" class="border border-gray-300 rounded-lg mb-4"></div>
+                        
+                        <!-- Map Instructions -->
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <h3 class="font-semibold text-blue-900 mb-2">📍 Kort Instruktioner:</h3>
+                            <ul class="text-sm text-blue-800 space-y-1">
+                                <li>• <strong>Klik</strong> på kortet for at lave ny cirkel</li>
+                                <li>• <strong>Klik</strong> på cirkel for at slette den igen</li>
+                                <li>• <strong>Træk</strong> rundt på cirkel for at ændre placering</li>
+                                <li>• <strong>Træk</strong> på små hvide boller for at ændre radius</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <!-- Selected Cities -->
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Valgte Byer: <span class="text-red-500">*</span></label>
+                            <textarea id="cities" readonly class="w-full h-40 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm"
+                                      placeholder="Tegn cirkler på kortet for at vælge byer..."></textarea>
+                            <p class="text-xs text-gray-500 mt-1">Disse byer bliver automatisk valgt baseret på dine cirkler</p>
+                            <div id="cities-validation-message" class="text-sm text-red-600 mt-1" style="display: none;">
+                                ⚠️ Du skal vælge mindst én by før du kan fortsætte
+                            </div>
+                        </div>
+                        
+                        <!-- Statistics -->
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <h4 class="font-semibold text-gray-800 mb-2">📊 Statistik:</h4>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Valgte Byer:</span>
+                                    <span id="cities-count" class="font-semibold">0</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Estimerede Keywords:</span>
+                                    <span id="estimated-keywords" class="font-semibold">0</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Landing Pages:</span>
+                                    <span id="estimated-pages" class="font-semibold">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <input type="hidden" name="selected_cities" id="selected_cities" required>
+            </div>
+        </div>
+
+        <!-- Step 3: Headlines & Descriptions -->
+        <div id="step-3" class="form-step">
+            <div class="bg-white rounded-lg shadow-md p-8 mb-6">
+                <h2 class="text-2xl font-semibold text-gray-900 mb-6 flex items-center">
+                    <i data-lucide="edit-3" class="w-6 h-6 mr-2 text-blue-600"></i>
+                    Step 3: Headlines og Beskrivelser
+                </h2>
+                
+                <!-- Auto-Progressive Headlines and Descriptions -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Headlines - Auto-reveal 1-15 -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center justify-between">
+                            📝 Headlines (max 30 karakterer)
+                            <span id="headlines-progress" class="text-sm text-gray-500">1 af 15</span>
+                        </h3>
+                        <div id="headlines-container" class="space-y-4">
+                            <!-- Headline 1 - Always visible -->
+                            <div id="headline_1_container" class="headline-field">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Headline 1 *
+                                    <span class="text-xs text-gray-500">(Brug {SERVICE} og {BYNAVN})</span>
+                                </label>
+                                <input type="text" name="headline_1_template" id="headline_1" 
+                                       value="{SERVICE} {BYNAVN}" maxlength="30" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span id="headline_1_count">0</span>/30 karakterer
+                                </div>
+                            </div>
+                            
+                            <!-- Headlines 2-15 - Auto-reveal -->
+                            <div id="headline_2_container" class="headline-field" style="display: none;">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Headline 2</label>
+                                <input type="text" name="headline_2_template" id="headline_2" 
+                                       placeholder="5/5 Stjerner Trustpilot" maxlength="30"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span id="headline_2_count">0</span>/30 karakterer
+                                </div>
+                            </div>
+                            
+                            <div id="headline_3_container" class="headline-field" style="display: none;">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Headline 3</label>
+                                <input type="text" name="headline_3_template" id="headline_3" 
+                                       placeholder="Ring i dag - Gratis tilbud" maxlength="30"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span id="headline_3_count">0</span>/30 karakterer
+                                </div>
+                            </div>
+                            
+                            <div id="headline_4_container" class="headline-field" style="display: none;">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Headline 4</label>
+                                <input type="text" name="headline_4_template" id="headline_4" 
+                                       placeholder="Eksperter i {BYNAVN}" maxlength="30"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span id="headline_4_count">0</span>/30 karakterer
+                                </div>
+                            </div>
+                            
+                            <div id="headline_5_container" class="headline-field" style="display: none;">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Headline 5</label>
+                                <input type="text" name="headline_5_template" id="headline_5" 
+                                       placeholder="Hurtig og professionel" maxlength="30"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span id="headline_5_count">0</span>/30 karakterer
+                                </div>
+                            </div>
+                            
+                            <div id="headline_6_container" class="headline-field" style="display: none;">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Headline 6</label>
+                                <input type="text" name="headline_6_template" id="headline_6" 
+                                       placeholder="Åbent 24/7" maxlength="30"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span id="headline_6_count">0</span>/30 karakterer
+                                </div>
+                            </div>
+                            
+                            <div id="headline_7_container" class="headline-field" style="display: none;">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Headline 7</label>
+                                <input type="text" name="headline_7_template" id="headline_7" 
+                                       placeholder="Lokal {SERVICE} specialist" maxlength="30"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span id="headline_7_count">0</span>/30 karakterer
+                                </div>
+                            </div>
+                            
+                            <div id="headline_8_container" class="headline-field" style="display: none;">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Headline 8</label>
+                                <input type="text" name="headline_8_template" id="headline_8" 
+                                       placeholder="Bedste pris i {BYNAVN}" maxlength="30"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span id="headline_8_count">0</span>/30 karakterer
+                                </div>
+                            </div>
+                            
+                            <div id="headline_9_container" class="headline-field" style="display: none;">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Headline 9</label>
+                                <input type="text" name="headline_9_template" id="headline_9" 
+                                       placeholder="Garanti på alt arbejde" maxlength="30"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span id="headline_9_count">0</span>/30 karakterer
+                                </div>
+                            </div>
+                            
+                            <div id="headline_10_container" class="headline-field" style="display: none;">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Headline 10</label>
+                                <input type="text" name="headline_10_template" id="headline_10" 
+                                       placeholder="+20 års erfaring" maxlength="30"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span id="headline_10_count">0</span>/30 karakterer
+                                </div>
+                            </div>
+                            
+                            <div id="headline_11_container" class="headline-field" style="display: none;">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Headline 11</label>
+                                <input type="text" name="headline_11_template" id="headline_11" 
+                                       placeholder="Gratis konsultation" maxlength="30"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span id="headline_11_count">0</span>/30 karakterer
+                                </div>
+                            </div>
+                            
+                            <div id="headline_12_container" class="headline-field" style="display: none;">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Headline 12</label>
+                                <input type="text" name="headline_12_template" id="headline_12" 
+                                       placeholder="Samme dag service" maxlength="30"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span id="headline_12_count">0</span>/30 karakterer
+                                </div>
+                            </div>
+                            
+                            <div id="headline_13_container" class="headline-field" style="display: none;">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Headline 13</label>
+                                <input type="text" name="headline_13_template" id="headline_13" 
+                                       placeholder="Miljøvenlig {SERVICE}" maxlength="30"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span id="headline_13_count">0</span>/30 karakterer
+                                </div>
+                            </div>
+                            
+                            <div id="headline_14_container" class="headline-field" style="display: none;">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Headline 14</label>
+                                <input type="text" name="headline_14_template" id="headline_14" 
+                                       placeholder="Certificeret specialist" maxlength="30"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span id="headline_14_count">0</span>/30 karakterer
+                                </div>
+                            </div>
+                            
+                            <div id="headline_15_container" class="headline-field" style="display: none;">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Headline 15</label>
+                                <input type="text" name="headline_15_template" id="headline_15" 
+                                       placeholder="Kontakt os i dag!" maxlength="30"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span id="headline_15_count">0</span>/30 karakterer
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Descriptions - Auto-reveal 1-4 -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center justify-between">
+                            📄 Beskrivelser (max 90 karakterer)
+                            <span id="descriptions-progress" class="text-sm text-gray-500">1 af 4</span>
+                        </h3>
+                        <div id="descriptions-container" class="space-y-4">
+                            <!-- Description 1 - Always visible -->
+                            <div id="description_1_container" class="description-field">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Beskrivelse 1 *
+                                    <span class="text-xs text-gray-500">(Brug {SERVICE} og {BYNAVN})</span>
+                                </label>
+                                <textarea name="description_1_template" id="description_1" rows="3" maxlength="90" required
+                                          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                          placeholder="Professionel {SERVICE} i {BYNAVN} - Ring i dag for gratis tilbud!"></textarea>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span id="description_1_count">0</span>/90 karakterer
+                                </div>
+                            </div>
+                            
+                            <!-- Descriptions 2-4 - Auto-reveal -->
+                            <div id="description_2_container" class="description-field" style="display: none;">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Beskrivelse 2
+                                    <span class="text-xs text-gray-500">(Brug {SERVICE} og {BYNAVN})</span>
+                                </label>
+                                <textarea name="description_2_template" id="description_2" rows="3" maxlength="90"
+                                          placeholder="Erfaren {SERVICE} med 5/5 stjerner. Vi dækker {BYNAVN} og omegn."
+                                          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"></textarea>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span id="description_2_count">0</span>/90 karakterer
+                                </div>
+                            </div>
+                            
+                            <div id="description_3_container" class="description-field" style="display: none;">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Beskrivelse 3
+                                    <span class="text-xs text-gray-500">(Brug {SERVICE} og {BYNAVN})</span>
+                                </label>
+                                <textarea name="description_3_template" id="description_3" rows="3" maxlength="90"
+                                          placeholder="Hurtig og pålidelig service i {BYNAVN}. Kontakt os for personlig betjening."
+                                          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"></textarea>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span id="description_3_count">0</span>/90 karakterer
+                                </div>
+                            </div>
+                            
+                            <div id="description_4_container" class="description-field" style="display: none;">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Beskrivelse 4
+                                    <span class="text-xs text-gray-500">(Brug {SERVICE} og {BYNAVN})</span>
+                                </label>
+                                <textarea name="description_4_template" id="description_4" rows="3" maxlength="90"
+                                          placeholder="Certificeret {SERVICE} virksomhed. Miljøvenlig og bæredygtig løsning til {BYNAVN}."
+                                          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"></textarea>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span id="description_4_count">0</span>/90 karakterer
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Meta Templates -->
+                <div class="border-t border-gray-200 pt-6 mt-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">🔍 SEO Meta Templates</h3>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Meta Titel Template
+                                <span class="text-xs text-gray-500">(Brug {SERVICE} og {BYNAVN})</span>
+                            </label>
+                            <input type="text" name="meta_title_template" 
+                                   value="{SERVICE} {BYNAVN} - 5/5 Stjerner på Trustpilot - Ring idag"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Meta Beskrivelse Template
+                                <span class="text-xs text-gray-500">(Brug {SERVICE} og {BYNAVN})</span>
+                            </label>
+                            <textarea name="meta_description_template" rows="2"
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">Skal du bruge en dygtig {SERVICE} i {BYNAVN}, vi har hjælpet mere end 500 kunder. Kontakt os idag, vi køre dagligt i {BYNAVN}</textarea>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Live Preview -->
+                <div class="border-t border-gray-200 pt-6 mt-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">👁️ Live Preview</h3>
+                    <div id="preview-section" class="bg-gray-50 rounded-lg p-4">
+                        <p class="text-sm text-gray-500">Udfyld templates og vælg byer for at se preview...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation Buttons -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex justify-between items-center">
+                <button type="button" id="prev-btn" onclick="previousStep()" 
+                        class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center space-x-2"
+                        style="display: none;">
+                    <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                    <span>Forrige</span>
+                </button>
+                
+                <div class="text-center">
+                    <span id="step-info" class="text-gray-600">Trin 1 af 3</span>
+                </div>
+                
+                <button type="button" id="next-btn" onclick="nextStep()" 
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center space-x-2">
+                    <span>Næste</span>
+                    <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                </button>
+                
+                <button type="submit" id="submit-btn" 
+                        class="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-200 flex items-center space-x-2 shadow-lg"
+                        style="display: none;">
+                    <span class="text-xl mr-2">🚀</span>
+                    <span>Generer Geo Kampagne</span>
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<style>
+    /* Auto-reveal animations */
+    .animate-fade-in {
+        animation: fadeIn 0.5s ease-in-out;
+    }
+    
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .headline-field, .description-field {
+        transition: all 0.3s ease-in-out;
+    }
+</style>
+
+<script src="https://code.jquery.com/jquery-2.2.4.min.js"></script>
+<script>
+    let currentStep = 1;
+    const totalSteps = 3;
+
+    // Make currentStep globally accessible
+    window.currentStep = currentStep;
+
+    // Multi-step navigation - FORCE OVERRIDE GLOBALLY
+    function showStep(stepNumber) {
+        // ALWAYS LOG THIS FIRST
+        console.log('🎯🎯🎯 OVERRIDE showStep called with:', stepNumber);
+        
+        // Update current step IMMEDIATELY
+        currentStep = stepNumber;
+        window.currentStep = currentStep;
+        console.log('📍📍📍 IMMEDIATELY updated currentStep to:', currentStep);
+        
+        // Basic step switching
+        document.querySelectorAll('.form-step').forEach(step => {
+            step.classList.remove('active');
+        });
+        
+        const targetStep = document.getElementById('step-' + stepNumber);
+        if (targetStep) {
+            targetStep.classList.add('active');
+            console.log('✅✅✅ Activated step element:', 'step-' + stepNumber);
+        } else {
+            console.error('❌❌❌ Step element NOT FOUND:', 'step-' + stepNumber);
+        }
+        
+        console.log('🏁🏁🏁 showStep FINISHED for step:', stepNumber, 'currentStep now:', currentStep);
+    }
+    
+    // FORCE GLOBAL OVERRIDE
+    window.showStep = showStep;
+    
+    // Test that our function is actually accessible
+    console.log('🔧 showStep function test:', typeof showStep, typeof window.showStep);
+
+    function nextStep() {
+        console.log('🚀 nextStep called - currentStep:', currentStep);
+        const isValid = validateCurrentStep();
+        console.log('✅ Validation result:', isValid);
+        
+        if (isValid && currentStep < totalSteps) {
+            console.log('👉 Moving to step:', currentStep + 1);
+            try {
+                showStep(currentStep + 1);
+                console.log('✅ showStep call completed');
+            } catch (error) {
+                console.error('❌ Error calling showStep:', error);
+            }
+        } else {
+            console.log('❌ Cannot proceed - valid:', isValid, 'currentStep:', currentStep, 'totalSteps:', totalSteps);
+        }
+    }
+
+    function previousStep() {
+        if (currentStep > 1) {
+            showStep(currentStep - 1);
+        }
+    }
+
+    function validateCurrentStep() {
+        console.log('🔍 validateCurrentStep called for step:', currentStep);
+        
+        const currentStepElement = document.getElementById('step-' + currentStep);
+        if (!currentStepElement) {
+            console.log('❌ Step element not found:', 'step-' + currentStep);
+            return false;
+        }
+        
+        const requiredFields = currentStepElement.querySelectorAll('input[required], select[required], textarea[required]');
+        console.log('📋 Found required fields:', requiredFields.length);
+        
+        for (let field of requiredFields) {
+            console.log('🔍 Checking field:', field.id, 'value:', `"${field.value}"`);
+            
+            if (!field.value.trim()) {
+                console.log('❌ Field validation failed:', field.id);
+                field.focus();
+                field.classList.add('border-red-500');
+                
+                // Special message for cities selection
+                if (field.id === 'selected_cities') {
+                    console.log('🏙️ Cities field is empty, showing alert');
+                    alert('Vælg venligst mindst én by på kortet før du fortsætter.');
+                    return false;
+                }
+                return false;
+            }
+            field.classList.remove('border-red-500');
+        }
+        
+        // Extra validation for step 2 (geography)
+        if (currentStep === 2) {
+            console.log('🗺️ Performing Step 2 geography validation');
+            const selectedCities = document.getElementById('selected_cities').value;
+            const validationMessage = document.getElementById('cities-validation-message');
+            
+            console.log('🏙️ Selected cities value:', `"${selectedCities}"`);
+            console.log('📍 Validation message element found:', !!validationMessage);
+            
+            if (!selectedCities || selectedCities.trim() === '') {
+                console.log('❌ No cities selected - showing validation message');
+                if (validationMessage) {
+                    validationMessage.style.display = 'block';
+                }
+                document.getElementById('cities').classList.add('border-red-500');
+                return false;
+            } else {
+                console.log('✅ Cities validation passed');
+                if (validationMessage) {
+                    validationMessage.style.display = 'none';
+                }
+                document.getElementById('cities').classList.remove('border-red-500');
+            }
+        }
+        
+        console.log('✅ All validation passed for step:', currentStep);
+        return true;
+    }
+
+    // Character counting for headlines and descriptions
+    function updateCharacterCount(inputId, countId, maxLength) {
+        const input = document.getElementById(inputId);
+        const counter = document.getElementById(countId);
+        
+        if (input && counter) {
+            const currentLength = input.value.length;
+            counter.textContent = currentLength;
+            
+            // Color coding
+            if (currentLength > maxLength) {
+                counter.parentElement.classList.add('text-red-500');
+                counter.parentElement.classList.remove('text-gray-500', 'text-yellow-500');
+            } else if (currentLength > maxLength * 0.8) {
+                counter.parentElement.classList.add('text-yellow-500');
+                counter.parentElement.classList.remove('text-gray-500', 'text-red-500');
+            } else {
+                counter.parentElement.classList.add('text-gray-500');
+                counter.parentElement.classList.remove('text-yellow-500', 'text-red-500');
+            }
+        }
+    }
+
+    // Auto-reveal system for headlines and descriptions
+    let visibleHeadlines = 1; // Start with headline 1 visible
+    let visibleDescriptions = 1; // Start with description 1 visible
+    
+    function setupAutoRevealHeadlines() {
+        console.log('🎯 Setting up auto-reveal for headlines');
+        
+        // Setup input event listeners for all headlines 1-15
+        for (let i = 1; i <= 15; i++) {
+            const input = document.getElementById(`headline_${i}`);
+            if (input) {
+                input.addEventListener('input', function() {
+                    revealNextHeadline(i);
+                    updateHeadlineProgress();
+                    updateCharacterCount(`headline_${i}`, `headline_${i}_count`, 30);
+                });
+            }
+        }
+        updateHeadlineProgress();
+    }
+    
+    function setupAutoRevealDescriptions() {
+        console.log('📄 Setting up auto-reveal for descriptions');
+        
+        // Setup input event listeners for all descriptions 1-4
+        for (let i = 1; i <= 4; i++) {
+            const input = document.getElementById(`description_${i}`);
+            if (input) {
+                input.addEventListener('input', function() {
+                    revealNextDescription(i);
+                    updateDescriptionProgress();
+                    updateCharacterCount(`description_${i}`, `description_${i}_count`, 90);
+                });
+            }
+        }
+        updateDescriptionProgress();
+    }
+    
+    function setupCharacterCounters() {
+        console.log('🔢 Setting up character counters for all fields');
+        
+        // Setup character counting for all headlines
+        for (let i = 1; i <= 15; i++) {
+            const input = document.getElementById(`headline_${i}`);
+            if (input) {
+                updateCharacterCount(`headline_${i}`, `headline_${i}_count`, 30);
+            }
+        }
+        
+        // Setup character counting for all descriptions
+        for (let i = 1; i <= 4; i++) {
+            const input = document.getElementById(`description_${i}`);
+            if (input) {
+                updateCharacterCount(`description_${i}`, `description_${i}_count`, 90);
+            }
+        }
+    }
+    
+    function revealNextHeadline(currentIndex) {
+        // If user is typing in current visible headline and there are more to reveal
+        const input = document.getElementById(`headline_${currentIndex}`);
+        if (input && input.value.length > 0 && currentIndex >= visibleHeadlines && visibleHeadlines < 15) {
+            const nextIndex = visibleHeadlines + 1;
+            const nextContainer = document.getElementById(`headline_${nextIndex}_container`);
+            
+            if (nextContainer) {
+                console.log(`🎯 Auto-revealing headline ${nextIndex}`);
+                nextContainer.style.display = 'block';
+                nextContainer.classList.add('animate-fade-in');
+                visibleHeadlines = nextIndex;
+                
+                // Setup event listener for the newly revealed field
+                const nextInput = document.getElementById(`headline_${nextIndex}`);
+                if (nextInput) {
+                    updateCharacterCount(`headline_${nextIndex}`, `headline_${nextIndex}_count`, 30);
+                }
+            }
+        }
+    }
+    
+    function revealNextDescription(currentIndex) {
+        // If user is typing in current visible description and there are more to reveal
+        const input = document.getElementById(`description_${currentIndex}`);
+        if (input && input.value.length > 0 && currentIndex >= visibleDescriptions && visibleDescriptions < 4) {
+            const nextIndex = visibleDescriptions + 1;
+            const nextContainer = document.getElementById(`description_${nextIndex}_container`);
+            
+            if (nextContainer) {
+                console.log(`📄 Auto-revealing description ${nextIndex}`);
+                nextContainer.style.display = 'block';
+                nextContainer.classList.add('animate-fade-in');
+                visibleDescriptions = nextIndex;
+                
+                // Setup event listener for the newly revealed field
+                const nextInput = document.getElementById(`description_${nextIndex}`);
+                if (nextInput) {
+                    updateCharacterCount(`description_${nextIndex}`, `description_${nextIndex}_count`, 90);
+                }
+            }
+        }
+    }
+    
+    function updateHeadlineProgress() {
+        const progressElement = document.getElementById('headlines-progress');
+        if (progressElement) {
+            // Count filled headlines
+            let filledCount = 0;
+            for (let i = 1; i <= visibleHeadlines; i++) {
+                const input = document.getElementById(`headline_${i}`);
+                if (input && input.value.trim().length > 0) {
+                    filledCount++;
+                }
+            }
+            progressElement.textContent = `${filledCount} af ${visibleHeadlines} udfyldt (max 15)`;
+        }
+    }
+    
+    function updateDescriptionProgress() {
+        const progressElement = document.getElementById('descriptions-progress');
+        if (progressElement) {
+            // Count filled descriptions
+            let filledCount = 0;
+            for (let i = 1; i <= visibleDescriptions; i++) {
+                const input = document.getElementById(`description_${i}`);
+                if (input && input.value.trim().length > 0) {
+                    filledCount++;
+                }
+            }
+            progressElement.textContent = `${filledCount} af ${visibleDescriptions} udfyldt (max 4)`;
+        }
+    }
+
+    // Bidding strategy conditional fields
+    function toggleBiddingFields() {
+        const biddingStrategy = document.getElementById('bidding_strategy').value;
+        const targetCpaField = document.getElementById('target_cpa_field');
+        const targetRoasField = document.getElementById('target_roas_field');
+        
+        targetCpaField.style.display = biddingStrategy === 'target_cpa' ? 'block' : 'none';
+        targetRoasField.style.display = biddingStrategy === 'target_roas' ? 'block' : 'none';
+    }
+
+    // Initialize when page loads
+    $(document).ready(function() {
+        // Initialize icons
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+        
+        // Auto-reveal Headlines and Descriptions + Character counters
+        setupAutoRevealHeadlines();
+        setupAutoRevealDescriptions();
+        
+        // Setup character counters for all potential fields
+        setupCharacterCounters();
+        
+        // Bidding strategy change handler
+        document.getElementById('bidding_strategy').addEventListener('change', toggleBiddingFields);
+        toggleBiddingFields(); // Initial setup
+        
+        // Initialize first step
+        showStep(1);
+        
+        // Check if Google Maps failed to load after a delay
+        setTimeout(function() {
+            if (typeof google === 'undefined' || typeof google.maps === 'undefined' || !map) {
+                console.log('Google Maps not available, showing fallback');
+                showMapFallback();
+            }
+        }, 3000);
+        
+        // OVERRIDE BASE TEMPLATE showStep FUNCTION AFTER DOM LOAD
+        // This ensures our version runs after the base template version
+        setTimeout(function() {
+            console.log('🔧 OVERRIDING base template showStep function...');
+            
+            window.showStep = function(stepNumber) {
+                console.log('🎯 FINAL showStep called with:', stepNumber);
+                
+                // Update current step FIRST
+                currentStep = stepNumber;
+                window.currentStep = currentStep;
+                console.log('📍 Updated currentStep to:', currentStep);
+                
+                // Hide all steps
+                document.querySelectorAll('.form-step').forEach(step => {
+                    step.classList.remove('active');
+                });
+                
+                // Show current step
+                const targetStep = document.getElementById('step-' + stepNumber);
+                if (targetStep) {
+                    targetStep.classList.add('active');
+                    console.log('✅ Activated step:', 'step-' + stepNumber);
+                } else {
+                    console.error('❌ Step element not found:', 'step-' + stepNumber);
+                }
+                
+                // Update progress bar (3 steps, not 4)
+                const progress = (stepNumber / totalSteps) * 100;
+                const progressBar = document.getElementById('progress-bar');
+                if (progressBar) {
+                    progressBar.style.width = progress + '%';
+                }
+                
+                // Update step indicators
+                document.querySelectorAll('.step-indicator').forEach((indicator, index) => {
+                    const stepNum = index + 1;
+                    if (stepNum <= stepNumber) {
+                        indicator.classList.add('bg-blue-600', 'text-white');
+                        indicator.classList.remove('bg-gray-200', 'text-gray-600');
+                    } else {
+                        indicator.classList.remove('bg-blue-600', 'text-white');
+                        indicator.classList.add('bg-gray-200', 'text-gray-600');
+                    }
+                });
+                
+                // Update navigation buttons
+                const prevBtn = document.getElementById('prev-btn');
+                const nextBtn = document.getElementById('next-btn');
+                const submitBtn = document.getElementById('submit-btn');
+                
+                if (prevBtn) prevBtn.style.display = stepNumber > 1 ? 'flex' : 'none';
+                if (nextBtn) nextBtn.style.display = stepNumber < totalSteps ? 'flex' : 'none';
+                if (submitBtn) submitBtn.style.display = stepNumber === totalSteps ? 'flex' : 'none';
+                
+                // Update step info
+                const stepInfo = document.getElementById('step-info');
+                if (stepInfo) {
+                    stepInfo.textContent = `Trin ${stepNumber} af ${totalSteps}`;
+                }
+                
+                console.log('✅ showStep completed for step:', stepNumber, 'currentStep now:', currentStep);
+            };
+            
+            console.log('✅ showStep function successfully overridden');
+        }, 100);
+    });
+
+    // Google Maps functionality (adapted from existing geo_builder.html)
+    var map;
+    var cities;
+    var selectedcities = [];
+    var d2r = Math.PI / 180;
+    
+    function deg2rad(x) {
+        return x * d2r;
+    }
+
+    // Load danske postnumre fra DAWA API
+    $.ajax({
+        url: 'https://dawa.aws.dk/postnumre/',
+        success: function (data) {
+            cities = data;
+            for (var city of cities) {
+                if (city.visueltcenter) {
+                    city.lat_rad = deg2rad(city.visueltcenter[1]);
+                    city.lng_rad = deg2rad(city.visueltcenter[0]);
+                }
+            }
+            if (typeof map !== 'undefined') {
+                select_cities();
+            }
+        },
+        error: function () {
+            alert("Fejl ved indlæsning af danske postnumre. Prøv igen.");
+        },
+        timeout: 10000,
+        dataType: 'json'
+    });
+
+    var circles_def = [
+        { lat: 55.610, lng: 12.323, radius: 10.0 },  // vestegnen
+        { lat: 55.610, lng: 12.600, radius: 6.0 },   // kastrup
+        { lat: 55.670, lng: 12.583, radius: 4.3 }    // kbh
+    ];
+    var circles = [];
+    
+    function initMap() {
+        try {
+            // Check if Google Maps is available
+            if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
+                throw new Error('Google Maps API not loaded');
+            }
+            
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: { lat: 55.670523, lng: 12.583819 },
+                zoom: 10
+            });
+            console.log('Google Maps initialized successfully');
+        } catch (error) {
+            console.error('Error initializing Google Maps:', error);
+            showMapFallback();
+            return;
+        }
+
+        // Tilføj standard cirkler
+        for (var c of circles_def) {
+            add_circle(c.lat, c.lng, c.radius);
+        }
+        
+        // Klik for at tilføje nye cirkler
+        map.addListener('click', function (e) {
+            add_circle(e.latLng.lat(), e.latLng.lng(), 2);
+            select_cities();
+        });
+        
+        select_cities();
+    }
+
+    function showMapFallback() {
+        console.log('Showing map fallback');
+        document.getElementById('map').innerHTML = `
+            <div class="flex items-center justify-center h-full bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div class="text-center p-6">
+                    <i data-lucide="map-off" class="w-12 h-12 text-yellow-600 mx-auto mb-4"></i>
+                    <h3 class="text-lg font-semibold text-yellow-800 mb-2">Kort ikke tilgængeligt</h3>
+                    <p class="text-yellow-700 mb-4">Google Maps kan ikke indlæses. Indtast byer manuelt nedenfor.</p>
+                    <div class="text-left">
+                        <label class="block text-sm font-medium text-yellow-800 mb-2">Indtast byer (adskil med komma):</label>
+                        <textarea id="manual-cities-input" class="w-full h-32 p-3 border border-yellow-300 rounded-lg text-sm" 
+                                  placeholder="København, Aarhus, Odense, Aalborg, Esbjerg"></textarea>
+                        <button type="button" onclick="updateCitiesFromManualInput()" 
+                                class="mt-2 w-full bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2 px-4 rounded-lg">
+                            Opdater byvalg
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Initialize lucide icons for the fallback
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    function updateCitiesFromManualInput() {
+        const input = document.getElementById('manual-cities-input').value;
+        const cities = input.split(',').map(city => city.trim()).filter(city => city.length > 0);
+        
+        console.log('Manual cities input:', cities);
+        
+        if (cities.length === 0) {
+            alert('Indtast venligst mindst én by');
+            return;
+        }
+        
+        // Update the cities display and hidden input
+        $('#cities').html(cities.join("\\n"));
+        $('#selected_cities').val(cities.join(","));
+        
+        // Update statistics
+        $('#cities-count').text(cities.length);
+        $('#estimated-keywords').text(cities.length * 3);
+        $('#estimated-pages').text(cities.length);
+        
+        // Hide validation message if cities are selected
+        const validationMessage = document.getElementById('cities-validation-message');
+        if (cities.length > 0 && validationMessage) {
+            validationMessage.style.display = 'none';
+            document.getElementById('cities').classList.remove('border-red-500');
+        }
+        
+        console.log('Updated cities from manual input:', cities.length, 'cities');
+    }
+
+    function add_circle(lat, lng, rad) {
+        let circle = new google.maps.Circle({
+            strokeColor: '#3B82F6',
+            strokeOpacity: 0.5,
+            strokeWeight: 2,
+            fillColor: '#3B82F6',
+            fillOpacity: 0.15,
+            map: map,
+            clickable: true,
+            draggable: true,
+            editable: true,
+            center: { lat: lat, lng: lng },
+            radius: rad * 1000
+        });
+        
+        // Klik for at slette cirkel
+        google.maps.event.addListener(circle, 'click', function (ev) {
+            circle.set('strokeColor', '#EF4444');
+            circle.setMap(null);
+            circles = circles.filter(c => c !== circle);
+            select_cities();
+        });
+        
+        // Drag og radius change events
+        google.maps.event.addListener(circle, 'dragend', function () {
+            select_cities();
+        });
+        google.maps.event.addListener(circle, 'radius_changed', function () {
+            select_cities();
+        });
+        
+        circles.push(circle);
+    }
+
+    function within_circle(c_lat_rad, c_lng_rad, c_radius_km, p_lat_rad, p_lng_rad) {
+        return Math.acos(
+            Math.sin(p_lat_rad) * Math.sin(c_lat_rad) +
+            Math.cos(p_lat_rad) * Math.cos(c_lat_rad) * Math.cos(c_lng_rad - p_lng_rad)
+        ) * 6371 < c_radius_km
+    }
+
+    function select_cities() {
+        if (!cities || cities.length === 0) return;
+        
+        // Opdater circle data
+        for (var circle of circles) {
+            if (circle.getMap()) {
+                let center = circle.getCenter();
+                circle.lat_rad = deg2rad(center.lat());
+                circle.lng_rad = deg2rad(center.lng());
+                circle.radius_km = circle.getRadius()/1000;
+            }
+        }
+        
+        // Find byer inden for cirkler
+        selectedcities = jQuery.grep(
+            cities,
+            function (city, idx) {
+                for (var circle of circles) {
+                    if (
+                        circle.getMap() != null && within_circle(
+                            circle.lat_rad,
+                            circle.lng_rad,
+                            circle.radius_km,
+                            city.lat_rad,
+                            city.lng_rad
+                        )
+                    ) return true;
+                }
+                return false;
+            }
+        );
+        
+        // Opret unik liste af bynavne
+        var names = [];
+        for (var city of selectedcities) {
+            names[city.navn] = 1;
+        }
+        var result = [];
+        for (var name in names) result.push(name);
+        result.sort();
+        
+        // Opdater UI
+        $('#cities').html(result.join("\n"));
+        $('#selected_cities').val(result.join(","));
+        
+        // Update statistics
+        $('#cities-count').text(result.length);
+        $('#estimated-keywords').text(result.length * 3); // Roughly 3 keywords per city
+        $('#estimated-pages').text(result.length);
+        
+        // Debug - log the selection
+        console.log('Selected cities updated:', result.length, 'cities:', result);
+        
+        // Hide validation message if cities are selected
+        const validationMessage = document.getElementById('cities-validation-message');
+        if (result.length > 0 && validationMessage) {
+            validationMessage.style.display = 'none';
+            document.getElementById('cities').classList.remove('border-red-500');
+        }
+        
+        // Trigger preview update hvis der er data
+        updatePreviewIfReady();
+    }
+
+    function updatePreviewIfReady() {
+        if (currentStep === 3) {
+            updatePreview();
+        }
+    }
+
+    function updatePreview() {
+        const serviceName = $('#service_name').val();
+        const cities = $('#selected_cities').val();
+        const headline1 = $('#headline_1').val();
+        const headline2 = $('#headline_2').val();
+        const description1 = $('#description_1').val();
+        
+        if (!serviceName || !cities || !headline1 || !description1) {
+            $('#preview-section').html('<p class="text-sm text-gray-500">Udfyld alle felter for at se preview...</p>');
+            return;
+        }
+        
+        const cityList = cities.split(',');
+        const sampleCity = cityList[0];
+        
+        if (sampleCity) {
+            let previewHTML = '<div class="space-y-4">';
+            previewHTML += '<h4 class="font-semibold text-gray-700 mb-2">📝 Preview for ' + sampleCity + ':</h4>';
+            
+            // Process templates with sample data
+            const processedH1 = headline1.replace('{SERVICE}', serviceName).replace('{BYNAVN}', sampleCity);
+            const processedH2 = headline2.replace('{SERVICE}', serviceName).replace('{BYNAVN}', sampleCity);
+            const processedD1 = description1.replace('{SERVICE}', serviceName).replace('{BYNAVN}', sampleCity);
+            
+            previewHTML += '<div class="bg-white p-4 rounded border">';
+            previewHTML += '<div class="text-blue-600 text-lg font-semibold">' + processedH1 + '</div>';
+            previewHTML += '<div class="text-blue-600 text-sm">' + processedH2 + '</div>';
+            previewHTML += '<div class="text-gray-700 text-sm mt-2">' + processedD1 + '</div>';
+            previewHTML += '</div>';
+            
+            previewHTML += '<div class="text-sm text-gray-500">+ ' + (cityList.length - 1) + ' andre byer med lignende annoncer</div>';
+            previewHTML += '</div>';
+            
+            $('#preview-section').html(previewHTML);
+        }
+    }
+
+    // Preview update handlers
+    $('#service_name, #headline_1, #headline_2, #headline_3, #description_1, #description_2').on('input', function() {
+        clearTimeout(this.previewTimer);
+        this.previewTimer = setTimeout(updatePreview, 500);
+    });
+</script>
+
+<!-- Google Maps API -->
+<script async src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMap"></script>
+
+<style>
+/* Form step styling */
+.form-step {
+    display: none;
+}
+
+.form-step.active {
+    display: block;
+}
+
+.progress-bar {
+    transition: width 0.3s ease;
+}
+
+/* Map styling */
+#map {
+    border-radius: 8px;
+}
+
+/* Character count styling */
+.text-red-500 {
+    color: #ef4444;
+}
+.text-yellow-500 {
+    color: #eab308;
+}
+
+/* Input validation styling */
+.border-red-500 {
+    border-color: #ef4444;
+}
+</style>
+{% endblock %}

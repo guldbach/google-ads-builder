@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Direct Step Test</title>
+</head>
+<body>
+    <h1>Direct Step Navigation Test</h1>
+    <div id="currentStepDisplay">Current Step: <span id="stepValue">1</span></div>
+    <button onclick="testShowStep()">Test showStep(2)</button>
+    <button onclick="checkCurrentStep()">Check Current Step</button>
+    
+    <div id="log"></div>
+
+    <script>
+    let currentStep = 1;
+    const totalSteps = 3;
+    window.currentStep = currentStep;
+
+    function log(message) {
+        const logDiv = document.getElementById('log');
+        logDiv.innerHTML += '<div>' + message + '</div>';
+        console.log(message);
+    }
+
+    function showStep(stepNumber) {
+        log('🎯 showStep called with: ' + stepNumber);
+        
+        if (stepNumber < 1 || stepNumber > totalSteps) {
+            log('❌ Invalid step number: ' + stepNumber);
+            return;
+        }
+        
+        try {
+            currentStep = stepNumber;
+            window.currentStep = currentStep;
+            log('📍 Updated currentStep to: ' + currentStep);
+            
+            document.getElementById('stepValue').textContent = currentStep;
+            
+            log('✅ showStep completed successfully for step: ' + stepNumber);
+        } catch (error) {
+            log('❌ Error in showStep: ' + error);
+        }
+    }
+
+    function testShowStep() {
+        log('🚀 Testing showStep(2)...');
+        showStep(2);
+    }
+
+    function checkCurrentStep() {
+        log('🔍 Current step: ' + currentStep);
+        log('🔍 Window.currentStep: ' + window.currentStep);
+    }
+    </script>
+</body>
+</html>

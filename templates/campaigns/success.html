@@ -1,0 +1,230 @@
+{% extends 'base.html' %}
+
+{% block title %}Kampagne Oprettet - {{ campaign.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <!-- Success Header -->
+    <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-green-500 to-green-700 rounded-full mb-4 shadow-xl icon-bounce">
+            <i data-lucide="check-circle" class="w-10 h-10 text-white"></i>
+        </div>
+        <h1 class="text-4xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent mb-4">
+            Kampagne Oprettet!
+        </h1>
+        <p class="text-xl text-gray-600">{{ campaign.name }} er klar til eksport til Google Ads</p>
+    </div>
+
+    <!-- Campaign Overview -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white p-6 rounded-lg shadow-md text-center">
+            <div class="text-2xl font-bold text-blue-600">{{ ad_groups_count }}</div>
+            <div class="text-gray-600">Annoncegrupper</div>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow-md text-center">
+            <div class="text-2xl font-bold text-green-600">{{ keywords_count }}</div>
+            <div class="text-gray-600">Keywords</div>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow-md text-center">
+            <div class="text-2xl font-bold text-purple-600">{{ ads_count }}</div>
+            <div class="text-gray-600">Annoncer</div>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow-md text-center">
+            <div class="text-2xl font-bold text-orange-600">{{ campaign.budget_daily }} DKK</div>
+            <div class="text-gray-600">Dagligt budget</div>
+        </div>
+    </div>
+
+    <!-- Campaign Details -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <!-- Campaign Info -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">📋 Kampagne Detaljer</h2>
+            <div class="space-y-3">
+                <div class="flex justify-between">
+                    <span class="font-medium text-gray-700">Kunde:</span>
+                    <span class="text-gray-900">{{ campaign.client.name }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="font-medium text-gray-700">Branche:</span>
+                    <span class="text-gray-900">{{ campaign.client.industry.name }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="font-medium text-gray-700">Type:</span>
+                    <span class="text-gray-900">{{ campaign.get_campaign_type_display }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="font-medium text-gray-700">Målgruppe:</span>
+                    <span class="text-gray-900">{{ campaign.target_location }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="font-medium text-gray-700">Sprog:</span>
+                    <span class="text-gray-900">{{ campaign.target_language|upper }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="font-medium text-gray-700">Status:</span>
+                    <span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800">
+                        {{ campaign.get_status_display|default:"Draft" }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">📊 Estimeret Performance</h2>
+            <div class="space-y-3">
+                <div class="flex justify-between">
+                    <span class="font-medium text-gray-700">Estimeret CTR:</span>
+                    <span class="text-green-600 font-medium">2.1%</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="font-medium text-gray-700">Estimeret CPC:</span>
+                    <span class="text-blue-600 font-medium">12 DKK</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="font-medium text-gray-700">Forventet klik/dag:</span>
+                    <span class="text-purple-600 font-medium">42</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="font-medium text-gray-700">Estimeret konverteringer:</span>
+                    <span class="text-orange-600 font-medium">3-5 /uge</span>
+                </div>
+            </div>
+            <div class="mt-4 p-3 bg-blue-50 rounded-lg">
+                <p class="text-sm text-blue-800">
+                    <strong>💡 Tip:</strong> Disse estimater er baseret på branche gennemsnit og kan variere.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generated Ads Preview -->
+    {% if ads %}
+    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">📝 Genererede Annoncer</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {% for ad in ads %}
+            <div class="border border-gray-200 rounded-lg p-4">
+                <div class="text-xs text-gray-500 mb-1">Annoncegruppe: {{ ad.ad_group.name }}</div>
+                
+                <!-- Ad Preview -->
+                <div class="border border-green-300 rounded p-3 bg-green-50">
+                    <div class="text-blue-700 text-lg font-medium">{{ ad.headline_1 }}</div>
+                    <div class="text-blue-700 text-lg">{{ ad.headline_2 }}</div>
+                    {% if ad.headline_3 %}
+                    <div class="text-blue-700 text-lg">{{ ad.headline_3 }}</div>
+                    {% endif %}
+                    <div class="text-green-700 text-sm mt-1">{{ ad.final_url }}</div>
+                    <div class="text-gray-700 text-sm mt-2">{{ ad.description_1 }}</div>
+                    {% if ad.description_2 %}
+                    <div class="text-gray-700 text-sm">{{ ad.description_2 }}</div>
+                    {% endif %}
+                </div>
+                
+                <div class="mt-2 text-xs text-gray-500">
+                    Display Path: {{ ad.display_path_1 }}/{{ ad.display_path_2 }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Keywords -->
+    {% if keywords %}
+    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">🔍 Genererede Keywords</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {% for keyword in keywords %}
+            <div class="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                <div>
+                    <div class="font-medium text-gray-900">{{ keyword.text }}</div>
+                    <div class="text-sm text-gray-500">{{ keyword.get_match_type_display }}</div>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm font-medium text-blue-600">{{ keyword.max_cpc }} DKK</div>
+                    <div class="text-xs text-gray-500">Max CPC</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Export Options -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">📤 Eksporter til Google Ads</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div class="p-4 border border-gray-200 rounded-lg">
+                <h3 class="font-semibold text-gray-900 mb-2">Excel Format (Anbefalet)</h3>
+                <p class="text-sm text-gray-600 mb-3">Komplet eksport med alle kampagne elementer i separate sheets. Perfekt til Google Ads Editor.</p>
+                <a href="{% url 'export_campaign' campaign.id %}" class="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    <span>Download Excel</span>
+                </a>
+            </div>
+            <div class="p-4 border border-gray-200 rounded-lg">
+                <h3 class="font-semibold text-gray-900 mb-2">CSV Format</h3>
+                <p class="text-sm text-gray-600 mb-3">Simpel CSV fil der kan importeres direkte i Google Ads via bulk upload.</p>
+                <a href="{% url 'export_campaign_csv' campaign.id %}" class="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg">
+                    <i data-lucide="file-text" class="w-4 h-4"></i>
+                    <span>Download CSV</span>
+                </a>
+            </div>
+        </div>
+        <div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div class="flex items-start">
+                <i data-lucide="info" class="w-5 h-5 text-yellow-600 mr-2 mt-0.5"></i>
+                <div class="text-sm text-yellow-800">
+                    <strong>Instruktioner:</strong> Efter download, åbn Google Ads Editor → Konto → Importer → Vælg din downloadede fil. Alle kampagne elementer starter som "Paused" så du kan reviewe før aktivering.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+        <a href="{% url 'quick_campaign' %}" class="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg">
+            <i data-lucide="zap" class="w-5 h-5"></i>
+            <span>Hurtig Kampagne</span>
+        </a>
+        <a href="{% url 'campaign_builder' %}" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg">
+            <i data-lucide="plus" class="w-5 h-5"></i>
+            <span>Avanceret Kampagne</span>
+        </a>
+        <a href="{% url 'admin:campaigns_campaign_change' campaign.id %}" class="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg">
+            <i data-lucide="settings" class="w-5 h-5"></i>
+            <span>Rediger</span>
+        </a>
+    </div>
+
+    <!-- Next Steps -->
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
+        <div class="flex items-center space-x-2 mb-4">
+            <i data-lucide="trending-up" class="w-6 h-6 text-blue-700"></i>
+            <h3 class="text-lg font-semibold text-blue-900">Næste Skridt</h3>
+        </div>
+        <div class="space-y-2 text-blue-800">
+            <div class="flex items-center">
+                <svg class="w-5 h-5 mr-2 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"></path>
+                </svg>
+                Eksporter kampagnen til Google Ads
+            </div>
+            <div class="flex items-center">
+                <svg class="w-5 h-5 mr-2 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"></path>
+                </svg>
+                Upload konverteringssporing
+            </div>
+            <div class="flex items-center">
+                <svg class="w-5 h-5 mr-2 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"></path>
+                </svg>
+                Monitorer performance og optimer
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

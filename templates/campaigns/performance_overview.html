@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+
+{% block title %}Performance Data Oversigt{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto p-6">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">Performance Data Oversigt</h1>
+        <p class="text-gray-600">Oversigt over importeret Google Ads performance data</p>
+    </div>
+
+    <!-- Top Performing Campaigns -->
+    {% if top_campaigns %}
+    <div class="mb-8">
+        <h2 class="text-2xl font-semibold text-gray-900 mb-4">Top Performing Campaigns (Laveste CPL)</h2>
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campaign</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Branche</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CPL</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Konverteringer</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Omkostning</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for campaign in top_campaigns %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">{{ campaign.campaign_name|truncatechars:40 }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ campaign.client_name|truncatechars:20 }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                {{ campaign.industry_category|default:"Andre" }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-bold text-green-600">
+                                {{ campaign.cost_per_conversion|floatformat:0 }} DKK
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {{ campaign.conversions }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {{ campaign.total_cost|floatformat:0 }} DKK
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Keywords by Industry -->
+    {% if keywords_by_industry %}
+    <div class="mb-8">
+        <h2 class="text-2xl font-semibold text-gray-900 mb-4">Keywords per Branche</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {% for industry in keywords_by_industry %}
+            {% if industry.industry_category %}
+            <div class="bg-white p-4 rounded-lg shadow border hover:shadow-md transition-shadow">
+                <h3 class="font-medium text-gray-900 mb-2">{{ industry.industry_category }}</h3>
+                <p class="text-2xl font-bold text-blue-600">
+                    <!-- Note: This would need a count query to show actual numbers -->
+                    <span class="text-sm text-gray-500">Keywords</span>
+                </p>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Campaigns -->
+    {% if campaigns %}
+    <div class="mb-8">
+        <h2 class="text-2xl font-semibold text-gray-900 mb-4">Seneste Campaigns ({{ campaigns|length }})</h2>
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campaign</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Branche</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Periode</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Performance</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Import</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for campaign in campaigns %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">{{ campaign.campaign_name|truncatechars:40 }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ campaign.client_name|truncatechars:20 }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                                {{ campaign.industry_category|default:"Andre" }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ campaign.period_start|date:"d/m/Y" }} - {{ campaign.period_end|date:"d/m/Y" }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm">
+                                <div class="text-gray-900">{{ campaign.conversions }} konverteringer</div>
+                                {% if campaign.cost_per_conversion %}
+                                <div class="text-gray-500">{{ campaign.cost_per_conversion|floatformat:0 }} DKK CPL</div>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ campaign.import_batch.imported_at|date:"d/m H:i" }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Action Buttons -->
+    <div class="flex flex-wrap gap-4">
+        <a href="{% url 'data_import_dashboard' %}" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+            📊 Tilbage til Data Import
+        </a>
+        
+        <button onclick="analyzePatterns()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors">
+            🤖 Analysér Mønstre med AI
+        </button>
+        
+        <a href="{% url 'pattern_results' %}" class="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors">
+            📈 Se AI Mønstre
+        </a>
+        
+        <a href="{% url 'campaign_builder' %}" class="bg-orange-600 text-white px-6 py-2 rounded-lg hover:bg-orange-700 transition-colors">
+            🚀 Byg Kampagne
+        </a>
+    </div>
+
+    <!-- Progress Indicator -->
+    <div id="analysis-progress" class="hidden mt-4">
+        <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div class="flex items-center">
+                <svg class="animate-spin h-5 w-5 text-green-600 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span class="text-green-800">AI analyserer performance mønstre...</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function analyzePatterns() {
+    const progressElement = document.getElementById('analysis-progress');
+    
+    // Show progress
+    progressElement.classList.remove('hidden');
+    
+    fetch('{% url "analyze_patterns_ajax" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        progressElement.classList.add('hidden');
+        
+        if (data.success) {
+            alert('AI analyse fuldført! Omdirigerer til resultater...');
+            window.location.href = '{% url "pattern_results" %}';
+        } else {
+            alert(`Analyse fejl: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        progressElement.classList.add('hidden');
+        alert(`Fejl: ${error.message}`);
+    });
+}
+</script>
+{% endblock %}

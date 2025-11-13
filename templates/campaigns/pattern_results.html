@@ -1,0 +1,320 @@
+{% extends 'base.html' %}
+
+{% block title %}AI Pattern Analyse Resultater{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto p-6">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">AI Pattern Analyse Resultater</h1>
+        <p class="text-gray-600">Identificerede mønstre fra jeres historiske Google Ads performance data</p>
+        
+        <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <h3 class="font-semibold text-blue-900">Analyserede Brancher</h3>
+                <p class="text-2xl font-bold text-blue-600">{{ industries_count }}</p>
+            </div>
+            <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                <h3 class="font-semibold text-green-900">Total Mønstre</h3>
+                <p class="text-2xl font-bold text-green-600">{{ total_patterns }}</p>
+            </div>
+            <div class="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                <h3 class="font-semibold text-purple-900">Confidence</h3>
+                <p class="text-2xl font-bold text-purple-600">
+                    {% if total_patterns > 0 %}Høj{% else %}Ingen data{% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    {% if patterns_by_industry %}
+    <!-- Industry Tabs -->
+    <div class="bg-white rounded-lg shadow-lg">
+        <div class="border-b border-gray-200">
+            <nav class="-mb-px flex space-x-8 px-6" aria-label="Tabs">
+                {% for industry_name, patterns in patterns_by_industry.items %}
+                <button 
+                    class="industry-tab py-4 px-1 border-b-2 font-medium text-sm {% if forloop.first %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %}"
+                    data-industry="{{ industry_name }}"
+                    onclick="switchIndustryTab('{{ industry_name }}', this)"
+                >
+                    {{ industry_name }}
+                    <span class="ml-2 bg-gray-100 text-gray-900 py-0.5 px-2.5 rounded-full text-xs">
+                        {{ patterns|length }}
+                    </span>
+                </button>
+                {% endfor %}
+            </nav>
+        </div>
+
+        <!-- Tab Content -->
+        {% for industry_name, patterns in patterns_by_industry.items %}
+        <div 
+            id="industry-{{ industry_name|slugify }}" 
+            class="industry-content p-6 {% if not forloop.first %}hidden{% endif %}"
+        >
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">{{ industry_name }} - Performance Mønstre</h2>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                <!-- Keyword Patterns -->
+                {% if patterns.keyword_pattern %}
+                <div class="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-lg border border-blue-200">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-semibold text-blue-900">Keyword Mønstre</h3>
+                        <span class="bg-blue-200 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                            Confidence: {{ patterns.keyword_pattern.confidence_score|floatformat:1 }}
+                        </span>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        {% if patterns.keyword_pattern.pattern_data.high_intent_patterns %}
+                        <div>
+                            <h4 class="font-medium text-blue-800 mb-2">High Intent Keywords</h4>
+                            <div class="flex flex-wrap gap-2">
+                                {% for keyword in patterns.keyword_pattern.pattern_data.high_intent_patterns|slice:":10" %}
+                                <span class="bg-blue-200 text-blue-800 text-xs px-2 py-1 rounded">{{ keyword }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if patterns.keyword_pattern.pattern_data.location_patterns %}
+                        <div>
+                            <h4 class="font-medium text-blue-800 mb-2">Location Keywords</h4>
+                            <div class="flex flex-wrap gap-2">
+                                {% for keyword in patterns.keyword_pattern.pattern_data.location_patterns|slice:":8" %}
+                                <span class="bg-green-200 text-green-800 text-xs px-2 py-1 rounded">{{ keyword }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if patterns.keyword_pattern.pattern_data.match_type_recommendations %}
+                        <div>
+                            <h4 class="font-medium text-blue-800 mb-2">Bedste Match Types</h4>
+                            <div class="text-sm space-y-1">
+                                {% for match_type, data in patterns.keyword_pattern.pattern_data.match_type_recommendations.items %}
+                                <div class="flex justify-between">
+                                    <span class="capitalize">{{ match_type }}:</span>
+                                    <span class="font-medium">{{ data.avg_cost_per_conversion|floatformat:0 }} DKK</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="text-xs text-blue-600 mt-4">
+                            Sample size: {{ patterns.keyword_pattern.sample_size }} keywords
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Budget Patterns -->
+                {% if patterns.budget_pattern %}
+                <div class="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-lg border border-green-200">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-semibold text-green-900">Budget Anbefalinger</h3>
+                        <span class="bg-green-200 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                            Confidence: {{ patterns.budget_pattern.confidence_score|floatformat:1 }}
+                        </span>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        {% if patterns.budget_pattern.pattern_data.recommended_daily_budget_ranges %}
+                        <div>
+                            <h4 class="font-medium text-green-800 mb-3">Anbefalede Budget Ranges</h4>
+                            {% for size, data in patterns.budget_pattern.pattern_data.recommended_daily_budget_ranges.items %}
+                            <div class="bg-white bg-opacity-60 p-3 rounded mb-2">
+                                <div class="flex justify-between items-center">
+                                    <span class="font-medium capitalize">{{ size }}</span>
+                                    <span class="text-sm text-gray-600">{{ data.description }}</span>
+                                </div>
+                                <div class="text-lg font-bold text-green-700">
+                                    {{ data.min|floatformat:0 }} - {{ data.max|floatformat:0 }} DKK/dag
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        
+                        {% if patterns.budget_pattern.pattern_data.performance_expectations %}
+                        <div>
+                            <h4 class="font-medium text-green-800 mb-2">Performance Forventninger</h4>
+                            <div class="bg-white bg-opacity-60 p-3 rounded">
+                                <div class="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <span class="text-gray-600">Avg. CPL:</span>
+                                        <span class="font-bold">{{ patterns.budget_pattern.pattern_data.performance_expectations.avg_cost_per_conversion|floatformat:0 }} DKK</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-gray-600">Avg. Konverteringer:</span>
+                                        <span class="font-bold">{{ patterns.budget_pattern.pattern_data.performance_expectations.avg_monthly_conversions|floatformat:0 }}/md</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="text-xs text-green-600 mt-4">
+                            Sample size: {{ patterns.budget_pattern.sample_size }} campaigns
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Negative Keywords -->
+                {% if patterns.negative_keywords %}
+                <div class="bg-gradient-to-br from-red-50 to-red-100 p-6 rounded-lg border border-red-200">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-semibold text-red-900">Negative Keywords</h3>
+                        <span class="bg-red-200 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                            {{ patterns.negative_keywords.pattern_data.negative_keywords|length }} keywords
+                        </span>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <h4 class="font-medium text-red-800 mb-2">Anbefalede Negative Keywords</h4>
+                            <div class="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
+                                {% for neg_keyword in patterns.negative_keywords.pattern_data.negative_keywords|slice:":30" %}
+                                <span class="bg-red-200 text-red-800 text-xs px-2 py-1 rounded">{{ neg_keyword }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        
+                        <div class="text-xs text-red-600 mt-4">
+                            Baseret på {{ patterns.negative_keywords.sample_size }} poor performing keywords
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Ad Structure -->
+                {% if patterns.ad_structure_pattern %}
+                <div class="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-lg border border-purple-200">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-semibold text-purple-900">Campaign Struktur</h3>
+                        <span class="bg-purple-200 text-purple-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                            Anbefalinger
+                        </span>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        {% if patterns.ad_structure_pattern.pattern_data.recommended_campaigns %}
+                        <div>
+                            <h4 class="font-medium text-purple-800 mb-2">Anbefalede Kampagner</h4>
+                            <ul class="list-disc list-inside text-sm space-y-1">
+                                {% for campaign_type in patterns.ad_structure_pattern.pattern_data.recommended_campaigns %}
+                                <li class="text-purple-700">{{ campaign_type }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="bg-white bg-opacity-60 p-3 rounded">
+                            <div class="grid grid-cols-2 gap-4 text-sm">
+                                {% if patterns.ad_structure_pattern.pattern_data.recommended_ad_groups_per_campaign %}
+                                <div>
+                                    <span class="text-gray-600">Ad Groups per kampagne:</span>
+                                    <span class="font-bold">{{ patterns.ad_structure_pattern.pattern_data.recommended_ad_groups_per_campaign }}</span>
+                                </div>
+                                {% endif %}
+                                {% if patterns.ad_structure_pattern.pattern_data.recommended_keywords_per_ad_group %}
+                                <div>
+                                    <span class="text-gray-600">Keywords per ad group:</span>
+                                    <span class="font-bold">{{ patterns.ad_structure_pattern.pattern_data.recommended_keywords_per_ad_group }}</span>
+                                </div>
+                                {% endif %}
+                                {% if patterns.ad_structure_pattern.pattern_data.bidding_strategy %}
+                                <div>
+                                    <span class="text-gray-600">Bidding strategy:</span>
+                                    <span class="font-bold">{{ patterns.ad_structure_pattern.pattern_data.bidding_strategy }}</span>
+                                </div>
+                                {% endif %}
+                                {% if patterns.ad_structure_pattern.pattern_data.typical_target_cpa_dkk %}
+                                <div>
+                                    <span class="text-gray-600">Target CPA:</span>
+                                    <span class="font-bold">{{ patterns.ad_structure_pattern.pattern_data.typical_target_cpa_dkk }} DKK</span>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="mt-8 flex flex-wrap gap-4">
+        <a href="{% url 'campaign_builder' %}" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium">
+            🚀 Generer Kampagne med AI
+        </a>
+        <a href="{% url 'data_import_dashboard' %}" class="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors font-medium">
+            📊 Tilbage til Data Import
+        </a>
+        <button onclick="exportPatterns()" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors font-medium">
+            📥 Export Mønstre (JSON)
+        </button>
+    </div>
+
+    {% else %}
+    <!-- No Data State -->
+    <div class="text-center py-12">
+        <div class="max-w-md mx-auto">
+            <svg class="mx-auto h-24 w-24 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">Ingen mønstre fundet</h3>
+            <p class="text-gray-600 mb-6">Upload performance data og kør AI analyse for at se mønstre.</p>
+            <div class="space-x-4">
+                <a href="{% url 'data_import_dashboard' %}" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                    Upload Data
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function switchIndustryTab(industryName, tabElement) {
+    // Hide all content
+    document.querySelectorAll('.industry-content').forEach(content => {
+        content.classList.add('hidden');
+    });
+    
+    // Remove active state from all tabs
+    document.querySelectorAll('.industry-tab').forEach(tab => {
+        tab.classList.remove('border-blue-500', 'text-blue-600');
+        tab.classList.add('border-transparent', 'text-gray-500');
+    });
+    
+    // Show selected content
+    const contentId = `industry-${industryName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+    const content = document.getElementById(contentId);
+    if (content) {
+        content.classList.remove('hidden');
+    }
+    
+    // Set active tab
+    tabElement.classList.remove('border-transparent', 'text-gray-500');
+    tabElement.classList.add('border-blue-500', 'text-blue-600');
+}
+
+function exportPatterns() {
+    const patterns = {{ patterns_by_industry|safe }};
+    const dataStr = JSON.stringify(patterns, null, 2);
+    const dataBlob = new Blob([dataStr], {type: 'application/json'});
+    
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(dataBlob);
+    link.download = 'google_ads_patterns.json';
+    link.click();
+}
+</script>
+{% endblock %}

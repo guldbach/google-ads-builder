@@ -1,0 +1,414 @@
+{% extends 'base.html' %}
+
+{% block title %}Opret Google Ads Kampagne{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <!-- Header -->
+    <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-green-500 to-green-700 rounded-xl mb-4 icon-bounce">
+            <i data-lucide="rocket" class="w-8 h-8 text-white"></i>
+        </div>
+        <h1 class="text-4xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent mb-4">
+            Opret Google Ads Kampagne
+        </h1>
+        <p class="text-xl text-gray-600">Lav en intelligent kampagne på få minutter med AI-assistance</p>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="mb-8">
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-medium text-gray-700">Fremskridt</span>
+            <span class="text-sm font-medium text-gray-700" id="progress-text">Trin 1 af 4</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2">
+            <div class="bg-green-600 h-2 rounded-full progress-bar" id="progress-bar" style="width: 25%"></div>
+        </div>
+    </div>
+
+    <!-- Step Indicators -->
+    <div class="flex items-center justify-center mb-8 space-x-6">
+        <div class="flex items-center space-x-2">
+            <div class="step-indicator bg-green-600 text-white w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium shadow-lg">
+                <i data-lucide="user" class="w-4 h-4"></i>
+            </div>
+            <span class="text-sm font-medium text-green-600">Kunde</span>
+        </div>
+        <div class="w-8 h-0.5 bg-gray-300"></div>
+        <div class="flex items-center space-x-2">
+            <div class="step-indicator bg-gray-200 text-gray-600 w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium">
+                <i data-lucide="target" class="w-4 h-4"></i>
+            </div>
+            <span class="text-sm font-medium text-gray-500">Kampagne</span>
+        </div>
+        <div class="w-8 h-0.5 bg-gray-300"></div>
+        <div class="flex items-center space-x-2">
+            <div class="step-indicator bg-gray-200 text-gray-600 w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium">
+                <i data-lucide="star" class="w-4 h-4"></i>
+            </div>
+            <span class="text-sm font-medium text-gray-500">USP'er</span>
+        </div>
+        <div class="w-8 h-0.5 bg-gray-300"></div>
+        <div class="flex items-center space-x-2">
+            <div class="step-indicator bg-gray-200 text-gray-600 w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium">
+                <i data-lucide="check-circle" class="w-4 h-4"></i>
+            </div>
+            <span class="text-sm font-medium text-gray-500">Gennemse</span>
+        </div>
+    </div>
+
+    <!-- Form -->
+    <form method="post" class="bg-white shadow-xl rounded-2xl p-8 card-hover">
+        {% csrf_token %}
+        
+        <!-- Step 1: Client Information -->
+        <div class="form-step active" id="step-1">
+            <div class="flex items-center space-x-3 mb-6">
+                <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                    <i data-lucide="building" class="w-5 h-5 text-green-600"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-900">Kunde Information</h2>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label for="client_name" class="block text-sm font-medium text-gray-700 mb-2">
+                        Virksomhedsnavn *
+                    </label>
+                    <input type="text" id="client_name" name="client_name" required
+                           class="input-field" placeholder="fx. ABC Kloakservice ApS">
+                </div>
+                
+                <div>
+                    <label for="industry" class="block text-sm font-medium text-gray-700 mb-2">
+                        Branche *
+                    </label>
+                    <select id="industry" name="industry" required class="input-field">
+                        <option value="">Vælg branche</option>
+                        {% for industry in industries %}
+                            <option value="{{ industry.id }}">{{ industry.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="md:col-span-2">
+                    <label for="website_url" class="block text-sm font-medium text-gray-700 mb-2">
+                        Website URL *
+                    </label>
+                    <div class="flex">
+                        <input type="url" id="website_url" name="website_url" required
+                               class="input-field rounded-r-none" placeholder="https://www.dinvirksomhed.dk">
+                        <button type="button" onclick="crawlWebsite()" 
+                                class="px-6 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-r-md hover:from-green-700 hover:to-green-800 transition-all duration-200 flex items-center space-x-2 shadow-lg">
+                            <i data-lucide="globe" class="w-4 h-4"></i>
+                            <span>Crawler</span>
+                        </button>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-1">Vi crawler dit website for at finde USP'er automatisk</p>
+                </div>
+
+                <div class="md:col-span-2">
+                    <label for="description" class="block text-sm font-medium text-gray-700 mb-2">
+                        Beskrivelse af virksomheden
+                    </label>
+                    <textarea id="description" name="description" rows="3" class="input-field"
+                              placeholder="Kort beskrivelse af hvad virksomheden laver..."></textarea>
+                </div>
+            </div>
+
+            <!-- Crawl Results -->
+            <div id="crawl-results" class="mt-6"></div>
+
+            <div class="flex justify-end mt-8">
+                <button type="button" onclick="showStep(2)" class="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center space-x-2 shadow-lg">
+                    <span>Næste: Kampagne Setup</span>
+                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 2: Campaign Setup -->
+        <div class="form-step" id="step-2">
+            <div class="flex items-center space-x-3 mb-6">
+                <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                    <i data-lucide="target" class="w-5 h-5 text-green-600"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-900">Kampagne Setup</h2>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label for="campaign_name" class="block text-sm font-medium text-gray-700 mb-2">
+                        Kampagne navn *
+                    </label>
+                    <input type="text" id="campaign_name" name="campaign_name" required
+                           class="input-field" placeholder="Kloakservice - København">
+                </div>
+                
+                <div>
+                    <label for="campaign_type" class="block text-sm font-medium text-gray-700 mb-2">
+                        Kampagne type *
+                    </label>
+                    <select id="campaign_type" name="campaign_type" required class="input-field">
+                        <option value="search">Search (Søgeresultater)</option>
+                        <option value="display">Display (Banner annoncer)</option>
+                        <option value="shopping">Shopping</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label for="daily_budget" class="block text-sm font-medium text-gray-700 mb-2">
+                        Dagligt budget (DKK) *
+                    </label>
+                    <input type="number" id="daily_budget" name="daily_budget" required min="50"
+                           class="input-field" placeholder="500">
+                    <p class="text-sm text-gray-500 mt-1">Minimum 50 DKK per dag</p>
+                </div>
+                
+                <div>
+                    <label for="target_location" class="block text-sm font-medium text-gray-700 mb-2">
+                        Målgruppe område *
+                    </label>
+                    <input type="text" id="target_location" name="target_location" required
+                           class="input-field" placeholder="København, Danmark">
+                </div>
+
+                <div>
+                    <label for="bidding_strategy" class="block text-sm font-medium text-gray-700 mb-2">
+                        Budstrategi *
+                    </label>
+                    <select id="bidding_strategy" name="bidding_strategy" required class="input-field">
+                        <option value="target_cpa">Target CPA (Mål omkostning per konvertering)</option>
+                        <option value="maximize_conversions">Maksimer konverteringer</option>
+                        <option value="manual_cpc">Manuel CPC</option>
+                        <option value="maximize_clicks">Maksimer klik</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="target_cpa" class="block text-sm font-medium text-gray-700 mb-2">
+                        Mål CPA (DKK)
+                    </label>
+                    <input type="number" id="target_cpa" name="target_cpa"
+                           class="input-field" placeholder="200">
+                    <p class="text-sm text-gray-500 mt-1">Kun hvis du vælger Target CPA</p>
+                </div>
+            </div>
+
+            <div class="flex justify-between mt-6">
+                <button type="button" onclick="showStep(1)" class="btn-secondary">
+                    ← Forrige
+                </button>
+                <button type="button" onclick="showStep(3)" class="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center space-x-2 shadow-lg">
+                    <span>Næste: USP'er</span>
+                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 3: USPs Selection -->
+        <div class="form-step" id="step-3">
+            <div class="flex items-center space-x-3 mb-4">
+                <div class="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
+                    <i data-lucide="star" class="w-5 h-5 text-yellow-600"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-900">Unique Selling Points</h2>
+            </div>
+            <p class="text-lg text-gray-600 mb-6">Vælg de USP'er der skal fremhæves i dine annoncer</p>
+            
+            <!-- Auto-detected USPs -->
+            <div class="mb-6" id="detected-usps">
+                <div class="flex items-center space-x-2 mb-4">
+                    <i data-lucide="brain" class="w-5 h-5 text-purple-600"></i>
+                    <h3 class="text-lg font-semibold text-gray-900">Automatisk fundne USP'er</h3>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <!-- Will be populated by HTMX -->
+                </div>
+            </div>
+
+            <!-- Predefined USPs -->
+            <div class="mb-6">
+                <div class="flex items-center space-x-2 mb-4">
+                    <i data-lucide="clipboard-list" class="w-5 h-5 text-blue-600"></i>
+                    <h3 class="text-lg font-semibold text-gray-900">Standard USP'er for branchen</h3>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {% for usp in usp_templates %}
+                    <label class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                        <input type="checkbox" name="selected_usps" value="{{ usp.id }}" class="mr-3">
+                        <div>
+                            <div class="font-medium text-gray-900">{{ usp.text }}</div>
+                            <div class="text-sm text-gray-500">{{ usp.category.name }} • {{ usp.urgency_level|title }}</div>
+                        </div>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Custom USPs -->
+            <div class="mb-6">
+                <div class="flex items-center space-x-2 mb-4">
+                    <i data-lucide="edit-3" class="w-5 h-5 text-green-600"></i>
+                    <h3 class="text-lg font-semibold text-gray-900">Tilføj egne USP'er</h3>
+                </div>
+                <div id="custom-usps">
+                    <div class="flex gap-2 mb-2">
+                        <input type="text" placeholder="fx. Gratis konsultation" 
+                               class="input-field flex-1" name="custom_usp_1">
+                        <button type="button" onclick="addCustomUSP()" class="btn-secondary">+ Tilføj</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-between mt-6">
+                <button type="button" onclick="showStep(2)" class="btn-secondary">
+                    ← Forrige
+                </button>
+                <button type="button" onclick="showStep(4)" class="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center space-x-2 shadow-lg">
+                    <span>Næste: Gennemse</span>
+                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 4: Review & Generate -->
+        <div class="form-step" id="step-4">
+            <div class="flex items-center space-x-3 mb-6">
+                <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <i data-lucide="check-circle" class="w-5 h-5 text-purple-600"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-900">Gennemse & Generer Kampagne</h2>
+            </div>
+            
+            <div class="bg-gray-50 rounded-lg p-6 mb-6">
+                <div class="flex items-center space-x-2 mb-4">
+                    <i data-lucide="file-text" class="w-5 h-5 text-gray-600"></i>
+                    <h3 class="text-lg font-semibold text-gray-900">Kampagne oversigt</h3>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <span class="font-medium text-gray-700">Kunde:</span>
+                        <span id="review-client"></span>
+                    </div>
+                    <div>
+                        <span class="font-medium text-gray-700">Kampagne:</span>
+                        <span id="review-campaign"></span>
+                    </div>
+                    <div>
+                        <span class="font-medium text-gray-700">Budget:</span>
+                        <span id="review-budget"></span>
+                    </div>
+                    <div>
+                        <span class="font-medium text-gray-700">Målgruppe:</span>
+                        <span id="review-location"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Generation Options -->
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+                <div class="flex items-center space-x-2 mb-4">
+                    <i data-lucide="brain" class="w-6 h-6 text-blue-700"></i>
+                    <h3 class="text-lg font-semibold text-blue-900">AI Generering</h3>
+                </div>
+                <div class="space-y-3">
+                    <label class="flex items-center">
+                        <input type="checkbox" name="generate_keywords" checked class="mr-3">
+                        <span class="text-blue-800">Generer keywords automatisk</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="checkbox" name="generate_ads" checked class="mr-3">
+                        <span class="text-blue-800">Generer annoncer automatisk</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="checkbox" name="optimize_structure" checked class="mr-3">
+                        <span class="text-blue-800">Optimer kampagne struktur</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="flex justify-between mt-6">
+                <button type="button" onclick="showStep(3)" class="btn-secondary">
+                    ← Forrige
+                </button>
+                <button type="submit" class="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold py-4 px-8 rounded-xl transition-all duration-200 flex items-center space-x-3 shadow-xl text-lg">
+                    <i data-lucide="rocket" class="w-6 h-6"></i>
+                    <span>Opret Kampagne</span>
+                    <i data-lucide="sparkles" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+    let customUSPCount = 1;
+    
+    function addCustomUSP() {
+        customUSPCount++;
+        const container = document.getElementById('custom-usps');
+        const div = document.createElement('div');
+        div.className = 'flex gap-2 mb-2';
+        div.innerHTML = `
+            <input type="text" placeholder="Tilføj en USP..." 
+                   class="input-field flex-1" name="custom_usp_${customUSPCount}">
+            <button type="button" onclick="this.parentElement.remove()" class="btn-secondary">Fjern</button>
+        `;
+        container.appendChild(div);
+    }
+
+    // Update review section when moving to step 4
+    function showStep(stepNumber) {
+        // Existing showStep logic...
+        
+        if (stepNumber === 4) {
+            document.getElementById('review-client').textContent = 
+                document.getElementById('client_name').value || 'Ikke angivet';
+            document.getElementById('review-campaign').textContent = 
+                document.getElementById('campaign_name').value || 'Ikke angivet';
+            document.getElementById('review-budget').textContent = 
+                (document.getElementById('daily_budget').value || '0') + ' DKK/dag';
+            document.getElementById('review-location').textContent = 
+                document.getElementById('target_location').value || 'Ikke angivet';
+            
+            document.getElementById('progress-text').textContent = 'Trin 4 af 4';
+        } else {
+            document.getElementById('progress-text').textContent = `Trin ${stepNumber} af 4`;
+        }
+
+        // Show/hide steps (existing logic)
+        document.querySelectorAll('.form-step').forEach(step => {
+            step.classList.remove('active');
+        });
+        document.getElementById('step-' + stepNumber).classList.add('active');
+        
+        // Update progress bar
+        const progress = (stepNumber / 4) * 100;
+        document.getElementById('progress-bar').style.width = progress + '%';
+        
+        // Update step indicators
+        document.querySelectorAll('.step-indicator').forEach((indicator, index) => {
+            if (index < stepNumber) {
+                indicator.classList.add('bg-green-600', 'text-white');
+                indicator.classList.remove('bg-gray-200', 'text-gray-600');
+            } else {
+                indicator.classList.remove('bg-green-600', 'text-white');
+                indicator.classList.add('bg-gray-200', 'text-gray-600');
+            }
+        });
+        
+        // Update step labels
+        document.querySelectorAll('.step-indicator').forEach((indicator, index) => {
+            const label = indicator.parentElement.querySelector('span');
+            if (index < stepNumber) {
+                label.classList.add('text-green-600');
+                label.classList.remove('text-gray-500');
+            } else {
+                label.classList.remove('text-green-600');
+                label.classList.add('text-gray-500');
+            }
+        });
+    }
+</script>
+{% endblock %}

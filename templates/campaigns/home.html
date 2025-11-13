@@ -1,0 +1,207 @@
+{% extends 'base.html' %}
+
+{% block title %}Google Ads Builder - Intelligent Kampagne Oprettelse{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <!-- Hero Section -->
+    <div class="text-center mb-12">
+        <div class="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-r from-green-500 to-green-700 rounded-full mb-6 shadow-xl icon-bounce">
+            <i data-lucide="zap" class="w-12 h-12 text-white"></i>
+        </div>
+        <h1 class="text-5xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent mb-6">
+            Google Ads Builder
+        </h1>
+        <p class="text-2xl text-gray-600 mb-4">Intelligent kampagne oprettelse med AI-assistance</p>
+        <p class="text-lg text-gray-500 max-w-3xl mx-auto">
+            Vælg den kampagnetype der passer bedst til dine behov. Alle kampagner kan eksporteres direkte til Google Ads Editor.
+        </p>
+    </div>
+
+    <!-- Campaign Types Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
+        
+        <!-- Quick Campaign Builder -->
+        <div class="bg-white rounded-xl shadow-lg p-8 hover:shadow-xl transition-all duration-300 card-hover border-2 border-green-100">
+            <div class="text-center">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-green-500 to-green-600 rounded-full mb-6">
+                    <i data-lucide="zap" class="w-8 h-8 text-white"></i>
+                </div>
+                <h3 class="text-2xl font-bold text-gray-900 mb-4">Hurtig Kampagne</h3>
+                <p class="text-gray-600 mb-6">
+                    Opret en komplet Google Ads kampagne på 2 minutter med forudindstillede templates og AI-optimerede keywords.
+                </p>
+                <div class="space-y-2 text-sm text-gray-500 mb-6">
+                    <div class="flex items-center justify-center">
+                        <i data-lucide="check" class="w-4 h-4 text-green-500 mr-2"></i>
+                        <span>3 Ad Groups (Brand, Service, Generic)</span>
+                    </div>
+                    <div class="flex items-center justify-center">
+                        <i data-lucide="check" class="w-4 h-4 text-green-500 mr-2"></i>
+                        <span>Responsive Search Ads</span>
+                    </div>
+                    <div class="flex items-center justify-center">
+                        <i data-lucide="check" class="w-4 h-4 text-green-500 mr-2"></i>
+                        <span>Optimerede keywords</span>
+                    </div>
+                </div>
+                <a href="{% url 'quick_campaign' %}" 
+                   class="block w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-lg">
+                    Start Hurtig Kampagne
+                </a>
+            </div>
+        </div>
+
+        <!-- Geo Campaign Builder V2 -->
+        <div class="bg-white rounded-xl shadow-lg p-8 hover:shadow-xl transition-all duration-300 card-hover border-2 border-blue-100">
+            <div class="text-center">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full mb-6">
+                    <i data-lucide="map" class="w-8 h-8 text-white"></i>
+                </div>
+                <h3 class="text-2xl font-bold text-gray-900 mb-4">Geografisk Kampagne</h3>
+                <p class="text-gray-600 mb-6">
+                    Avanceret 3-trins geo-kampagne builder med kort-interface, custom bidding og responsive search ads.
+                </p>
+                <div class="space-y-2 text-sm text-gray-500 mb-6">
+                    <div class="flex items-center justify-center">
+                        <i data-lucide="check" class="w-4 h-4 text-blue-500 mr-2"></i>
+                        <span>Interactive map selection</span>
+                    </div>
+                    <div class="flex items-center justify-center">
+                        <i data-lucide="check" class="w-4 h-4 text-blue-500 mr-2"></i>
+                        <span>Custom bidding strategies</span>
+                    </div>
+                    <div class="flex items-center justify-center">
+                        <i data-lucide="check" class="w-4 h-4 text-blue-500 mr-2"></i>
+                        <span>WordPress landing pages</span>
+                    </div>
+                </div>
+                <a href="{% url 'geo_campaign_builder_v2' %}" 
+                   class="block w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-lg">
+                    Start Geo Kampagne
+                </a>
+            </div>
+        </div>
+
+        <!-- Advanced Campaign Builder -->
+        <div class="bg-white rounded-xl shadow-lg p-8 hover:shadow-xl transition-all duration-300 card-hover border-2 border-purple-100">
+            <div class="text-center">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-purple-500 to-purple-600 rounded-full mb-6">
+                    <i data-lucide="settings" class="w-8 h-8 text-white"></i>
+                </div>
+                <h3 class="text-2xl font-bold text-gray-900 mb-4">Avanceret Builder</h3>
+                <p class="text-gray-600 mb-6">
+                    Fuld kontrol over kampagne oprettelse med website crawling, USP extraction og AI-optimering.
+                </p>
+                <div class="space-y-2 text-sm text-gray-500 mb-6">
+                    <div class="flex items-center justify-center">
+                        <i data-lucide="check" class="w-4 h-4 text-purple-500 mr-2"></i>
+                        <span>Website crawling</span>
+                    </div>
+                    <div class="flex items-center justify-center">
+                        <i data-lucide="check" class="w-4 h-4 text-purple-500 mr-2"></i>
+                        <span>USP extraction</span>
+                    </div>
+                    <div class="flex items-center justify-center">
+                        <i data-lucide="check" class="w-4 h-4 text-purple-500 mr-2"></i>
+                        <span>Performance data import</span>
+                    </div>
+                </div>
+                <a href="{% url 'campaign_builder' %}" 
+                   class="block w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-lg">
+                    Start Avanceret Builder
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Features Overview -->
+    <div class="bg-gray-50 rounded-xl p-8 mb-12">
+        <div class="text-center mb-8">
+            <h2 class="text-3xl font-bold text-gray-900 mb-4">Hvorfor Google Ads Builder?</h2>
+            <p class="text-lg text-gray-600">Alle værktøjerne du behøver for at lave profitable Google Ads kampagner</p>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="text-center">
+                <div class="inline-flex items-center justify-center w-12 h-12 bg-green-100 rounded-full mb-4">
+                    <i data-lucide="download" class="w-6 h-6 text-green-600"></i>
+                </div>
+                <h4 class="font-semibold text-gray-900 mb-2">Google Ads Export</h4>
+                <p class="text-sm text-gray-600">Direct import til Google Ads Editor</p>
+            </div>
+            
+            <div class="text-center">
+                <div class="inline-flex items-center justify-center w-12 h-12 bg-blue-100 rounded-full mb-4">
+                    <i data-lucide="globe" class="w-6 h-6 text-blue-600"></i>
+                </div>
+                <h4 class="font-semibold text-gray-900 mb-2">WordPress Integration</h4>
+                <p class="text-sm text-gray-600">WP All Import ready filer</p>
+            </div>
+            
+            <div class="text-center">
+                <div class="inline-flex items-center justify-center w-12 h-12 bg-purple-100 rounded-full mb-4">
+                    <i data-lucide="brain" class="w-6 h-6 text-purple-600"></i>
+                </div>
+                <h4 class="font-semibold text-gray-900 mb-2">AI Optimering</h4>
+                <p class="text-sm text-gray-600">Intelligente keywords og annoncer</p>
+            </div>
+            
+            <div class="text-center">
+                <div class="inline-flex items-center justify-center w-12 h-12 bg-orange-100 rounded-full mb-4">
+                    <i data-lucide="trending-up" class="w-6 h-6 text-orange-600"></i>
+                </div>
+                <h4 class="font-semibold text-gray-900 mb-2">Performance Data</h4>
+                <p class="text-sm text-gray-600">Import og analysér historisk data</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12">
+        <div class="bg-white rounded-lg shadow p-6 text-center">
+            <div class="text-3xl font-bold text-green-600 mb-2">2min</div>
+            <div class="text-gray-600 text-sm">Gennemsnitlig setup tid</div>
+        </div>
+        <div class="bg-white rounded-lg shadow p-6 text-center">
+            <div class="text-3xl font-bold text-blue-600 mb-2">100+</div>
+            <div class="text-gray-600 text-sm">Geografiske områder</div>
+        </div>
+        <div class="bg-white rounded-lg shadow p-6 text-center">
+            <div class="text-3xl font-bold text-purple-600 mb-2">3</div>
+            <div class="text-gray-600 text-sm">Export formater</div>
+        </div>
+        <div class="bg-white rounded-lg shadow p-6 text-center">
+            <div class="text-3xl font-bold text-orange-600 mb-2">AI</div>
+            <div class="text-gray-600 text-sm">Powered optimization</div>
+        </div>
+    </div>
+</div>
+
+<style>
+.icon-bounce {
+    animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-10px);
+    }
+    60% {
+        transform: translateY(-5px);
+    }
+}
+
+.card-hover {
+    transition: all 0.3s ease;
+}
+
+.card-hover:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+}
+</style>
+{% endblock %}

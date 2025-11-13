@@ -1,0 +1,304 @@
+{% extends 'base.html' %}
+
+{% block title %}Google Ads Data Import{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto p-6">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">Google Ads Performance Data Import</h1>
+        <p class="text-gray-600">Upload jeres historiske Google Ads data for at træne AI systemet</p>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="bg-white p-6 rounded-lg shadow">
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Kampagner Importeret</h3>
+            <p class="text-3xl font-bold text-blue-600">{{ total_campaigns }}</p>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow">
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Keywords Importeret</h3>
+            <p class="text-3xl font-bold text-green-600">{{ total_keywords }}</p>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow">
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Sidste Import</h3>
+            <p class="text-sm text-gray-600">
+                {% if recent_imports %}
+                    {{ recent_imports.0.imported_at|date:"d/m/Y H:i" }}
+                {% else %}
+                    Ingen imports endnu
+                {% endif %}
+            </p>
+        </div>
+    </div>
+
+    <!-- Import Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        
+        <!-- Campaign Performance Import -->
+        <div class="bg-white p-6 rounded-lg shadow">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Import Campaign Performance</h2>
+            <p class="text-gray-600 mb-4">Upload kampagne performance data fra Google Ads</p>
+            
+            <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors" id="campaign-drop-zone">
+                <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <p class="text-gray-600 mb-2">Træk campaign CSV/Excel fil her eller</p>
+                <button type="button" class="text-blue-600 hover:text-blue-500 font-medium" onclick="document.getElementById('campaign-file-input').click()">
+                    vælg fil
+                </button>
+                <input type="file" id="campaign-file-input" class="hidden" accept=".csv,.xlsx,.xls">
+                <p class="text-xs text-gray-500 mt-2">CSV, XLSX eller XLS (max 10MB)</p>
+            </div>
+            
+            <div id="campaign-upload-progress" class="hidden mt-4">
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div class="flex items-center">
+                        <svg class="animate-spin h-5 w-5 text-blue-600 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span class="text-blue-800">Importerer kampagne data...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Account Structure Import -->
+        <div class="bg-white p-6 rounded-lg shadow">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Import Full Account Structure</h2>
+            <p class="text-gray-600 mb-4">Upload hele jeres annoncekonto fra Google Ads Editor</p>
+            
+            <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-purple-400 transition-colors" id="structure-drop-zone">
+                <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <p class="text-gray-600 mb-2">Træk Google Ads Editor export her eller</p>
+                <button type="button" class="text-purple-600 hover:text-purple-500 font-medium" onclick="document.getElementById('structure-file-input').click()">
+                    vælg fil
+                </button>
+                <input type="file" id="structure-file-input" class="hidden" accept=".csv,.xlsx,.xls">
+                <p class="text-xs text-gray-500 mt-2">Google Ads Editor full export (max 10MB)</p>
+            </div>
+            
+            <div id="structure-upload-progress" class="hidden mt-4">
+                <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <div class="flex items-center">
+                        <svg class="animate-spin h-5 w-5 text-purple-600 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span class="text-purple-800">Analyserer kampagne struktur...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Keyword Performance Import -->
+        <div class="bg-white p-6 rounded-lg shadow">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Import Keyword Performance</h2>
+            <p class="text-gray-600 mb-4">Upload keyword performance data fra Google Ads</p>
+            
+            <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-green-400 transition-colors" id="keyword-drop-zone">
+                <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <p class="text-gray-600 mb-2">Træk keyword CSV/Excel fil her eller</p>
+                <button type="button" class="text-green-600 hover:text-green-500 font-medium" onclick="document.getElementById('keyword-file-input').click()">
+                    vælg fil
+                </button>
+                <input type="file" id="keyword-file-input" class="hidden" accept=".csv,.xlsx,.xls">
+                <p class="text-xs text-gray-500 mt-2">CSV, XLSX eller XLS (max 10MB)</p>
+            </div>
+            
+            <div id="keyword-upload-progress" class="hidden mt-4">
+                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div class="flex items-center">
+                        <svg class="animate-spin h-5 w-5 text-green-600 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span class="text-green-800">Importerer keyword data...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Imports -->
+    {% if recent_imports %}
+    <div class="mt-8">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">Seneste Imports</h2>
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fil</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rækker</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dato</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for import in recent_imports %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ import.file_name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ import.get_import_type_display }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ import.rows_imported }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if import.status == 'completed' %}
+                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Færdig</span>
+                            {% elif import.status == 'completed_with_errors' %}
+                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Færdig m. fejl</span>
+                            {% else %}
+                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">{{ import.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ import.imported_at|date:"d/m/Y H:i" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Action Buttons -->
+    <div class="mt-8 flex space-x-4">
+        <a href="{% url 'performance_data_overview' %}" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+            Se Performance Data
+        </a>
+        <button id="analyze-patterns-btn" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors">
+            Analysér Mønstre (AI)
+        </button>
+        <a href="{% url 'pattern_results' %}" class="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors">
+            Se AI Mønstre
+        </a>
+        <a href="{% url 'campaign_builder' %}" class="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition-colors">
+            Tilbage til Campaign Builder
+        </a>
+    </div>
+    
+    <!-- Pattern Analysis Progress -->
+    <div id="pattern-analysis-progress" class="hidden mt-4">
+        <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div class="flex items-center">
+                <svg class="animate-spin h-5 w-5 text-green-600 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span class="text-green-800">AI analyserer performance mønstre...</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// File upload functionality
+function setupFileUpload(inputId, dropZoneId, progressId, importType) {
+    const fileInput = document.getElementById(inputId);
+    const dropZone = document.getElementById(dropZoneId);
+    const progress = document.getElementById(progressId);
+    
+    // File input change
+    fileInput.addEventListener('change', function(e) {
+        if (e.target.files.length > 0) {
+            uploadFile(e.target.files[0], importType, progress);
+        }
+    });
+    
+    // Drag and drop
+    dropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        dropZone.classList.add('border-blue-400');
+    });
+    
+    dropZone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        dropZone.classList.remove('border-blue-400');
+    });
+    
+    dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        dropZone.classList.remove('border-blue-400');
+        
+        if (e.dataTransfer.files.length > 0) {
+            uploadFile(e.dataTransfer.files[0], importType, progress);
+        }
+    });
+}
+
+function uploadFile(file, importType, progressElement) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('import_type', importType);
+    
+    // Show progress
+    progressElement.classList.remove('hidden');
+    
+    fetch('{% url "import_performance_data" %}', {
+        method: 'POST',
+        body: formData,
+    })
+    .then(response => response.json())
+    .then(data => {
+        progressElement.classList.add('hidden');
+        
+        if (data.success) {
+            alert(`Import succesfuld! Importeret ${data.rows_imported} rækker.`);
+            location.reload();
+        } else {
+            alert(`Import fejl: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        progressElement.classList.add('hidden');
+        alert(`Upload fejl: ${error.message}`);
+    });
+}
+
+// Initialize upload handlers
+setupFileUpload('campaign-file-input', 'campaign-drop-zone', 'campaign-upload-progress', 'campaign');
+setupFileUpload('structure-file-input', 'structure-drop-zone', 'structure-upload-progress', 'account_structure');
+setupFileUpload('keyword-file-input', 'keyword-drop-zone', 'keyword-upload-progress', 'keyword');
+
+// Pattern analysis functionality
+document.getElementById('analyze-patterns-btn').addEventListener('click', function() {
+    const progressElement = document.getElementById('pattern-analysis-progress');
+    const button = this;
+    
+    // Show progress and disable button
+    progressElement.classList.remove('hidden');
+    button.disabled = true;
+    button.textContent = 'Analyserer...';
+    
+    fetch('{% url "analyze_patterns_ajax" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        progressElement.classList.add('hidden');
+        button.disabled = false;
+        button.textContent = 'Analysér Mønstre (AI)';
+        
+        if (data.success) {
+            alert('AI analyse fuldført! Mønstre er identificeret og gemt.');
+            // Optionally redirect to results page
+            window.location.href = '{% url "pattern_results" %}';
+        } else {
+            alert(`Analyse fejl: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        progressElement.classList.add('hidden');
+        button.disabled = false;
+        button.textContent = 'Analysér Mønstre (AI)';
+        alert(`Fejl: ${error.message}`);
+    });
+});
+</script>
+{% endblock %}
