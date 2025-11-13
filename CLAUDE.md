@@ -23,30 +23,36 @@ Google Ads Builder er et intelligent Django-baseret værktøj til at bygge Googl
 
 ## 🎨 Design System Guidelines
 
-### Farvepalette
-- **Primær**: Blue-600 (#2563eb) til hovedelementer
-- **Sekundær**: Green-600 (#16a34a) til success states og call-to-action
-- **Accenter**: 
-  - Orange-600 (#ea580c) til advarsler
-  - Purple-600 (#9333ea) til specialfunktioner
-  - Yellow-600 (#ca8a04) til notifikationer
+### Farvepalette (Asana-inspireret)
+- **Blue Palette**: Fra blue-0 (#cbefff) til blue-1000 (#222875) - Primary brand colors
+- **Coral Palette**: Fra coral-0 (#ffeaec) til coral-1000 (#690031) - Alerts og warnings
+- **Green Palette**: Fra green-0 (#c9fcdb) til green-1000 (#004232) - Success states
+- **Purple Palette**: Fra purple-0 (#ffdcff) til purple-1000 (#6a0085) - Special features
+- **Grayscale**: Fra gray-20 (#fafafa) til gray-1000 (#0d0d0d) - Text og backgrounds
 
-### Layout Patterns
-- **Card-based design**: Brug hvide cards med `shadow-md` eller `shadow-lg`
-- **Responsive**: Mobile-first approach med Tailwind breakpoints
-- **Spacing**: Følg 4px interval system (`mb-4`, `mb-6`, `mb-8`)
-- **Max width**: Brug `max-w-6xl` for hovedcontainere
+### Layout Patterns (Asana System)
+- **Card-based design**: Brug hvide cards med `shadow-asana` eller `shadow-asana-lg`
+- **Responsive**: Custom breakpoints (xs:480px, sm:768px, md:960px, lg:1120px)
+- **Spacing**: Asana spacing system (1-40 med 4px incrementer)
+- **Border Radius**: Konsistent 3px (`rounded-asana`)
 
-### Typography
-- **Headers**: Gradient tekst med `bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent`
-- **Body**: Standard Tailwind font stack
-- **Sizes**: `text-4xl` til h1, `text-2xl` til h2, `text-xl` til h3
+### Typography (Exact Asana System - Via Playwright Analysis)
+- **Font Stack**: "TWK Lausanne", "Helvetica Neue", Helvetica, sans-serif
+- **Heading Font**: Ghost, "Helvetica Neue", Helvetica, sans-serif  
+- **Body Text**: 16px, line-height: 28px, color: rgb(100, 111, 121)
+- **H1 Specifications**: 72px, line-height: 72px, letter-spacing: -0.5px, font-weight: 500, color: rgb(105, 0, 49)
+- **Button Text**: 14px, font-weight: 500, "TWK Lausanne" font family
 
-### Interactive Elements
-- **Buttons**: Følg btn-secondary pattern eller custom Tailwind classes
-- **Forms**: Brug input-field class for konsistent styling
-- **Icons**: Kun Lucide icons (`data-lucide="icon-name"`)
-- **Progress**: Multi-step forms skal have progress indicators
+### Interactive Elements (Exact Asana System)
+- **Buttons**: Font: "TWK Lausanne", 14px, font-weight: 500, padding: 0px 12px, border-radius: 3px
+- **Input Fields**: Font: "TWK Lausanne", 12.8px, padding: 6px 35px 6px 15px, border-radius: 50px
+- **Navigation**: Height: 56px, transparent background
+- **Sections**: Transparent backgrounds, padding patterns: 120px 0px 80px (normal), 0px 0px 40px (small), 160px 0px 0px (large)
+- **Icons**: Kun Lucide icons med Asana-sizing
+- **Progress**: `.progress-bar` med `.step-indicator` (states: .step-active, .step-complete, .step-inactive)
+- **Cards**: `.card`, `.card-elevated`, `.card-interactive` med hover effects
+- **Alerts**: `.alert-info`, `.alert-success`, `.alert-warning`, `.alert-error`
+- **Badges**: `.badge-blue`, `.badge-green`, `.badge-coral`, `.badge-gray`
 
 ### Form Design
 - **Multi-step**: Brug progress bar med step indicators

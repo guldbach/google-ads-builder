@@ -4,176 +4,277 @@
 
 {% block content %}
 <div class="max-w-6xl mx-auto">
-    <!-- Hero Section -->
-    <div class="text-center mb-12">
-        <div class="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-r from-green-500 to-green-700 rounded-full mb-6 shadow-xl icon-bounce">
-            <i data-lucide="zap" class="w-12 h-12 text-white"></i>
+    <!-- Modern Hero Section -->
+    <div class="text-center mb-20 py-16 px-8 bg-gradient-to-br from-pink-50 via-blue-50 to-purple-50 rounded-3xl border border-gray-100">
+        <div class="inline-flex items-center justify-center w-28 h-28 bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 rounded-3xl mb-8 shadow-2xl icon-bounce">
+            <svg class="w-16 h-16 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M13 3l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L13 17.77l-6.18 3.25L8 14.14 3 9.27l6.91-1.01L13 3z"/>
+            </svg>
         </div>
-        <h1 class="text-5xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent mb-6">
+        <h1 class="text-7xl font-bold text-gray-900 mb-8 tracking-tight">
             Google Ads Builder
         </h1>
-        <p class="text-2xl text-gray-600 mb-4">Intelligent kampagne oprettelse med AI-assistance</p>
-        <p class="text-lg text-gray-500 max-w-3xl mx-auto">
-            Vælg den kampagnetype der passer bedst til dine behov. Alle kampagner kan eksporteres direkte til Google Ads Editor.
+        <p class="text-3xl text-gray-600 mb-6 font-light">Intelligent kampagne automation der konverterer</p>
+        <p class="text-xl text-gray-500 max-w-4xl mx-auto leading-relaxed">
+            Skab profitable Google Ads kampagner på minutter med vores AI-drevne platform. 
+            Perfekt til danske virksomheder der vil skalere deres digitale marketing.
         </p>
+        <div class="mt-12 flex flex-col sm:flex-row gap-4 justify-center">
+            <a href="{% url 'geo_campaign_builder_v2' %}" 
+               class="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-4 px-8 rounded-2xl transition-all duration-200 shadow-xl flex items-center space-x-3">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                </svg>
+                <span>Start Geo Builder</span>
+            </a>
+            <a href="{% url 'campaign_builder' %}" 
+               class="bg-white hover:bg-gray-50 text-gray-700 font-bold py-4 px-8 rounded-2xl transition-all duration-200 shadow-lg border border-gray-200 flex items-center space-x-3">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.82,11.69,4.82,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+                </svg>
+                <span>Avanceret Builder</span>
+            </a>
+        </div>
     </div>
 
     <!-- Campaign Types Grid -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
         
         <!-- Quick Campaign Builder -->
-        <div class="bg-white rounded-xl shadow-lg p-8 hover:shadow-xl transition-all duration-300 card-hover border-2 border-green-100">
-            <div class="text-center">
-                <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-green-500 to-green-600 rounded-full mb-6">
-                    <i data-lucide="zap" class="w-8 h-8 text-white"></i>
+        <div class="bg-white rounded-3xl shadow-xl p-8 hover:shadow-2xl transition-all duration-300 card-hover border border-gray-100 relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-100 to-green-100 rounded-full transform translate-x-16 -translate-y-16"></div>
+            <div class="relative">
+                <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-emerald-500 to-green-500 rounded-2xl mb-6 shadow-lg">
+                    <svg class="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M13 3l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L13 17.77l-6.18 3.25L8 14.14 3 9.27l6.91-1.01L13 3z"/>
+                    </svg>
                 </div>
-                <h3 class="text-2xl font-bold text-gray-900 mb-4">Hurtig Kampagne</h3>
-                <p class="text-gray-600 mb-6">
-                    Opret en komplet Google Ads kampagne på 2 minutter med forudindstillede templates og AI-optimerede keywords.
+                <h3 class="text-3xl font-bold text-gray-900 mb-4">Hurtig Start</h3>
+                <p class="text-gray-600 mb-8 text-lg leading-relaxed">
+                    Opret en komplet Google Ads kampagne på under 2 minutter med AI-optimerede templates og keywords.
                 </p>
-                <div class="space-y-2 text-sm text-gray-500 mb-6">
-                    <div class="flex items-center justify-center">
-                        <i data-lucide="check" class="w-4 h-4 text-green-500 mr-2"></i>
-                        <span>3 Ad Groups (Brand, Service, Generic)</span>
+                <div class="space-y-4 mb-8">
+                    <div class="flex items-center">
+                        <div class="w-6 h-6 bg-emerald-100 rounded-full flex items-center justify-center mr-4">
+                            <svg class="w-4 h-4 text-emerald-600" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
+                            </svg>
+                        </div>
+                        <span class="text-gray-700 font-medium">3 Ad Groups (Brand, Service, Generic)</span>
                     </div>
-                    <div class="flex items-center justify-center">
-                        <i data-lucide="check" class="w-4 h-4 text-green-500 mr-2"></i>
-                        <span>Responsive Search Ads</span>
+                    <div class="flex items-center">
+                        <div class="w-6 h-6 bg-emerald-100 rounded-full flex items-center justify-center mr-4">
+                            <svg class="w-4 h-4 text-emerald-600" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
+                            </svg>
+                        </div>
+                        <span class="text-gray-700 font-medium">Responsive Search Ads</span>
                     </div>
-                    <div class="flex items-center justify-center">
-                        <i data-lucide="check" class="w-4 h-4 text-green-500 mr-2"></i>
-                        <span>Optimerede keywords</span>
+                    <div class="flex items-center">
+                        <div class="w-6 h-6 bg-emerald-100 rounded-full flex items-center justify-center mr-4">
+                            <svg class="w-4 h-4 text-emerald-600" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
+                            </svg>
+                        </div>
+                        <span class="text-gray-700 font-medium">AI-optimerede keywords</span>
                     </div>
                 </div>
                 <a href="{% url 'quick_campaign' %}" 
-                   class="block w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-lg">
+                   class="block w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-bold py-4 px-6 rounded-2xl transition-all duration-200 shadow-lg">
                     Start Hurtig Kampagne
                 </a>
             </div>
         </div>
 
-        <!-- Geo Campaign Builder V2 -->
-        <div class="bg-white rounded-xl shadow-lg p-8 hover:shadow-xl transition-all duration-300 card-hover border-2 border-blue-100">
-            <div class="text-center">
-                <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full mb-6">
-                    <i data-lucide="map" class="w-8 h-8 text-white"></i>
+        <!-- Geo Campaign Builder V2 - FEATURED -->
+        <div class="bg-gradient-to-br from-purple-50 to-pink-50 rounded-3xl shadow-xl p-8 hover:shadow-2xl transition-all duration-300 card-hover border-2 border-purple-200 relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-purple-200 to-pink-200 rounded-full transform translate-x-12 -translate-y-12"></div>
+            <div class="absolute top-4 right-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-3 py-1 rounded-full text-xs font-bold">
+                POPULÆR
+            </div>
+            <div class="relative">
+                <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl mb-6 shadow-lg">
+                    <svg class="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                    </svg>
                 </div>
-                <h3 class="text-2xl font-bold text-gray-900 mb-4">Geografisk Kampagne</h3>
-                <p class="text-gray-600 mb-6">
-                    Avanceret 3-trins geo-kampagne builder med kort-interface, custom bidding og responsive search ads.
+                <h3 class="text-3xl font-bold text-gray-900 mb-4">Geo Targeting</h3>
+                <p class="text-gray-700 mb-8 text-lg leading-relaxed">
+                    Avanceret 3-trins geo-kampagne builder med interaktivt kort, smart bidding og responsive ads.
                 </p>
-                <div class="space-y-2 text-sm text-gray-500 mb-6">
-                    <div class="flex items-center justify-center">
-                        <i data-lucide="check" class="w-4 h-4 text-blue-500 mr-2"></i>
-                        <span>Interactive map selection</span>
+                <div class="space-y-4 mb-8">
+                    <div class="flex items-center">
+                        <div class="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center mr-4">
+                            <svg class="w-4 h-4 text-purple-600" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
+                            </svg>
+                        </div>
+                        <span class="text-gray-700 font-medium">Interaktivt Danmarkskort</span>
                     </div>
-                    <div class="flex items-center justify-center">
-                        <i data-lucide="check" class="w-4 h-4 text-blue-500 mr-2"></i>
-                        <span>Custom bidding strategies</span>
+                    <div class="flex items-center">
+                        <div class="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center mr-4">
+                            <svg class="w-4 h-4 text-purple-600" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
+                            </svg>
+                        </div>
+                        <span class="text-gray-700 font-medium">Smart Bidding Strategies</span>
                     </div>
-                    <div class="flex items-center justify-center">
-                        <i data-lucide="check" class="w-4 h-4 text-blue-500 mr-2"></i>
-                        <span>WordPress landing pages</span>
+                    <div class="flex items-center">
+                        <div class="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center mr-4">
+                            <svg class="w-4 h-4 text-purple-600" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
+                            </svg>
+                        </div>
+                        <span class="text-gray-700 font-medium">WordPress Landing Pages</span>
                     </div>
                 </div>
                 <a href="{% url 'geo_campaign_builder_v2' %}" 
-                   class="block w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-lg">
-                    Start Geo Kampagne
+                   class="block w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-4 px-6 rounded-2xl transition-all duration-200 shadow-lg">
+                    Start Geo Builder
                 </a>
             </div>
         </div>
 
         <!-- Advanced Campaign Builder -->
-        <div class="bg-white rounded-xl shadow-lg p-8 hover:shadow-xl transition-all duration-300 card-hover border-2 border-purple-100">
-            <div class="text-center">
-                <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-purple-500 to-purple-600 rounded-full mb-6">
-                    <i data-lucide="settings" class="w-8 h-8 text-white"></i>
+        <div class="bg-white rounded-3xl shadow-xl p-8 hover:shadow-2xl transition-all duration-300 card-hover border border-gray-100 relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full transform translate-x-16 -translate-y-16"></div>
+            <div class="relative">
+                <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl mb-6 shadow-lg">
+                    <svg class="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.82,11.69,4.82,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+                    </svg>
                 </div>
-                <h3 class="text-2xl font-bold text-gray-900 mb-4">Avanceret Builder</h3>
-                <p class="text-gray-600 mb-6">
-                    Fuld kontrol over kampagne oprettelse med website crawling, USP extraction og AI-optimering.
+                <h3 class="text-3xl font-bold text-gray-900 mb-4">Pro Builder</h3>
+                <p class="text-gray-600 mb-8 text-lg leading-relaxed">
+                    Fuld kontrol med website crawling, USP extraction og avanceret AI-optimering for professionelle.
                 </p>
-                <div class="space-y-2 text-sm text-gray-500 mb-6">
-                    <div class="flex items-center justify-center">
-                        <i data-lucide="check" class="w-4 h-4 text-purple-500 mr-2"></i>
-                        <span>Website crawling</span>
+                <div class="space-y-4 mb-8">
+                    <div class="flex items-center">
+                        <div class="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mr-4">
+                            <svg class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
+                            </svg>
+                        </div>
+                        <span class="text-gray-700 font-medium">AI Website Crawling</span>
                     </div>
-                    <div class="flex items-center justify-center">
-                        <i data-lucide="check" class="w-4 h-4 text-purple-500 mr-2"></i>
-                        <span>USP extraction</span>
+                    <div class="flex items-center">
+                        <div class="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mr-4">
+                            <svg class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
+                            </svg>
+                        </div>
+                        <span class="text-gray-700 font-medium">USP Extraction</span>
                     </div>
-                    <div class="flex items-center justify-center">
-                        <i data-lucide="check" class="w-4 h-4 text-purple-500 mr-2"></i>
-                        <span>Performance data import</span>
+                    <div class="flex items-center">
+                        <div class="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mr-4">
+                            <svg class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
+                            </svg>
+                        </div>
+                        <span class="text-gray-700 font-medium">Performance Analytics</span>
                     </div>
                 </div>
                 <a href="{% url 'campaign_builder' %}" 
-                   class="block w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-lg">
-                    Start Avanceret Builder
+                   class="block w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-4 px-6 rounded-2xl transition-all duration-200 shadow-lg">
+                    Start Pro Builder
                 </a>
             </div>
         </div>
     </div>
 
-    <!-- Features Overview -->
-    <div class="bg-gray-50 rounded-xl p-8 mb-12">
-        <div class="text-center mb-8">
-            <h2 class="text-3xl font-bold text-gray-900 mb-4">Hvorfor Google Ads Builder?</h2>
-            <p class="text-lg text-gray-600">Alle værktøjerne du behøver for at lave profitable Google Ads kampagner</p>
-        </div>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div class="text-center">
-                <div class="inline-flex items-center justify-center w-12 h-12 bg-green-100 rounded-full mb-4">
-                    <i data-lucide="download" class="w-6 h-6 text-green-600"></i>
-                </div>
-                <h4 class="font-semibold text-gray-900 mb-2">Google Ads Export</h4>
-                <p class="text-sm text-gray-600">Direct import til Google Ads Editor</p>
+    <!-- Modern Features Section -->
+    <div class="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 rounded-3xl p-12 mb-16 text-white relative overflow-hidden">
+        <div class="absolute top-0 left-0 w-64 h-64 bg-white bg-opacity-10 rounded-full transform -translate-x-32 -translate-y-32"></div>
+        <div class="absolute bottom-0 right-0 w-48 h-48 bg-white bg-opacity-10 rounded-full transform translate-x-24 translate-y-24"></div>
+        <div class="relative z-10">
+            <div class="text-center mb-12">
+                <h2 class="text-5xl font-bold mb-6">Hvorfor vælge Google Ads Builder?</h2>
+                <p class="text-xl text-blue-100 max-w-3xl mx-auto">
+                    Alle de værktøjer og funktioner du behøver for at skabe profitable Google Ads kampagner
+                </p>
             </div>
             
-            <div class="text-center">
-                <div class="inline-flex items-center justify-center w-12 h-12 bg-blue-100 rounded-full mb-4">
-                    <i data-lucide="globe" class="w-6 h-6 text-blue-600"></i>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <div class="text-center bg-white bg-opacity-10 rounded-2xl p-6 backdrop-blur-sm">
+                    <div class="inline-flex items-center justify-center w-16 h-16 bg-white bg-opacity-20 rounded-2xl mb-6">
+                        <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M5,20H19V18H5M19,9H15V3H9V9H5L12,16L19,9Z"/>
+                        </svg>
+                    </div>
+                    <h4 class="text-xl font-bold mb-3">Google Ads Export</h4>
+                    <p class="text-blue-100">Direkte import til Google Ads Editor med ét klik</p>
                 </div>
-                <h4 class="font-semibold text-gray-900 mb-2">WordPress Integration</h4>
-                <p class="text-sm text-gray-600">WP All Import ready filer</p>
-            </div>
-            
-            <div class="text-center">
-                <div class="inline-flex items-center justify-center w-12 h-12 bg-purple-100 rounded-full mb-4">
-                    <i data-lucide="brain" class="w-6 h-6 text-purple-600"></i>
+                
+                <div class="text-center bg-white bg-opacity-10 rounded-2xl p-6 backdrop-blur-sm">
+                    <div class="inline-flex items-center justify-center w-16 h-16 bg-white bg-opacity-20 rounded-2xl mb-6">
+                        <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M16.36,14C16.44,13.34 16.5,12.68 16.5,12C16.5,11.32 16.44,10.66 16.36,10H19.74C19.9,10.64 20,11.31 20,12C20,12.69 19.9,13.36 19.74,14M14.59,19.56C15.19,18.45 15.65,17.25 15.97,16H18.92C17.96,17.65 16.43,18.93 14.59,19.56M14.34,14H9.66C9.56,13.34 9.5,12.68 9.5,12C9.5,11.32 9.56,10.65 9.66,10H14.34C14.43,10.65 14.5,11.32 14.5,12C14.5,12.68 14.43,13.34 14.34,14M12,19.96C11.17,18.76 10.5,17.43 10.09,16H13.91C13.5,17.43 12.83,18.76 12,19.96M8,8H5.08C6.03,6.34 7.57,5.06 9.4,4.44C8.8,5.55 8.35,6.75 8,8M5.08,16H8C8.35,17.25 8.8,18.45 9.4,19.56C7.57,18.93 6.03,17.65 5.08,16M4.26,14C4.1,13.36 4,12.69 4,12C4,11.31 4.1,10.64 4.26,10H7.64C7.56,10.66 7.5,11.32 7.5,12C7.5,12.68 7.56,13.34 7.64,14M12,4.03C12.83,5.23 13.5,6.57 13.91,8H10.09C10.5,6.57 11.17,5.23 12,4.03M18.92,8H15.97C15.65,6.75 15.19,5.55 14.59,4.44C16.43,5.07 17.96,6.34 18.92,8M12,2C6.47,2 2,6.5 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
+                        </svg>
+                    </div>
+                    <h4 class="text-xl font-bold mb-3">WordPress Integration</h4>
+                    <p class="text-blue-100">WP All Import klar til automatisk landing page oprettelse</p>
                 </div>
-                <h4 class="font-semibold text-gray-900 mb-2">AI Optimering</h4>
-                <p class="text-sm text-gray-600">Intelligente keywords og annoncer</p>
-            </div>
-            
-            <div class="text-center">
-                <div class="inline-flex items-center justify-center w-12 h-12 bg-orange-100 rounded-full mb-4">
-                    <i data-lucide="trending-up" class="w-6 h-6 text-orange-600"></i>
+                
+                <div class="text-center bg-white bg-opacity-10 rounded-2xl p-6 backdrop-blur-sm">
+                    <div class="inline-flex items-center justify-center w-16 h-16 bg-white bg-opacity-20 rounded-2xl mb-6">
+                        <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M17,17H7V7H17M21,7V17A2,2 0 0,1 19,19H5A2,2 0 0,1 3,17V7C3,5.89 3.9,5 5,5H19A2,2 0 0,1 21,7M16,10L10.5,15.5L7.5,12.5L6,14L10.5,18.5L17.5,11.5L16,10Z"/>
+                        </svg>
+                    </div>
+                    <h4 class="text-xl font-bold mb-3">AI Optimering</h4>
+                    <p class="text-blue-100">Intelligente keywords, annoncer og bidding strategier</p>
                 </div>
-                <h4 class="font-semibold text-gray-900 mb-2">Performance Data</h4>
-                <p class="text-sm text-gray-600">Import og analysér historisk data</p>
+                
+                <div class="text-center bg-white bg-opacity-10 rounded-2xl p-6 backdrop-blur-sm">
+                    <div class="inline-flex items-center justify-center w-16 h-16 bg-white bg-opacity-20 rounded-2xl mb-6">
+                        <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M16,6L18.29,8.29L13.41,13.17L9.41,9.17L2,16.59L3.41,18L9.41,12L13.41,16L19.71,9.71L22,12V6H16Z"/>
+                        </svg>
+                    </div>
+                    <h4 class="text-xl font-bold mb-3">Performance Data</h4>
+                    <p class="text-blue-100">Import og analysér historiske data for bedre resultater</p>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Quick Stats -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12">
-        <div class="bg-white rounded-lg shadow p-6 text-center">
-            <div class="text-3xl font-bold text-green-600 mb-2">2min</div>
-            <div class="text-gray-600 text-sm">Gennemsnitlig setup tid</div>
+    <!-- Modern Stats Section -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-8 mb-16">
+        <div class="bg-white rounded-2xl shadow-xl p-8 text-center hover:shadow-2xl transition-all duration-300 border border-gray-100">
+            <div class="w-16 h-16 bg-gradient-to-r from-emerald-500 to-green-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12,20A7,7 0 0,1 5,13A7,7 0 0,1 12,6A7,7 0 0,1 19,13A7,7 0 0,1 12,20M19.03,7.39L20.45,5.97C20,5.46 19.55,5 19.04,4.56L17.62,6C16.07,4.74 14.12,4 12,4A9,9 0 0,0 3,13A9,9 0 0,0 12,22C17,22 21,17.97 21,13C21,10.88 20.26,8.93 19.03,7.39M11,14H13V8H11M15,1H9V3H15V1Z"/>
+                </svg>
+            </div>
+            <div class="text-4xl font-bold text-gray-900 mb-2">2min</div>
+            <div class="text-gray-600 font-medium">Gennemsnitlig setup tid</div>
         </div>
-        <div class="bg-white rounded-lg shadow p-6 text-center">
-            <div class="text-3xl font-bold text-blue-600 mb-2">100+</div>
-            <div class="text-gray-600 text-sm">Geografiske områder</div>
+        <div class="bg-white rounded-2xl shadow-xl p-8 text-center hover:shadow-2xl transition-all duration-300 border border-gray-100">
+            <div class="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                </svg>
+            </div>
+            <div class="text-4xl font-bold text-gray-900 mb-2">100+</div>
+            <div class="text-gray-600 font-medium">Danske byer og områder</div>
         </div>
-        <div class="bg-white rounded-lg shadow p-6 text-center">
-            <div class="text-3xl font-bold text-purple-600 mb-2">3</div>
-            <div class="text-gray-600 text-sm">Export formater</div>
+        <div class="bg-white rounded-2xl shadow-xl p-8 text-center hover:shadow-2xl transition-all duration-300 border border-gray-100">
+            <div class="w-16 h-16 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M5,20H19V18H5M19,9H15V3H9V9H5L12,16L19,9Z"/>
+                </svg>
+            </div>
+            <div class="text-4xl font-bold text-gray-900 mb-2">3</div>
+            <div class="text-gray-600 font-medium">Export formater</div>
         </div>
-        <div class="bg-white rounded-lg shadow p-6 text-center">
-            <div class="text-3xl font-bold text-orange-600 mb-2">AI</div>
-            <div class="text-gray-600 text-sm">Powered optimization</div>
+        <div class="bg-white rounded-2xl shadow-xl p-8 text-center hover:shadow-2xl transition-all duration-300 border border-gray-100">
+            <div class="w-16 h-16 bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M17,17H7V7H17M21,7V17A2,2 0 0,1 19,19H5A2,2 0 0,1 3,17V7C3,5.89 3.9,5 5,5H19A2,2 0 0,1 21,7M16,10L10.5,15.5L7.5,12.5L6,14L10.5,18.5L17.5,11.5L16,10Z"/>
+                </svg>
+            </div>
+            <div class="text-4xl font-bold text-gray-900 mb-2">AI</div>
+            <div class="text-gray-600 font-medium">Powered optimization</div>
         </div>
     </div>
 </div>

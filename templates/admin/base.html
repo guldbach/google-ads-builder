@@ -1,0 +1,395 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <title>{% block title %}{% endblock %} | Google Ads Builder Admin</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <!-- Load our modern CSS first -->
+    <link href="{% static 'css/style.css' %}" rel="stylesheet">
+    
+    <!-- Load default admin CSS -->
+    {% block extrahead %}{% endblock %}
+    
+    <!-- Modern Admin Styles -->
+    <style>
+        /* Override Django admin styles with Asana design */
+        :root {
+            --primary: rgb(147, 51, 234);
+            --primary-dark: rgb(126, 34, 206);
+            --accent: rgb(236, 72, 153);
+            --surface: rgb(255, 255, 255);
+            --background: rgb(249, 250, 251);
+            --text: rgb(31, 41, 55);
+            --text-light: rgb(107, 114, 128);
+            --border: rgb(229, 231, 235);
+            --success: rgb(34, 197, 94);
+            --warning: rgb(245, 158, 11);
+            --error: rgb(239, 68, 68);
+        }
+
+        body {
+            font-family: "TWK Lausanne", "Helvetica Neue", Helvetica, sans-serif !important;
+            background: linear-gradient(135deg, rgb(249, 250, 251) 0%, rgb(243, 244, 246) 50%, rgb(236, 239, 241) 100%) !important;
+            min-height: 100vh;
+            color: var(--text) !important;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Header Styling */
+        #header {
+            background: linear-gradient(to right, var(--primary), var(--accent)) !important;
+            border: none !important;
+            padding: 1rem 2rem !important;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+        }
+
+        #header h1, #header h1 a {
+            color: white !important;
+            font-size: 2rem !important;
+            font-weight: 700 !important;
+            text-decoration: none !important;
+            display: flex !important;
+            align-items: center !important;
+        }
+
+        #header h1:before {
+            content: "⚡";
+            margin-right: 0.5rem;
+            font-size: 1.5rem;
+        }
+
+        /* User tools */
+        #user-tools {
+            float: right !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        #user-tools a {
+            color: rgba(255, 255, 255, 0.9) !important;
+            text-decoration: none !important;
+            padding: 0.5rem 1rem !important;
+            border-radius: 0.5rem !important;
+            margin-left: 0.5rem !important;
+            background: rgba(255, 255, 255, 0.1) !important;
+            transition: all 0.2s !important;
+            font-weight: 500 !important;
+        }
+
+        #user-tools a:hover {
+            background: rgba(255, 255, 255, 0.2) !important;
+            transform: translateY(-1px) !important;
+        }
+
+        /* Navigation */
+        .breadcrumbs {
+            background: var(--surface) !important;
+            border: none !important;
+            padding: 1rem 2rem !important;
+            margin: 0 !important;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1) !important;
+        }
+
+        .breadcrumbs a {
+            color: var(--primary) !important;
+            text-decoration: none !important;
+            font-weight: 500 !important;
+        }
+
+        .breadcrumbs a:hover {
+            color: var(--primary-dark) !important;
+        }
+
+        /* Main Content */
+        #content {
+            padding: 2rem !important;
+            background: var(--background) !important;
+        }
+
+        .module {
+            background: var(--surface) !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 1rem !important;
+            padding: 1.5rem !important;
+            margin-bottom: 1.5rem !important;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1) !important;
+        }
+
+        .module h2 {
+            color: var(--text) !important;
+            font-size: 1.25rem !important;
+            font-weight: 600 !important;
+            margin: 0 0 1rem 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            background: none !important;
+        }
+
+        /* Tables */
+        table {
+            background: var(--surface) !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 0.75rem !important;
+            overflow: hidden !important;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1) !important;
+        }
+
+        thead th {
+            background: linear-gradient(to right, rgb(249, 250, 251), rgb(243, 244, 246)) !important;
+            color: var(--text) !important;
+            font-weight: 600 !important;
+            padding: 1rem !important;
+            border-bottom: 2px solid var(--border) !important;
+        }
+
+        tbody tr {
+            border-bottom: 1px solid var(--border) !important;
+            transition: all 0.2s !important;
+        }
+
+        tbody tr:hover {
+            background: rgb(249, 250, 251) !important;
+        }
+
+        tbody td {
+            padding: 1rem !important;
+            border: none !important;
+        }
+
+        /* Forms */
+        .form-row {
+            margin-bottom: 1.5rem !important;
+        }
+
+        .form-row label {
+            color: var(--text) !important;
+            font-weight: 500 !important;
+            margin-bottom: 0.5rem !important;
+            display: block !important;
+        }
+
+        input[type="text"], input[type="password"], input[type="email"], 
+        input[type="number"], textarea, select {
+            font-family: "TWK Lausanne", "Helvetica Neue", Helvetica, sans-serif !important;
+            font-size: 0.875rem !important;
+            padding: 0.75rem 1rem !important;
+            border: 2px solid var(--border) !important;
+            border-radius: 0.5rem !important;
+            background: var(--surface) !important;
+            color: var(--text) !important;
+            transition: all 0.2s !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none !important;
+            border-color: var(--primary) !important;
+            box-shadow: 0 0 0 3px rgba(147, 51, 234, 0.1) !important;
+        }
+
+        /* Buttons */
+        .button, button, input[type="submit"], .submit-row input {
+            font-family: "TWK Lausanne", "Helvetica Neue", Helvetica, sans-serif !important;
+            background: linear-gradient(to right, var(--primary), var(--accent)) !important;
+            color: white !important;
+            border: none !important;
+            padding: 0.75rem 1.5rem !important;
+            border-radius: 0.75rem !important;
+            font-weight: 600 !important;
+            cursor: pointer !important;
+            transition: all 0.2s !important;
+            text-decoration: none !important;
+            display: inline-block !important;
+            margin-right: 0.5rem !important;
+        }
+
+        .button:hover, button:hover, input[type="submit"]:hover {
+            transform: translateY(-1px) !important;
+            box-shadow: 0 4px 12px rgba(147, 51, 234, 0.3) !important;
+            color: white !important;
+        }
+
+        .button.default, .default {
+            background: linear-gradient(to right, var(--success), rgb(34, 197, 94)) !important;
+        }
+
+        /* Messages */
+        .messagelist li {
+            background: var(--surface) !important;
+            border: none !important;
+            border-radius: 0.75rem !important;
+            padding: 1rem 1.5rem !important;
+            margin-bottom: 1rem !important;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1) !important;
+            border-left: 4px solid var(--success) !important;
+        }
+
+        .messagelist .success {
+            border-left-color: var(--success) !important;
+            background: rgb(240, 253, 244) !important;
+            color: rgb(22, 101, 52) !important;
+        }
+
+        .messagelist .error {
+            border-left-color: var(--error) !important;
+            background: rgb(254, 242, 242) !important;
+            color: rgb(153, 27, 27) !important;
+        }
+
+        .messagelist .warning {
+            border-left-color: var(--warning) !important;
+            background: rgb(255, 251, 235) !important;
+            color: rgb(146, 64, 14) !important;
+        }
+
+        /* Dashboard */
+        .dashboard .module {
+            background: linear-gradient(135deg, var(--surface), rgb(248, 250, 252)) !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 1rem !important;
+        }
+
+        .dashboard .module h2 {
+            background: linear-gradient(to right, var(--primary), var(--accent)) !important;
+            color: white !important;
+            padding: 1rem 1.5rem !important;
+            margin: -1.5rem -1.5rem 1rem -1.5rem !important;
+            border-radius: 1rem 1rem 0 0 !important;
+        }
+
+        /* Model links */
+        .model-stats a {
+            color: var(--primary) !important;
+            text-decoration: none !important;
+            font-weight: 500 !important;
+        }
+
+        .model-stats a:hover {
+            color: var(--primary-dark) !important;
+        }
+
+        /* Inline forms */
+        .inline-group {
+            background: var(--surface) !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 0.75rem !important;
+            padding: 1rem !important;
+            margin-bottom: 1rem !important;
+        }
+
+        /* Make sidebar match if exists */
+        #navigation-sidebar {
+            background: var(--surface) !important;
+            border-right: 1px solid var(--border) !important;
+        }
+
+        /* Custom admin branding */
+        #branding h1 {
+            background: linear-gradient(45deg, var(--primary), var(--accent)) !important;
+            -webkit-background-clip: text !important;
+            -webkit-text-fill-color: transparent !important;
+            background-clip: text !important;
+        }
+
+        /* Admin index styling */
+        .app-list {
+            display: grid !important;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)) !important;
+            gap: 1.5rem !important;
+        }
+
+        .app-list .section {
+            background: var(--surface) !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 1rem !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1) !important;
+        }
+
+        .app-list .section h2 {
+            background: linear-gradient(135deg, var(--primary), var(--accent)) !important;
+            color: white !important;
+            padding: 1rem 1.5rem !important;
+            margin: 0 !important;
+            font-size: 1.125rem !important;
+        }
+
+        /* Remove default admin styling that conflicts */
+        .module caption, .inline-group h2 {
+            background: none !important;
+            color: var(--text) !important;
+        }
+    </style>
+</head>
+
+<body class="{% if is_popup %}popup {% endif %}{% block bodyclass %}{% endblock %}">
+
+<!-- Container -->
+<div id="container">
+
+    {% if not is_popup %}
+    <!-- Header -->
+    <div id="header">
+        <div id="branding">
+        {% block branding %}
+            <h1><a href="{% url 'admin:index' %}">Google Ads Builder</a></h1>
+        {% endblock %}
+        </div>
+        {% block usertools %}
+        {% if has_permission %}
+        <div id="user-tools">
+            {% block welcome-msg %}
+                Velkommen, <strong>{% firstof user.get_short_name user.get_username %}</strong>
+            {% endblock %}
+            /
+            {% block userlinks %}
+                <a href="{% url 'admin:password_change' %}">Skift adgangskode</a> /
+                <a href="{% url 'admin:logout' %}">Log ud</a>
+            {% endblock %}
+        </div>
+        {% endif %}
+        {% endblock %}
+        <div style="clear: both;"></div>
+    </div>
+    {% endif %}
+
+    <!-- Breadcrumbs -->
+    {% block breadcrumbs %}
+    <div class="breadcrumbs">
+        <a href="{% url 'admin:index' %}">Hjem</a>
+        {% if title %} &rsaquo; {{ title }}{% endif %}
+    </div>
+    {% endblock %}
+
+    <!-- Messages -->
+    {% if messages %}
+    <ul class="messagelist">{% for message in messages %}
+        <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message|capfirst }}</li>
+    {% endfor %}</ul>
+    {% endif %}
+
+    <!-- Content -->
+    <div id="content" class="{% block coltype %}colM{% endblock %}">
+        {% block pretitle %}{% endblock %}
+        {% block content_title %}{% if title %}<h1>{{ title }}</h1>{% endif %}{% endblock %}
+        {% block content %}
+        {% block object-tools %}{% endblock %}
+        {{ content }}
+        {% endblock %}
+        {% block sidebar %}{% endblock %}
+        <br style="clear: both;">
+    </div>
+
+    <!-- Footer -->
+    {% block footer %}<div id="footer"></div>{% endblock %}
+</div>
+
+{% block extrajs %}{% endblock %}
+
+</body>
+</html>

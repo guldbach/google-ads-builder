@@ -3,36 +3,57 @@
 {% block title %}Geografisk Kampagne Builder - Multi-Step v1.1{% endblock %}
 
 {% block content %}
-<div class="max-w-6xl mx-auto">
-    <!-- Header -->
-    <div class="text-center mb-8">
-        <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-blue-500 to-blue-700 rounded-full mb-4 shadow-xl">
-            <i data-lucide="map" class="w-10 h-10 text-white"></i>
+<div class="max-w-6xl mx-auto section-spacing container-padding">
+    <!-- Hero Section with Asana-style gradient -->
+    <div class="text-center mb-16 p-12 bg-gradient-to-br from-pink-100 via-blue-50 to-purple-100 rounded-3xl">
+        <div class="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl mb-6 shadow-2xl">
+            <svg class="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+            </svg>
         </div>
-        <h1 class="text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent mb-4">
+        <h1 class="text-6xl font-bold text-gray-900 mb-6 tracking-tight">
             Geografisk Kampagne Builder
         </h1>
-        <p class="text-xl text-gray-600">Opret en komplet geo-kampagne i 3 trin</p>
+        <p class="text-2xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
+            Opret intelligente geo-kampagner der konverterer i alle danske byer
+        </p>
     </div>
 
-    <!-- Progress Bar -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-        <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center space-x-4">
-                <div class="step-indicator bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold">1</div>
-                <span class="text-gray-600">Indstillinger</span>
+    <!-- Modern Progress Section -->
+    <div class="bg-white rounded-3xl shadow-xl p-8 mb-12 border border-gray-100">
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center space-x-6">
+                <div class="step-indicator bg-gradient-to-r from-purple-600 to-pink-600 text-white w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-bold shadow-lg">1</div>
+                <div class="flex flex-col">
+                    <span class="text-lg font-semibold text-gray-900">Kampagne Setup</span>
+                    <span class="text-sm text-gray-500">Grundlæggende indstillinger</span>
+                </div>
             </div>
-            <div class="flex-1 h-1 mx-4 bg-gray-200 rounded">
-                <div id="progress-bar" class="h-1 bg-blue-600 rounded progress-bar" style="width: 33%"></div>
+            <div class="flex-1 h-2 mx-8 bg-gray-200 rounded-full overflow-hidden">
+                <div id="progress-bar" class="h-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full progress-bar transition-all duration-500" style="width: 33%"></div>
             </div>
-            <div class="flex items-center space-x-4">
-                <div class="step-indicator bg-gray-200 text-gray-600 w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold">2</div>
-                <span class="text-gray-600">Geografi</span>
+            <div class="flex items-center space-x-6">
+                <div class="step-indicator bg-gray-200 text-gray-600 w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-bold">2</div>
+                <div class="flex flex-col">
+                    <span class="text-lg font-semibold text-gray-900">Geografi</span>
+                    <span class="text-sm text-gray-500">Vælg områder</span>
+                </div>
             </div>
-            <div class="flex-1 h-1 mx-4 bg-gray-200 rounded"></div>
-            <div class="flex items-center space-x-4">
-                <div class="step-indicator bg-gray-200 text-gray-600 w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold">3</div>
-                <span class="text-gray-600">Annoncer</span>
+            <div class="flex-1 h-2 mx-8 bg-gray-200 rounded-full"></div>
+            <div class="flex items-center space-x-6">
+                <div class="step-indicator bg-gray-200 text-gray-600 w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-bold">3</div>
+                <div class="flex flex-col">
+                    <span class="text-lg font-semibold text-gray-900">USPs</span>
+                    <span class="text-sm text-gray-500">Vælg styrker</span>
+                </div>
+            </div>
+            <div class="flex-1 h-2 mx-8 bg-gray-200 rounded-full"></div>
+            <div class="flex items-center space-x-6">
+                <div class="step-indicator bg-gray-200 text-gray-600 w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-bold">4</div>
+                <div class="flex flex-col">
+                    <span class="text-lg font-semibold text-gray-900">Annoncer</span>
+                    <span class="text-sm text-gray-500">Tekst og CTAs</span>
+                </div>
             </div>
         </div>
     </div>
@@ -42,49 +63,63 @@
         
         <!-- Step 1: Campaign Settings -->
         <div id="step-1" class="form-step active">
-            <div class="bg-white rounded-lg shadow-md p-8 mb-6">
-                <h2 class="text-2xl font-semibold text-gray-900 mb-6 flex items-center">
-                    <i data-lucide="settings" class="w-6 h-6 mr-2 text-blue-600"></i>
-                    Step 1: Kampagne Indstillinger
-                </h2>
+            <div class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-3xl p-8 mb-6 border border-blue-100">
+                <div class="flex items-center mb-8">
+                    <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-4 rounded-2xl shadow-lg mr-4">
+                        <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.82,11.69,4.82,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-3xl font-bold text-gray-900 mb-2">Kampagne Indstillinger</h2>
+                        <p class="text-lg text-gray-600">Konfigurer din kampagne med de rigtige parametre</p>
+                    </div>
+                </div>
                 
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <!-- Basic Campaign Settings -->
-                    <div>
-                        <h3 class="text-lg font-semibold text-gray-800 mb-4">📋 Grundlæggende Info</h3>
+                    <div class="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+                        <div class="flex items-center mb-6">
+                            <div class="bg-gradient-to-r from-green-500 to-emerald-500 p-3 rounded-xl shadow-md mr-4">
+                                <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-xl font-bold text-gray-900">Grundlæggende Info</h3>
+                        </div>
                         <div class="space-y-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Firmanavn *</label>
+                                <label class="label">Firmanavn *</label>
                                 <input type="text" name="client_name" required 
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                       class="input-field"
                                        placeholder="f.eks. Hansen VVS">
                             </div>
                             
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Service Type *</label>
+                                <label class="label">Service Type *</label>
                                 <input type="text" name="service_name" id="service_name" required 
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                       class="input-field"
                                        placeholder="f.eks. Fugemand, Murer, VVS">
                             </div>
                             
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Hjemmeside *</label>
+                                <label class="label">Hjemmeside *</label>
                                 <input type="url" name="website_url" required 
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                       class="input-field"
                                        placeholder="https://www.eksempel.dk">
                             </div>
                             
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Domæne (til landing pages)</label>
                                 <input type="text" name="domain" id="domain"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                       class="input-field"
                                        placeholder="f.eks. lundsfugeservice.dk">
                             </div>
                             
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Branche</label>
                                 <select name="industry" required 
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                        class="input-field">
                                     <option value="">Vælg branche</option>
                                     {% for industry in industries %}
                                     <option value="{{ industry.id }}">{{ industry.name }}</option>
@@ -95,20 +130,27 @@
                     </div>
 
                     <!-- Advanced Campaign Settings -->
-                    <div>
-                        <h3 class="text-lg font-semibold text-gray-800 mb-4">⚙️ Kampagne Indstillinger</h3>
+                    <div class="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+                        <div class="flex items-center mb-6">
+                            <div class="bg-gradient-to-r from-purple-500 to-indigo-500 p-3 rounded-xl shadow-md mr-4">
+                                <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-xl font-bold text-gray-900">Avancerede Indstillinger</h3>
+                        </div>
                         <div class="space-y-4">
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Budget (DKK/dag)</label>
                                     <input type="number" name="budget_daily" value="500" min="50" max="50000"
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                           class="input-field"
                                            placeholder="500">
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Budget Type</label>
                                     <select name="budget_type" 
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                            class="input-field">
                                         <option value="daily">Dagligt Budget</option>
                                         <option value="total">Total Kampagne</option>
                                     </select>
@@ -118,7 +160,7 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Ad Rotation</label>
                                 <select name="ad_rotation" 
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                        class="input-field">
                                     <option value="optimize">Optimize (Anbefalet)</option>
                                     <option value="rotate_evenly">Rotate Evenly</option>
                                     <option value="rotate_indefinitely">Rotate Indefinitely</option>
@@ -128,7 +170,7 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Bidding Strategy</label>
                                 <select name="bidding_strategy" id="bidding_strategy"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                        class="input-field">
                                     <option value="enhanced_cpc">Enhanced CPC (Anbefalet)</option>
                                     <option value="manual_cpc">Manual CPC</option>
                                     <option value="target_cpa">Target CPA</option>
@@ -140,7 +182,7 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Default Bid (DKK)</label>
                                 <input type="number" name="default_bid" value="15.00" min="1" max="500" step="0.50"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                       class="input-field"
                                        placeholder="15.00">
                             </div>
                             
@@ -148,21 +190,21 @@
                             <div id="target_cpa_field" style="display: none;">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Target CPA (DKK)</label>
                                 <input type="number" name="target_cpa" min="1" max="10000" step="1"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                       class="input-field"
                                        placeholder="250">
                             </div>
                             
                             <div id="target_roas_field" style="display: none;">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Target ROAS (%)</label>
                                 <input type="number" name="target_roas" min="100" max="2000" step="10"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                       class="input-field"
                                        placeholder="300">
                             </div>
                             
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Default Match Type</label>
                                 <select name="default_match_type" 
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                        class="input-field">
                                     <option value="phrase">Phrase Match (Anbefalet)</option>
                                     <option value="exact">Exact Match</option>
                                     <option value="broad">Broad Match</option>
@@ -176,56 +218,98 @@
 
         <!-- Step 2: Geography Selection -->
         <div id="step-2" class="form-step">
-            <div class="bg-white rounded-lg shadow-md p-8 mb-6">
-                <h2 class="text-2xl font-semibold text-gray-900 mb-6 flex items-center">
-                    <i data-lucide="map-pin" class="w-6 h-6 mr-2 text-blue-600"></i>
-                    Step 2: Vælg Geografiske Områder
-                </h2>
+            <div class="bg-gradient-to-r from-emerald-50 to-cyan-50 rounded-3xl p-8 mb-6 border border-emerald-100">
+                <div class="flex items-center mb-8">
+                    <div class="bg-gradient-to-r from-emerald-600 to-cyan-600 p-4 rounded-2xl shadow-lg mr-4">
+                        <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-3xl font-bold text-gray-900 mb-2">Geografisk Targeting</h2>
+                        <p class="text-lg text-gray-600">Vælg de byer hvor din kampagne skal køre</p>
+                    </div>
+                </div>
                 
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div class="lg:col-span-2">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div class="lg:col-span-2 bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+                        <div class="flex items-center mb-4">
+                            <div class="bg-gradient-to-r from-blue-500 to-purple-500 p-2 rounded-lg shadow-md mr-3">
+                                <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M15 11V5l-3-3-3 3v2H3v14h18V11h-6zm-8 8H5v-2h2v2zm0-4H5v-2h2v2zm0-4H5V9h2v2zm6 8h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V9h2v2zm0-4h-2V5h2v2zm6 12h-2v-2h2v2zm0-4h-2v-2h2v2z"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-xl font-bold text-gray-900">Interaktivt Danmarkskort</h3>
+                        </div>
                         <!-- Map Container -->
-                        <div id="map" style="height: 500px; width: 100%;" class="border border-gray-300 rounded-lg mb-4"></div>
+                        <div id="map" style="height: 500px; width: 100%;" class="rounded-xl border-2 border-gray-200 mb-4 overflow-hidden shadow-inner"></div>
                         
                         <!-- Map Instructions -->
-                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                            <h3 class="font-semibold text-blue-900 mb-2">📍 Kort Instruktioner:</h3>
-                            <ul class="text-sm text-blue-800 space-y-1">
-                                <li>• <strong>Klik</strong> på kortet for at lave ny cirkel</li>
-                                <li>• <strong>Klik</strong> på cirkel for at slette den igen</li>
-                                <li>• <strong>Træk</strong> rundt på cirkel for at ændre placering</li>
-                                <li>• <strong>Træk</strong> på små hvide boller for at ændre radius</li>
+                        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
+                            <div class="flex items-center mb-3">
+                                <div class="bg-gradient-to-r from-blue-500 to-indigo-500 p-2 rounded-lg shadow-md mr-3">
+                                    <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                    </svg>
+                                </div>
+                                <h3 class="font-bold text-blue-900">Sådan bruger du kortet</h3>
+                            </div>
+                            <ul class="text-sm text-blue-800 space-y-2">
+                                <li class="flex items-center"><span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span><strong>Klik</strong> på kortet for at oprette ny cirkel</li>
+                                <li class="flex items-center"><span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span><strong>Klik</strong> på cirkel for at slette den</li>
+                                <li class="flex items-center"><span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span><strong>Træk</strong> cirkler for at flytte dem</li>
+                                <li class="flex items-center"><span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span><strong>Juster</strong> radius med de små håndtag</li>
                             </ul>
                         </div>
                     </div>
                     
-                    <div>
+                    <div class="space-y-6">
                         <!-- Selected Cities -->
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Valgte Byer: <span class="text-red-500">*</span></label>
-                            <textarea id="cities" readonly class="w-full h-40 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm"
-                                      placeholder="Tegn cirkler på kortet for at vælge byer..."></textarea>
-                            <p class="text-xs text-gray-500 mt-1">Disse byer bliver automatisk valgt baseret på dine cirkler</p>
-                            <div id="cities-validation-message" class="text-sm text-red-600 mt-1" style="display: none;">
-                                ⚠️ Du skal vælge mindst én by før du kan fortsætte
+                        <div class="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+                            <div class="flex items-center mb-4">
+                                <div class="bg-gradient-to-r from-emerald-500 to-green-500 p-2 rounded-lg shadow-md mr-3">
+                                    <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                    </svg>
+                                </div>
+                                <h4 class="text-lg font-bold text-gray-900">Valgte Byer</h4>
+                            </div>
+                            <label class="label">Aktive områder <span class="text-red-500">*</span></label>
+                            <textarea id="cities" readonly class="input-field h-32 bg-gray-50 text-sm font-mono"
+                                      placeholder="Klik på kortet for at vælge byer..."></textarea>
+                            <p class="text-xs text-gray-500 mt-2">Automatisk opdateret når du tegner på kortet</p>
+                            <div id="cities-validation-message" class="text-sm text-red-600 mt-2 p-2 bg-red-50 rounded-lg" style="display: none;">
+                                <span class="flex items-center">
+                                    <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                                    </svg>
+                                    Vælg mindst ét område før du fortsætter
+                                </span>
                             </div>
                         </div>
                         
                         <!-- Statistics -->
-                        <div class="bg-gray-50 rounded-lg p-4">
-                            <h4 class="font-semibold text-gray-800 mb-2">📊 Statistik:</h4>
-                            <div class="space-y-2 text-sm">
-                                <div class="flex justify-between">
-                                    <span class="text-gray-600">Valgte Byer:</span>
-                                    <span id="cities-count" class="font-semibold">0</span>
+                        <div class="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-6 border border-purple-100">
+                            <div class="flex items-center mb-4">
+                                <div class="bg-gradient-to-r from-purple-500 to-pink-500 p-2 rounded-lg shadow-md mr-3">
+                                    <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
+                                    </svg>
                                 </div>
-                                <div class="flex justify-between">
-                                    <span class="text-gray-600">Estimerede Keywords:</span>
-                                    <span id="estimated-keywords" class="font-semibold">0</span>
+                                <h4 class="text-lg font-bold text-gray-900">Live Statistikker</h4>
+                            </div>
+                            <div class="space-y-4">
+                                <div class="flex justify-between items-center p-3 bg-white rounded-xl shadow-sm">
+                                    <span class="text-gray-600 font-medium">Valgte Byer</span>
+                                    <span id="cities-count" class="text-2xl font-bold text-purple-600">0</span>
                                 </div>
-                                <div class="flex justify-between">
-                                    <span class="text-gray-600">Landing Pages:</span>
-                                    <span id="estimated-pages" class="font-semibold">0</span>
+                                <div class="flex justify-between items-center p-3 bg-white rounded-xl shadow-sm">
+                                    <span class="text-gray-600 font-medium">Estimerede Keywords</span>
+                                    <span id="estimated-keywords" class="text-2xl font-bold text-emerald-600">0</span>
+                                </div>
+                                <div class="flex justify-between items-center p-3 bg-white rounded-xl shadow-sm">
+                                    <span class="text-gray-600 font-medium">Landing Pages</span>
+                                    <span id="estimated-pages" class="text-2xl font-bold text-blue-600">0</span>
                                 </div>
                             </div>
                         </div>
@@ -236,12 +320,110 @@
             </div>
         </div>
 
-        <!-- Step 3: Headlines & Descriptions -->
+        <!-- Step 3: USP Selection -->
         <div id="step-3" class="form-step">
-            <div class="bg-white rounded-lg shadow-md p-8 mb-6">
+            <div class="card p-8 mb-6">
+                <h2 class="text-2xl font-semibold text-gray-900 mb-6 flex items-center">
+                    <i data-lucide="star" class="w-6 h-6 mr-2 text-yellow-600"></i>
+                    Step 3: Vælg Dine USPs
+                </h2>
+                
+                <div class="mb-6">
+                    <p class="text-gray-600 mb-4">
+                        Vælg 1 USP fra hver kategori for at skabe en komplet og overbevisende kampagne.
+                        De er sorteret med den bedste øverst.
+                    </p>
+                    
+                    <!-- USP Completion Progress -->
+                    <div class="bg-gray-100 rounded-2xl p-4 mb-6">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-medium text-gray-700">USP Kategorier Fuldført</span>
+                            <span id="usp-progress-text" class="text-sm text-gray-600">0 af 5</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div id="usp-progress-bar" class="bg-gradient-to-r from-yellow-500 to-orange-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- USP Categories Grid -->
+                <div id="usp-categories" class="space-y-6">
+                    {% for category in usp_categories %}
+                    <div class="usp-category-card bg-white border border-gray-200 rounded-2xl p-6 transition-all duration-200 hover:shadow-lg" 
+                         data-category-id="{{ category.id }}">
+                        <!-- Category Header -->
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="flex items-center justify-center w-10 h-10 rounded-xl" 
+                                     style="background-color: {{ category.color }}20; color: {{ category.color }};">
+                                    <span class="text-2xl">{{ category.icon }}</span>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-semibold text-gray-900">{{ category.name }}</h3>
+                                    <p class="text-sm text-gray-600">Vælg {{ category.max_selections }} USP{% if category.max_selections > 1 %}s{% endif %}</p>
+                                </div>
+                            </div>
+                            <div class="category-completion hidden">
+                                <span class="text-sm font-medium text-green-600">✓ Valgt</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Category Description -->
+                        <p class="text-sm text-gray-600 mb-4">{{ category.description }}</p>
+                        
+                        <!-- USP Options -->
+                        <div class="usp-options space-y-2">
+                            {% for usp in usp_templates %}
+                                {% if usp.main_category.id == category.id %}
+                                <div class="usp-option p-3 border border-gray-100 rounded-xl cursor-pointer hover:border-gray-300 transition-all duration-200"
+                                     data-usp-id="{{ usp.id }}"
+                                     data-category-id="{{ category.id }}"
+                                     data-priority="{{ usp.priority_rank }}">
+                                    <div class="flex items-start justify-between">
+                                        <div class="flex-1">
+                                            <div class="flex items-center space-x-2 mb-1">
+                                                <span class="inline-flex items-center justify-center w-6 h-6 text-xs font-bold text-white rounded-full"
+                                                      style="background-color: {{ category.color }};">
+                                                    {{ usp.priority_rank }}
+                                                </span>
+                                                <span class="text-sm font-medium text-gray-900">{{ usp.text }}</span>
+                                            </div>
+                                            {% if usp.explanation %}
+                                            <p class="text-xs text-gray-500 mt-1">{{ usp.explanation }}</p>
+                                            {% endif %}
+                                            {% if usp.ideal_for_industries.all %}
+                                            <div class="flex flex-wrap gap-1 mt-2">
+                                                {% for industry in usp.ideal_for_industries.all %}
+                                                <span class="inline-block px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-md">
+                                                    {{ industry.name }}
+                                                </span>
+                                                {% endfor %}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="usp-selection-indicator hidden">
+                                            <span class="text-green-600">✓</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Hidden field to store selected USPs -->
+                <input type="hidden" name="selected_usps" id="selected_usps">
+            </div>
+        </div>
+
+        <!-- Step 4: Headlines & Descriptions -->
+        <div id="step-4" class="form-step">
+            <div class="card p-8 mb-6">
                 <h2 class="text-2xl font-semibold text-gray-900 mb-6 flex items-center">
                     <i data-lucide="edit-3" class="w-6 h-6 mr-2 text-blue-600"></i>
-                    Step 3: Headlines og Beskrivelser
+                    Step 4: Headlines og Beskrivelser
                 </h2>
                 
                 <!-- Auto-Progressive Headlines and Descriptions -->
@@ -261,7 +443,7 @@
                                 </label>
                                 <input type="text" name="headline_1_template" id="headline_1" 
                                        value="{SERVICE} {BYNAVN}" maxlength="30" required
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                       class="input-field">
                                 <div class="text-xs text-gray-500 mt-1">
                                     <span id="headline_1_count">0</span>/30 karakterer
                                 </div>
@@ -272,7 +454,7 @@
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Headline 2</label>
                                 <input type="text" name="headline_2_template" id="headline_2" 
                                        placeholder="5/5 Stjerner Trustpilot" maxlength="30"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                       class="input-field">
                                 <div class="text-xs text-gray-500 mt-1">
                                     <span id="headline_2_count">0</span>/30 karakterer
                                 </div>
@@ -424,7 +606,7 @@
                                     <span class="text-xs text-gray-500">(Brug {SERVICE} og {BYNAVN})</span>
                                 </label>
                                 <textarea name="description_1_template" id="description_1" rows="3" maxlength="90" required
-                                          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                          class="input-field"
                                           placeholder="Professionel {SERVICE} i {BYNAVN} - Ring i dag for gratis tilbud!"></textarea>
                                 <div class="text-xs text-gray-500 mt-1">
                                     <span id="description_1_count">0</span>/90 karakterer
@@ -510,30 +692,36 @@
         </div>
 
         <!-- Navigation Buttons -->
-        <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="bg-white rounded-3xl shadow-xl p-8 border border-gray-100">
             <div class="flex justify-between items-center">
                 <button type="button" id="prev-btn" onclick="previousStep()" 
-                        class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center space-x-2"
+                        class="bg-gradient-to-r from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 text-gray-700 font-semibold py-4 px-8 rounded-2xl transition-all duration-200 flex items-center space-x-3 shadow-lg"
                         style="display: none;">
-                    <i data-lucide="arrow-left" class="w-5 h-5"></i>
-                    <span>Forrige</span>
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+                    </svg>
+                    <span>Forrige Trin</span>
                 </button>
                 
-                <div class="text-center">
-                    <span id="step-info" class="text-gray-600">Trin 1 af 3</span>
+                <div class="text-center bg-gradient-to-r from-purple-50 to-pink-50 px-6 py-3 rounded-2xl border border-purple-100">
+                    <span id="step-info" class="text-lg font-semibold text-gray-700">Trin 1 af 3</span>
                 </div>
                 
                 <button type="button" id="next-btn" onclick="nextStep()" 
-                        class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center space-x-2">
-                    <span>Næste</span>
-                    <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                        class="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-4 px-8 rounded-2xl transition-all duration-200 flex items-center space-x-3 shadow-lg">
+                    <span>Næste Trin</span>
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M4 11h12.17l-5.59-5.59L12 4l8 8-8 8-1.41-1.41L16.17 13H4v-2z"/>
+                    </svg>
                 </button>
                 
                 <button type="submit" id="submit-btn" 
-                        class="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-200 flex items-center space-x-2 shadow-lg"
+                        class="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-semibold py-4 px-8 rounded-2xl transition-all duration-200 flex items-center space-x-3 shadow-lg"
                         style="display: none;">
-                    <span class="text-xl mr-2">🚀</span>
-                    <span>Generer Geo Kampagne</span>
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
+                    </svg>
+                    <span>Generer Kampagne</span>
                 </button>
             </div>
         </div>
@@ -565,7 +753,10 @@
 <script src="https://code.jquery.com/jquery-2.2.4.min.js"></script>
 <script>
     let currentStep = 1;
-    const totalSteps = 3;
+    const totalSteps = 4;
+    
+    // USP Selection Management
+    let selectedUSPs = {}
 
     // Make currentStep globally accessible
     window.currentStep = currentStep;
@@ -747,6 +938,79 @@
         updateDescriptionProgress();
     }
     
+    // USP Selection Functions
+    function setupUSPSelection() {
+        console.log('⭐ Setting up USP selection handlers');
+        
+        // Handle USP option clicks
+        $(document).on('click', '.usp-option', function() {
+            const $option = $(this);
+            const uspId = $option.data('usp-id');
+            const categoryId = $option.data('category-id');
+            const priority = $option.data('priority');
+            
+            // Toggle selection
+            if ($option.hasClass('selected')) {
+                // Deselect
+                delete selectedUSPs[categoryId];
+                $option.removeClass('selected border-green-500 bg-green-50');
+                $option.find('.usp-selection-indicator').addClass('hidden');
+            } else {
+                // Select this USP (and deselect others in same category)
+                $(`.usp-option[data-category-id="${categoryId}"]`).each(function() {
+                    $(this).removeClass('selected border-green-500 bg-green-50');
+                    $(this).find('.usp-selection-indicator').addClass('hidden');
+                });
+                
+                // Select this one
+                selectedUSPs[categoryId] = uspId;
+                $option.addClass('selected border-green-500 bg-green-50');
+                $option.find('.usp-selection-indicator').removeClass('hidden');
+            }
+            
+            // Update category completion indicator
+            updateCategoryCompletion(categoryId);
+            
+            // Update overall USP progress
+            updateUSPProgress();
+            
+            // Update hidden field
+            updateSelectedUSPsField();
+            
+            console.log('Selected USPs:', selectedUSPs);
+        });
+    }
+    
+    function updateCategoryCompletion(categoryId) {
+        const $categoryCard = $(`.usp-category-card[data-category-id="${categoryId}"]`);
+        const $completion = $categoryCard.find('.category-completion');
+        
+        if (selectedUSPs[categoryId]) {
+            $completion.removeClass('hidden');
+            $categoryCard.addClass('border-green-200 bg-green-25');
+        } else {
+            $completion.addClass('hidden');
+            $categoryCard.removeClass('border-green-200 bg-green-25');
+        }
+    }
+    
+    function updateUSPProgress() {
+        const totalCategories = {{ usp_categories.count }};
+        const completedCategories = Object.keys(selectedUSPs).length;
+        const progressPercent = (completedCategories / totalCategories) * 100;
+        
+        // Update progress bar
+        $('#usp-progress-bar').css('width', progressPercent + '%');
+        $('#usp-progress-text').text(`${completedCategories} af ${totalCategories}`);
+        
+        console.log(`USP Progress: ${completedCategories}/${totalCategories} (${progressPercent}%)`);
+    }
+    
+    function updateSelectedUSPsField() {
+        const uspIds = Object.values(selectedUSPs);
+        $('#selected_usps').val(uspIds.join(','));
+    }
+    
     function setupCharacterCounters() {
         console.log('🔢 Setting up character counters for all fields');
         
@@ -861,6 +1125,9 @@
         // Auto-reveal Headlines and Descriptions + Character counters
         setupAutoRevealHeadlines();
         setupAutoRevealDescriptions();
+        
+        // Setup USP Selection
+        setupUSPSelection();
         
         // Setup character counters for all potential fields
         setupCharacterCounters();
@@ -1032,7 +1299,7 @@
                         <textarea id="manual-cities-input" class="w-full h-32 p-3 border border-yellow-300 rounded-lg text-sm" 
                                   placeholder="København, Aarhus, Odense, Aalborg, Esbjerg"></textarea>
                         <button type="button" onclick="updateCitiesFromManualInput()" 
-                                class="mt-2 w-full bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2 px-4 rounded-lg">
+                                class="mt-2 w-full btn-orange">
                             Opdater byvalg
                         </button>
                     </div>

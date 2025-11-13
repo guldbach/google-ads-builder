@@ -1,12 +1,16 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib import messages
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
-from .models import Industry, Client, Campaign, AdGroup, Ad, Keyword, PerformanceDataImport, HistoricalCampaignPerformance, HistoricalKeywordPerformance
-from usps.models import USPTemplate, ClientUSP
+from .models import (
+    Industry, Client, Campaign, AdGroup, Ad, Keyword, PerformanceDataImport, 
+    HistoricalCampaignPerformance, HistoricalKeywordPerformance,
+    NegativeKeywordList, NegativeKeyword, CampaignNegativeKeywordList, NegativeKeywordUpload
+)
+from usps.models import USPTemplate, ClientUSP, USPMainCategory
 from crawler.tasks import crawl_client_website
 from crawler.models import ExtractedUSP
 from .data_import import GoogleAdsDataImporter
@@ -667,9 +671,29 @@ def geo_campaign_builder_v2(request):
     industries = Industry.objects.all()
     geo_templates = GeoTemplate.objects.filter(is_active=True)
     
+    # Get active negative keyword lists for selection
+    negative_keyword_lists = NegativeKeywordList.objects.filter(
+        is_active=True
+    ).select_related('created_by').prefetch_related('negative_keywords')
+    
+    # Get USP categories and templates for selection
+    usp_categories = USPMainCategory.objects.filter(
+        is_active=True
+    ).order_by('sort_order')
+    
+    usp_templates = USPTemplate.objects.filter(
+        is_active=True,
+        main_category__is_active=True
+    ).select_related('main_category').prefetch_related('ideal_for_industries').order_by(
+        'main_category__sort_order', 'priority_rank'
+    )
+    
     context = {
         'industries': industries,
         'geo_templates': geo_templates,
+        'negative_keyword_lists': negative_keyword_lists,
+        'usp_categories': usp_categories,
+        'usp_templates': usp_templates,
         'google_maps_api_key': 'AIzaSyBDH6MTS0Hq0ISb0bNQjEAC14321pzM0jw',
     }
     
@@ -1063,3 +1087,310 @@ def create_geo_campaign_v2(request):
     except Exception as e:
         messages.error(request, f'Fejl ved oprettelse af geo kampagne: {str(e)}')
         return redirect('geo_campaign_builder_v2')
+
+
+# =========================
+# NEGATIVE KEYWORDS SYSTEM
+# =========================
+
+@login_required
+def negative_keywords_dashboard(request):
+    """Dashboard til negative keywords administration"""
+    keyword_lists = NegativeKeywordList.objects.filter(
+        created_by=request.user
+    ).prefetch_related('negative_keywords')
+    
+    context = {
+        'keyword_lists': keyword_lists,
+        'total_keywords': sum(kl.keywords_count for kl in keyword_lists),
+        'active_lists': keyword_lists.filter(is_active=True).count(),
+    }
+    
+    return render(request, 'campaigns/negative_keywords_dashboard.html', context)
+
+
+@login_required
+def create_negative_keyword_list(request):
+    """Opret ny negative keyword liste"""
+    if request.method == 'POST':
+        try:
+            name = request.POST.get('name')
+            category = request.POST.get('category', 'general')
+            description = request.POST.get('description', '')
+            is_active = request.POST.get('is_active') == 'on'
+            auto_apply_industries = request.POST.getlist('auto_apply_industries')
+            
+            keyword_list = NegativeKeywordList.objects.create(
+                name=name,
+                category=category,
+                description=description,
+                is_active=is_active,
+                auto_apply_to_industries=auto_apply_industries,
+                created_by=request.user
+            )
+            
+            messages.success(request, f'Negative keyword liste "{name}" er oprettet!')
+            return redirect('negative_keyword_list_detail', list_id=keyword_list.id)
+            
+        except Exception as e:
+            messages.error(request, f'Fejl ved oprettelse: {str(e)}')
+    
+    # Get available industries for auto-apply
+    industries = Industry.objects.all().values_list('name', flat=True)
+    
+    context = {
+        'industries': industries,
+        'category_choices': NegativeKeywordList.CATEGORY_CHOICES,
+    }
+    
+    return render(request, 'campaigns/create_negative_keyword_list.html', context)
+
+
+@login_required
+def negative_keyword_list_detail(request, list_id):
+    """Detaljer for en specifik negative keyword liste"""
+    keyword_list = get_object_or_404(
+        NegativeKeywordList, 
+        id=list_id, 
+        created_by=request.user
+    )
+    
+    # Get keywords with pagination
+    from django.core.paginator import Paginator
+    keywords = keyword_list.negative_keywords.all()
+    paginator = Paginator(keywords, 50)  # 50 keywords per side
+    page = request.GET.get('page', 1)
+    keywords_page = paginator.get_page(page)
+    
+    # Get upload history
+    uploads = NegativeKeywordUpload.objects.filter(
+        keyword_list=keyword_list
+    ).order_by('-uploaded_at')[:10]
+    
+    context = {
+        'keyword_list': keyword_list,
+        'keywords': keywords_page,
+        'uploads': uploads,
+        'match_type_choices': NegativeKeyword.MATCH_TYPES,
+    }
+    
+    return render(request, 'campaigns/negative_keyword_list_detail.html', context)
+
+
+@login_required
+def upload_negative_keywords(request, list_id):
+    """Upload negative keywords fra fil"""
+    keyword_list = get_object_or_404(
+        NegativeKeywordList, 
+        id=list_id, 
+        created_by=request.user
+    )
+    
+    if request.method == 'POST' and request.FILES.get('keyword_file'):
+        try:
+            uploaded_file = request.FILES['keyword_file']
+            
+            # Validér fil type
+            if not uploaded_file.name.lower().endswith(('.txt', '.csv')):
+                messages.error(request, 'Kun .txt og .csv filer er tilladt')
+                return redirect('negative_keyword_list_detail', list_id=list_id)
+            
+            # Process file upload
+            result = process_negative_keyword_file(
+                uploaded_file, 
+                keyword_list, 
+                request.user
+            )
+            
+            if result['success']:
+                messages.success(
+                    request, 
+                    f'Upload færdig! {result["keywords_added"]} keywords tilføjet, {result["keywords_skipped"]} sprunget over'
+                )
+            else:
+                messages.error(request, f'Upload fejl: {result["error"]}')
+                
+        except Exception as e:
+            messages.error(request, f'Fejl ved upload: {str(e)}')
+    
+    return redirect('negative_keyword_list_detail', list_id=list_id)
+
+
+def process_negative_keyword_file(uploaded_file, keyword_list, user):
+    """Process uploaded negative keyword fil"""
+    import csv
+    import io
+    from django.utils import timezone
+    
+    try:
+        # Create upload record
+        upload_record = NegativeKeywordUpload.objects.create(
+            keyword_list=keyword_list,
+            original_filename=uploaded_file.name,
+            file_size_kb=uploaded_file.size // 1024,
+            uploaded_by=user,
+            status='processing'
+        )
+        
+        # Read file content
+        file_content = uploaded_file.read().decode('utf-8')
+        lines = file_content.strip().split('\n')
+        
+        keywords_added = 0
+        keywords_skipped = 0
+        keywords_errors = 0
+        error_details = []
+        
+        for line_num, line in enumerate(lines, 1):
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+                
+            try:
+                # Parse keyword and match type
+                keyword_text, match_type = parse_negative_keyword_line(line)
+                
+                # Check if keyword already exists
+                if NegativeKeyword.objects.filter(
+                    keyword_list=keyword_list,
+                    keyword_text=keyword_text,
+                    match_type=match_type
+                ).exists():
+                    keywords_skipped += 1
+                    continue
+                
+                # Create negative keyword
+                NegativeKeyword.objects.create(
+                    keyword_list=keyword_list,
+                    keyword_text=keyword_text,
+                    match_type=match_type,
+                    source_file_line=line_num
+                )
+                keywords_added += 1
+                
+            except Exception as e:
+                keywords_errors += 1
+                error_details.append(f'Linje {line_num}: {str(e)}')
+        
+        # Update upload record
+        upload_record.status = 'completed'
+        upload_record.completed_at = timezone.now()
+        upload_record.total_lines = len(lines)
+        upload_record.keywords_added = keywords_added
+        upload_record.keywords_skipped = keywords_skipped
+        upload_record.keywords_errors = keywords_errors
+        upload_record.error_details = '\n'.join(error_details)
+        upload_record.save()
+        
+        # Update keyword list count
+        keyword_list.update_keywords_count()
+        
+        return {
+            'success': True,
+            'keywords_added': keywords_added,
+            'keywords_skipped': keywords_skipped,
+            'keywords_errors': keywords_errors
+        }
+        
+    except Exception as e:
+        # Update upload record with error
+        upload_record.status = 'failed'
+        upload_record.error_details = str(e)
+        upload_record.completed_at = timezone.now()
+        upload_record.save()
+        
+        return {
+            'success': False,
+            'error': str(e)
+        }
+
+
+def parse_negative_keyword_line(line):
+    """Parse en linje fra negative keyword fil"""
+    line = line.strip()
+    
+    # Remove leading minus if present
+    if line.startswith('-'):
+        line = line[1:].strip()
+    
+    # Determine match type based on symbols
+    if line.startswith('[') and line.endswith(']'):
+        match_type = 'exact'
+        keyword_text = line[1:-1].strip()
+    elif line.startswith('"') and line.endswith('"'):
+        match_type = 'phrase'
+        keyword_text = line[1:-1].strip()
+    else:
+        match_type = 'broad'
+        keyword_text = line.strip()
+    
+    if not keyword_text:
+        raise ValueError("Tomt keyword")
+    
+    return keyword_text, match_type
+
+
+@login_required
+def get_campaign_negative_keywords(request, campaign_id):
+    """AJAX view til at hente negative keywords for kampagne"""
+    campaign = get_object_or_404(Campaign, id=campaign_id)
+    
+    # Get active negative keyword lists for this campaign
+    negative_lists = NegativeKeywordList.objects.filter(
+        campaignNegativekeywordlist__campaign=campaign,
+        campaignNegativekeywordlist__is_active=True
+    ).prefetch_related('negative_keywords')
+    
+    # Also get auto-applied lists based on industry
+    auto_lists = NegativeKeywordList.objects.filter(
+        is_active=True,
+        auto_apply_to_industries__contains=[campaign.client.industry.name]
+    ).prefetch_related('negative_keywords')
+    
+    # Combine all keywords
+    all_keywords = []
+    
+    for neg_list in list(negative_lists) + list(auto_lists):
+        for keyword in neg_list.negative_keywords.all():
+            all_keywords.append({
+                'text': keyword.keyword_text,
+                'match_type': keyword.match_type,
+                'list_name': neg_list.name,
+                'formatted': str(keyword)
+            })
+    
+    return JsonResponse({
+        'keywords': all_keywords,
+        'total_count': len(all_keywords)
+    })
+
+
+@login_required  
+def apply_negative_keywords_to_campaign(request, campaign_id):
+    """Anvend negative keyword lister til kampagne"""
+    if request.method == 'POST':
+        campaign = get_object_or_404(Campaign, id=campaign_id)
+        selected_lists = request.POST.getlist('negative_lists')
+        
+        try:
+            # Remove existing associations
+            CampaignNegativeKeywordList.objects.filter(campaign=campaign).delete()
+            
+            # Add new associations
+            for list_id in selected_lists:
+                negative_list = NegativeKeywordList.objects.get(id=list_id)
+                CampaignNegativeKeywordList.objects.create(
+                    campaign=campaign,
+                    negative_list=negative_list,
+                    applied_by=request.user
+                )
+            
+            messages.success(
+                request, 
+                f'{len(selected_lists)} negative keyword lister tilføjet til kampagne'
+            )
+            
+        except Exception as e:
+            messages.error(request, f'Fejl ved tilføjelse: {str(e)}')
+    
+    return redirect('campaign_detail', campaign_id=campaign_id)

@@ -579,3 +579,188 @@ class GeoExport(models.Model):
     
     def __str__(self):
         return f"{self.campaign.name} - {self.export_type} ({self.exported_at.strftime('%Y-%m-%d')})"
+
+
+# Negative Keywords System
+class NegativeKeywordList(models.Model):
+    """Globale negative keyword lister"""
+    
+    CATEGORY_CHOICES = [
+        ('general', 'Generel Negativ Liste'),
+        ('job', 'Job/Karriere Negative'),
+        ('diy', 'Gør Det Selv Negative'),
+        ('competitor', 'Konkurrent Negative'),
+        ('location', 'Lokation Negative'),
+        ('service_specific', 'Service Specifik'),
+        ('quality', 'Kvalitet/Pris Negative'),
+        ('other', 'Andet'),
+    ]
+    
+    name = models.CharField(
+        max_length=100, 
+        help_text="Navn på listen, f.eks. 'VVS Generel Negativ Liste'"
+    )
+    category = models.CharField(
+        max_length=20, 
+        choices=CATEGORY_CHOICES, 
+        default='general'
+    )
+    description = models.TextField(
+        blank=True, 
+        help_text="Beskrivelse af hvad denne liste indeholder"
+    )
+    
+    # Settings
+    is_active = models.BooleanField(
+        default=True, 
+        help_text="Skal denne liste bruges automatisk i nye kampagner?"
+    )
+    auto_apply_to_industries = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Industrier som denne liste automatisk skal anvendes på"
+    )
+    
+    # Metadata
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    last_uploaded_file = models.CharField(max_length=255, blank=True)
+    keywords_count = models.IntegerField(default=0)
+    
+    def __str__(self):
+        return f"{self.name} ({self.keywords_count} keywords)"
+    
+    def update_keywords_count(self):
+        """Opdater antallet af keywords i listen"""
+        self.keywords_count = self.negative_keywords.count()
+        self.save(update_fields=['keywords_count'])
+    
+    class Meta:
+        verbose_name = "Negative Keyword Liste"
+        verbose_name_plural = "Negative Keyword Lister"
+        ordering = ['-created_at']
+
+
+class NegativeKeyword(models.Model):
+    """Individuelle negative keywords"""
+    
+    MATCH_TYPES = [
+        ('broad', 'Broad Match'),
+        ('phrase', 'Phrase Match'),
+        ('exact', 'Exact Match'),
+    ]
+    
+    keyword_list = models.ForeignKey(
+        NegativeKeywordList, 
+        on_delete=models.CASCADE, 
+        related_name='negative_keywords'
+    )
+    keyword_text = models.CharField(
+        max_length=200, 
+        help_text="Negative keyword (uden minus tegn)"
+    )
+    match_type = models.CharField(
+        max_length=10, 
+        choices=MATCH_TYPES, 
+        default='broad'
+    )
+    
+    # Metadata
+    added_at = models.DateTimeField(auto_now_add=True)
+    source_file_line = models.IntegerField(
+        null=True, 
+        blank=True,
+        help_text="Linje nummer fra upload fil"
+    )
+    notes = models.CharField(
+        max_length=255, 
+        blank=True,
+        help_text="Noter om dette keyword"
+    )
+    
+    def __str__(self):
+        symbols = {'broad': '', 'phrase': '"', 'exact': '['}
+        symbol_end = {'broad': '', 'phrase': '"', 'exact': ']'}
+        return f"-{symbols[self.match_type]}{self.keyword_text}{symbol_end[self.match_type]}"
+    
+    def clean(self):
+        # Fjern minus tegn hvis bruger har tilføjet det
+        if self.keyword_text.startswith('-'):
+            self.keyword_text = self.keyword_text[1:].strip()
+        
+        # Fjern match type symbols hvis tilføjet
+        self.keyword_text = self.keyword_text.strip('"[]')
+    
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
+        # Opdater count på parent list
+        self.keyword_list.update_keywords_count()
+    
+    def delete(self, *args, **kwargs):
+        keyword_list = self.keyword_list
+        super().delete(*args, **kwargs)
+        keyword_list.update_keywords_count()
+    
+    class Meta:
+        unique_together = ['keyword_list', 'keyword_text', 'match_type']
+        ordering = ['keyword_text']
+
+
+class CampaignNegativeKeywordList(models.Model):
+    """Tilknytning mellem kampagner og negative keyword lister"""
+    
+    campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name='negative_lists')
+    negative_list = models.ForeignKey(NegativeKeywordList, on_delete=models.CASCADE)
+    
+    # Settings
+    applied_at = models.DateTimeField(auto_now_add=True)
+    applied_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    is_active = models.BooleanField(default=True)
+    
+    # Export tracking
+    included_in_last_export = models.BooleanField(default=False)
+    last_exported_at = models.DateTimeField(null=True, blank=True)
+    
+    def __str__(self):
+        return f"{self.campaign.name} → {self.negative_list.name}"
+    
+    class Meta:
+        unique_together = ['campaign', 'negative_list']
+
+
+class NegativeKeywordUpload(models.Model):
+    """Track uploads af negative keyword filer"""
+    
+    UPLOAD_STATUS_CHOICES = [
+        ('processing', 'Behandler'),
+        ('completed', 'Færdig'),
+        ('failed', 'Fejlet'),
+    ]
+    
+    keyword_list = models.ForeignKey(NegativeKeywordList, on_delete=models.CASCADE)
+    original_filename = models.CharField(max_length=255)
+    file_size_kb = models.IntegerField()
+    
+    # Processing results
+    total_lines = models.IntegerField(default=0)
+    keywords_added = models.IntegerField(default=0)
+    keywords_skipped = models.IntegerField(default=0)
+    keywords_errors = models.IntegerField(default=0)
+    
+    # Status
+    status = models.CharField(max_length=20, choices=UPLOAD_STATUS_CHOICES, default='processing')
+    error_details = models.TextField(blank=True)
+    processing_notes = models.TextField(blank=True)
+    
+    # Metadata
+    uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    
+    def __str__(self):
+        return f"{self.original_filename} → {self.keyword_list.name}"
+    
+    class Meta:
+        ordering = ['-uploaded_at']

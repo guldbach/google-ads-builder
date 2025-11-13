@@ -1,0 +1,248 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <title>Log ind | Google Ads Builder</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <!-- Load our modern CSS -->
+    <link href="{% static 'css/style.css' %}" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: "TWK Lausanne", "Helvetica Neue", Helvetica, sans-serif !important;
+            background: linear-gradient(135deg, rgb(147, 51, 234), rgb(236, 72, 153), rgb(59, 130, 246)) !important;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 2rem;
+        }
+
+        .login-container {
+            background: white;
+            border-radius: 2rem;
+            padding: 3rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .login-logo {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, rgb(147, 51, 234), rgb(236, 72, 153));
+            border-radius: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 2rem;
+            box-shadow: 0 10px 25px rgba(147, 51, 234, 0.3);
+        }
+
+        .login-logo::before {
+            content: "⚡";
+            font-size: 2rem;
+            color: white;
+        }
+
+        h1 {
+            color: rgb(31, 41, 55);
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .login-subtitle {
+            color: rgb(107, 114, 128);
+            font-size: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .form-row {
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            color: rgb(31, 41, 55);
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid rgb(229, 231, 235);
+            border-radius: 1rem;
+            font-size: 1rem;
+            transition: all 0.2s;
+            box-sizing: border-box;
+            font-family: "TWK Lausanne", "Helvetica Neue", Helvetica, sans-serif;
+        }
+
+        input[type="text"]:focus, input[type="password"]:focus {
+            outline: none;
+            border-color: rgb(147, 51, 234);
+            box-shadow: 0 0 0 3px rgba(147, 51, 234, 0.1);
+        }
+
+        .submit-row {
+            margin-top: 2rem;
+        }
+
+        input[type="submit"] {
+            width: 100%;
+            background: linear-gradient(135deg, rgb(147, 51, 234), rgb(236, 72, 153));
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 1rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(147, 51, 234, 0.3);
+            font-family: "TWK Lausanne", "Helvetica Neue", Helvetica, sans-serif;
+        }
+
+        input[type="submit"]:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(147, 51, 234, 0.4);
+        }
+
+        .errornote {
+            background: rgb(254, 242, 242);
+            color: rgb(153, 27, 27);
+            padding: 1rem;
+            border-radius: 0.75rem;
+            margin-bottom: 1.5rem;
+            border-left: 4px solid rgb(239, 68, 68);
+            font-size: 0.875rem;
+        }
+
+        .login-links {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid rgb(229, 231, 235);
+            text-align: center;
+        }
+
+        .login-links a {
+            color: rgb(147, 51, 234);
+            text-decoration: none;
+            font-weight: 500;
+            margin: 0 1rem;
+            font-size: 0.875rem;
+        }
+
+        .login-links a:hover {
+            color: rgb(126, 34, 206);
+        }
+
+        .floating-elements {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .floating-element {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        .floating-element:nth-child(1) {
+            width: 100px;
+            height: 100px;
+            top: 10%;
+            left: 10%;
+            animation-delay: 0s;
+        }
+
+        .floating-element:nth-child(2) {
+            width: 80px;
+            height: 80px;
+            top: 20%;
+            right: 20%;
+            animation-delay: 2s;
+        }
+
+        .floating-element:nth-child(3) {
+            width: 120px;
+            height: 120px;
+            bottom: 20%;
+            left: 15%;
+            animation-delay: 4s;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Floating background elements -->
+    <div class="floating-elements">
+        <div class="floating-element"></div>
+        <div class="floating-element"></div>
+        <div class="floating-element"></div>
+    </div>
+
+    <div class="login-container">
+        <div class="login-logo"></div>
+        
+        <h1>Admin Login</h1>
+        <div class="login-subtitle">Google Ads Builder Administration</div>
+
+        <form method="post" id="login-form">
+            {% csrf_token %}
+            
+            {% if form.errors %}
+                <div class="errornote">
+                    Forkert brugernavn eller adgangskode. Prøv igen.
+                </div>
+            {% endif %}
+
+            <div class="form-row">
+                <label for="id_username">{{ form.username.label_tag }}</label>
+                {{ form.username }}
+            </div>
+
+            <div class="form-row">
+                <label for="id_password">{{ form.password.label_tag }}</label>
+                {{ form.password }}
+            </div>
+
+            <div class="submit-row">
+                <input type="submit" value="Log ind" />
+            </div>
+
+            {% if user.is_authenticated %}
+                <div class="login-links">
+                    <a href="/">← Tilbage til frontend</a>
+                </div>
+            {% endif %}
+        </form>
+
+        {% if user.is_authenticated %}
+            <div class="login-links">
+                <a href="{% url 'admin:index' %}">Gå til admin</a>
+            </div>
+        {% endif %}
+    </div>
+
+</body>
+</html>

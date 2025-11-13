@@ -2,20 +2,242 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Asana Fonts - Load actual Asana fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700&display=swap');
+
+@layer base {
+  /* Exact Asana Typography Based on Playwright Analysis */
+  html {
+    font-family: "TWK Lausanne", "Helvetica Neue", Helvetica, sans-serif;
+    font-size: 16px;
+    line-height: 28px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  body {
+    @apply bg-white text-black-600;
+    font-weight: 400;
+    font-family: "TWK Lausanne", "Helvetica Neue", Helvetica, sans-serif;
+    font-size: 16px;
+    line-height: 28px;
+    color: rgb(100, 111, 121);
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: Ghost, "Helvetica Neue", Helvetica, sans-serif;
+    font-weight: 500;
+    @apply text-black-900;
+  }
+  
+  h1 {
+    font-size: 72px;
+    line-height: 72px;
+    letter-spacing: -0.5px;
+    font-weight: 500;
+    color: rgb(105, 0, 49);
+  }
+  
+  h2 {
+    @apply text-2xl lg:text-4xl leading-tight;
+  }
+  
+  h3 {
+    @apply text-xl lg:text-2xl leading-tight;
+  }
+  
+  p {
+    font-family: "TWK Lausanne", "Helvetica Neue", Helvetica, sans-serif;
+    font-size: 16px;
+    line-height: 28px;
+    color: rgb(100, 111, 121);
+  }
+}
+
 @layer components {
+  /* Exact Asana Button System */
   .btn-primary {
-    @apply bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded;
+    font-family: "TWK Lausanne", "Helvetica Neue", Helvetica, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 0px 12px;
+    border-radius: 3px;
+    @apply bg-black-1000 hover:bg-black-800 text-white
+           transition-colors duration-150
+           focus:outline-none focus:ring-2 focus:ring-black-300 focus:ring-offset-1;
   }
   
   .btn-secondary {
-    @apply bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded;
+    font-family: "TWK Lausanne", "Helvetica Neue", Helvetica, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 0px 12px;
+    border-radius: 3px;
+    @apply bg-black-50 hover:bg-black-100 text-black-800 border border-black-200
+           transition-colors duration-150
+           focus:outline-none focus:ring-2 focus:ring-black-300 focus:ring-offset-1;
   }
   
+  .btn-orange {
+    font-family: "TWK Lausanne", "Helvetica Neue", Helvetica, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 0px 12px;
+    border-radius: 3px;
+    @apply bg-orange-500 hover:bg-orange-600 text-white
+           transition-colors duration-150
+           focus:outline-none focus:ring-2 focus:ring-orange-300 focus:ring-offset-1;
+  }
+  
+  .btn-small {
+    @apply px-3 py-1.5 text-xs;
+  }
+  
+  .btn-large {
+    @apply px-6 py-3 text-base;
+  }
+  
+  /* True Asana Card System */
   .card {
-    @apply bg-white shadow-md rounded-lg p-6;
+    @apply bg-white shadow-asana-card rounded-lg p-6 border border-black-100;
   }
   
+  .card-elevated {
+    @apply bg-white shadow-asana-2 rounded-lg p-8 border border-black-100;
+  }
+  
+  .card-interactive {
+    @apply bg-white shadow-asana-card rounded-lg p-6 border border-black-100 
+           hover:shadow-asana-2 transition-shadow duration-150 cursor-pointer;
+  }
+  
+  /* Exact Asana Form Elements */
   .input-field {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500;
+    font-family: \"TWK Lausanne\", \"Helvetica Neue\", Helvetica, sans-serif;
+    font-size: 12.8px;
+    padding: 6px 35px 6px 15px;
+    border-radius: 50px;
+    @apply w-full border border-black-300 
+           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 focus:border-blue-500
+           transition-all duration-150 placeholder-black-500 bg-white
+           font-normal;
+  }
+  
+  .input-field:hover {
+    @apply border-black-400;
+  }
+  
+  .input-field-error {
+    @apply border-red-500 focus:ring-red-500 focus:border-red-500;
+  }
+  
+  .label {
+    @apply block text-sm font-medium text-black-800 mb-1.5;
+  }
+  
+  .help-text {
+    @apply text-xs text-black-600 mt-1.5;
+  }
+  
+  .error-text {
+    @apply text-xs text-red-600 mt-1.5;
+  }
+  
+  /* True Asana Progress System */
+  .progress-bar {
+    @apply bg-orange-500 h-2 rounded-full transition-all duration-300;
+  }
+  
+  .progress-track {
+    @apply bg-black-100 h-2 rounded-full overflow-hidden;
+  }
+  
+  .step-indicator {
+    @apply w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium 
+           transition-all duration-150;
+  }
+  
+  .step-active {
+    @apply bg-orange-500 text-white;
+  }
+  
+  .step-complete {
+    @apply bg-green-600 text-white;
+  }
+  
+  .step-inactive {
+    @apply bg-black-100 text-black-500 border-2 border-black-200;
+  }
+  
+  /* Asana Badge System */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium;
+  }
+  
+  .badge-blue {
+    @apply bg-blue-100 text-blue-800;
+  }
+  
+  .badge-green {
+    @apply bg-green-100 text-green-800;
+  }
+  
+  .badge-orange {
+    @apply bg-orange-100 text-orange-800;
+  }
+  
+  .badge-gray {
+    @apply bg-black-100 text-black-700;
+  }
+  
+  /* True Asana Alert System */
+  .alert {
+    @apply p-4 rounded-lg border-l-4;
+  }
+  
+  .alert-info {
+    @apply bg-blue-50 border-blue-500 text-blue-800;
+  }
+  
+  .alert-success {
+    @apply bg-green-50 border-green-500 text-green-800;
+  }
+  
+  .alert-warning {
+    @apply bg-orange-50 border-orange-500 text-orange-800;
+  }
+  
+  .alert-error {
+    @apply bg-red-50 border-red-500 text-red-800;
+  }
+  
+  /* True Asana Navigation */
+  .nav-link {
+    @apply text-black-600 hover:text-black-800 font-medium transition-colors duration-150
+           py-2 px-3 rounded-md hover:bg-black-50;
+  }
+  
+  .nav-link-active {
+    @apply text-orange-600 bg-orange-50;
+  }
+  
+  /* Asana Section Patterns */
+  .section-spacing {
+    padding: 120px 0px 80px;
+    background-color: transparent;
+  }
+  
+  .section-spacing-small {
+    padding: 0px 0px 40px;
+    background-color: transparent;
+  }
+  
+  .section-spacing-large {
+    padding: 160px 0px 0px;
+    background-color: transparent;
+  }
+  
+  .container-padding {
+    @apply px-4 sm:px-6 lg:px-8;
   }
 }
