@@ -379,7 +379,6 @@
                                      data-category-id="{{ category.id }}"
                                      data-original-text="{{ usp.text }}"
                                      data-priority="{{ usp.priority_rank }}"
-                                     data-short-headlines="{{ usp.short_headlines|join:'|' }}"
                                      data-best-headline="{{ usp.best_for_headline|default:'' }}"
                                      data-best-description="{{ usp.best_for_description|default:'' }}">
                                     <div class="flex items-start justify-between">
@@ -433,24 +432,6 @@
                                                 </div>
                                                 
                                                 <!-- Headline Variations Preview -->
-                                                {% if usp.short_headlines %}
-                                                <div class="headline-variations-preview mt-3 pt-2 border-t border-gray-100">
-                                                    <div class="mb-2">
-                                                        <span class="text-xs font-medium text-gray-600 flex items-center">
-                                                            🎯 Headlines til annoncer
-                                                            <span class="ml-1 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{{ usp.short_headlines|length }}</span>
-                                                        </span>
-                                                    </div>
-                                                    <div class="grid grid-cols-2 gap-2">
-                                                        {% for headline in usp.short_headlines %}
-                                                        <div class="headline-tag">
-                                                            <span class="inline-block bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded-md border border-gray-200 cursor-default transition-colors">
-                                                                {{ headline }}
-                                                                <span class="text-gray-400 ml-1">({{ headline|length }})</span>
-                                                            </span>
-                                                        </div>
-                                                        {% endfor %}
-                                                    </div>
                                                     {% if usp.best_for_headline %}
                                                     <div class="mt-2">
                                                         <span class="text-xs text-green-700 bg-green-50 px-2 py-1 rounded-md border border-green-200">

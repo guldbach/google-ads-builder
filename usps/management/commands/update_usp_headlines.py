@@ -145,9 +145,12 @@ class Command(BaseCommand):
                     priority_rank=update_data['priority']
                 )
                 
-                usp.short_headlines = update_data['short_headlines']
-                usp.best_for_headline = update_data['best_for_headline']
-                usp.best_for_description = update_data['best_for_description']
+                # short_headlines field has been removed from model
+                # Only update fields that still exist
+                if hasattr(usp, 'best_for_headline'):
+                    usp.best_for_headline = update_data['best_for_headline']
+                if hasattr(usp, 'best_for_description'):
+                    usp.best_for_description = update_data['best_for_description']
                 usp.save()
                 
                 self.stdout.write(f'✅ Updated: [{usp.priority_rank}] {usp.text[:50]}...')

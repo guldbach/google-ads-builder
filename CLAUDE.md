@@ -59,6 +59,67 @@ Google Ads Builder er et intelligent Django-baseret værktøj til at bygge Googl
 - **Validation**: Live validation med tydelige fejlbeskeder
 - **Loading states**: Implementer loading spinners for async operations
 
+## 🏗️ Current System Architecture & Workflow
+
+### 🎯 USP Manager (`/usps/manager/`)
+- **Formål**: Centralt administrationspanel til alle USP kategorier og templates
+- **Kernefunktioner**: 
+  - Opret/redigér USP kategorier med ikoner og farver
+  - Administrér USP templates med headline variations og use cases
+  - Dublicér eksisterende USPs for hurtig opsætning
+  - AJAX-baseret interface uden page refresh
+- **Modeller**: `USPMainCategory`, `USPTemplate`, `ClientUSP`, `USPSet`
+- **Key Views**: `usp_manager`, `create_usp_ajax`, `edit_usp_ajax`
+
+### 🌍 Geo-Marketing System
+- **GeoTemplate**: Templates til automatisk generering af geo-specifikt content
+- **Placeholder system**: `{SERVICE}`, `{BYNAVN}`, `{URL_SLUG}` til dynamisk content
+- **Auto-validation**: Tjek at templates overholder Google Ads limits (30 chars headlines, 90 chars descriptions)
+- **Export formater**: Google Ads Editor CSV + WordPress WP All Import CSV
+- **Models**: `GeoTemplate`, `GeoKeyword`, `GeoExport`
+
+### 📊 Current Database Models
+**Core Campaign Structure:**
+- `Industry` → `Client` → `Campaign` → `AdGroup` → `Keyword`/`Ad`
+- `USPMainCategory` → `USPTemplate` → `ClientUSP`
+- `GeoTemplate` → `GeoKeyword` → `GeoExport`
+
+**Performance Tracking:**
+- `PerformanceDataImport` → `HistoricalCampaignPerformance`
+- `IndustryPerformancePattern` → `CampaignArchitecturePattern`
+
+**Negative Keywords (Existing):**
+- `NegativeKeywordList` → `NegativeKeyword`
+- `CampaignNegativeKeywordList` (Many-to-Many)
+
+### 🔗 Current URL Structure
+- `/` - Home/dashboard
+- `/campaigns/builder/` - Campaign builder
+- `/campaigns/geo/` - Geo campaign builder  
+- `/campaigns/quick/` - Quick builder
+- `/usps/manager/` - USP administration panel
+- `/admin/` - Django admin interface
+
+### 🔧 Development Commands
+```bash
+# Start development
+cd /Users/guldbach/google-ads-builder
+source venv/bin/activate
+python manage.py runserver 0.0.0.0:8000
+
+# CSS compilation
+npm run build-css        # Development
+npm run build-css-prod   # Production
+
+# Database management
+python manage.py makemigrations
+python manage.py migrate
+
+# USP data seeding
+python manage.py seed_usps
+python manage.py load_sample_usps
+```
+
 ## 🏗️ Arkitektur Guidelines
 
 ### File Organization
@@ -133,18 +194,102 @@ npm run build-css  # For CSS changes
 - Kompilér med `npm run build-css` under development
 - Brug `npm run build-css-prod` til production
 
-## 🎯 Prioriterede Features
+## 🎯 Prioriterede Features & Roadmap
 
-### UI/UX Forbedringer
+### 🔥 Næste Development Fase
+
+#### 1. **Standard Negative Søgeordslister System**
+- **Formål**: Centraliseret negative keyword management koblet til brancher og kampagnetyper
+- **Struktur**: 
+  - Branche-specifikke lister (Håndværk, Service, Skønhed & Beauty)
+  - Kampagnetype-specifikke lister (Search, Display, Shopping)
+  - Segment-specifikke lister (generelle ausschlüsse)
+- **Auto-kobling**: Automatisk tildeling baseret på industry/campaign type selection
+- **Database**: Udbyg eksisterende `NegativeKeywordList` model med industry/segment kobling
+
+#### 2. **Geografisk Segmentering & Automation**
+- **Geo-segmenter**: Nordsjælland, Storkøbenhavn, Vestsjælland, etc.
+- **Funktionalitet**:
+  - Excel/CSV generering med geo-undersider til WordPress
+  - Automatisk geo-targeting i Google Ads kampagner ved upload
+  - Template system til geo-specifikke landing pages
+- **Integration**: Kobl sammen med eksisterende `GeoTemplate` system
+
+#### 3. **Branche-Specifikke Standard Kampagnestrukturer**
+- **Template System**: Færdige campaign + ad group strukturer per branche
+- **Konfigurerbar Workflow**:
+  - Vælg branche → Auto-load standard struktur
+  - Tilpas USPs via checkbox interface  
+  - Set budget og målområde
+  - Vælg ønskede kampagner/annoncegrupper (checkbox)
+- **Database Models**: `IndustryTemplate`, `StandardCampaignStructure`, `StandardAdGroupTemplate`
+
+#### 4. **Google Ads Extensions System**
+- **Extension Typer**:
+  - Sitelink Extensions (underside udvidelser)
+  - Call Extensions (opkald udvidelser) 
+  - Location Extensions (adresse udvidelser)
+  - Callout Extensions (info udvidelser)
+- **Management**: Admin interface til at definere standard extensions per branche/kampagne
+- **Auto-Application**: Automatisk tildeling baseret på campaign/industry type
+
+### 🏗️ Arkitektur Tilføjelser
+
+#### Database Models (Nye)
+```python
+# Geo Segmentering
+class GeoSegment(models.Model):
+    name = models.CharField(max_length=100)  # "Nordsjælland", "Storkøbenhavn"
+    description = models.TextField()
+    included_cities = models.JSONField()  # Array af byer i segmentet
+    google_ads_location_criteria = models.JSONField()  # Location targeting criteria
+
+# Standard Kampagne Strukturer
+class IndustryTemplate(models.Model):
+    industry = models.ForeignKey(Industry, on_delete=models.CASCADE)
+    name = models.CharField(max_length=100)  # "VVS Standard Setup"
+    default_budget = models.DecimalField(max_digits=10, decimal_places=2)
+    default_geo_segments = models.ManyToManyField(GeoSegment)
+    
+class StandardCampaignStructure(models.Model):
+    industry_template = models.ForeignKey(IndustryTemplate, on_delete=models.CASCADE)
+    campaign_name_template = models.CharField(max_length=200)
+    campaign_type = models.CharField(max_length=20)
+    is_enabled_by_default = models.BooleanField(default=True)
+    
+class StandardAdGroupTemplate(models.Model):
+    campaign_structure = models.ForeignKey(StandardCampaignStructure, on_delete=models.CASCADE)
+    ad_group_name_template = models.CharField(max_length=200)
+    default_keywords = models.JSONField()  # Array af standard søgetermer
+    default_cpc = models.DecimalField(max_digits=8, decimal_places=2)
+
+# Extensions System
+class AdExtensionTemplate(models.Model):
+    EXTENSION_TYPES = [
+        ('sitelink', 'Sitelink Extension'),
+        ('call', 'Call Extension'),
+        ('location', 'Location Extension'),
+        ('callout', 'Callout Extension'),
+    ]
+    
+    extension_type = models.CharField(max_length=20, choices=EXTENSION_TYPES)
+    industry = models.ForeignKey(Industry, on_delete=models.CASCADE, null=True, blank=True)
+    template_data = models.JSONField()  # Extension-specific data
+    is_active = models.BooleanField(default=True)
+```
+
+### 🎨 UI/UX Forbedringer
 - Forbedret error handling og user feedback
 - Loading states for alle async operations
 - Better responsive design på mobile
+- **Wizard-based setup** til branche-specifikke templates
 
-### Funktionalitet
+### 🔧 Teknisk Funktionalitet
 - AI-powered keyword suggestions
-- Advanced performance predictions
-- Batch campaign operations
+- Advanced performance predictions baseret på historical data
+- **Bulk operations** til kampagne management
 - Enhanced USP pattern matching
+- **Checkbox-baseret campaign/ad group selection interface**
 
 ## 🚨 Vigtige Begrænsninger
 

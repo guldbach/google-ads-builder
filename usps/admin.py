@@ -100,7 +100,7 @@ class USPTemplateAdmin(admin.ModelAdmin):
             'fields': ('main_category', 'text', 'priority_rank')
         }),
         ('Targeting', {
-            'fields': ('ideal_for_industries', 'use_cases')
+            'fields': ('ideal_for_industries',)
         }),
         ('Documentation', {
             'fields': ('explanation', 'example_headlines', 'placeholders_used')

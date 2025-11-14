@@ -94,10 +94,6 @@ class USPTemplate(models.Model):
         blank=True,
         help_text="Industrier denne USP passer bedst til"
     )
-    use_cases = models.JSONField(
-        default=list, 
-        help_text="Array med use cases, f.eks. ['let_at_udregne', 'telefon_vurdering']"
-    )
     explanation = models.TextField(
         blank=True,
         help_text="Forklaring af hvornår denne USP skal bruges"
@@ -109,21 +105,6 @@ class USPTemplate(models.Model):
     placeholders_used = models.JSONField(
         default=list,
         help_text="Array med placeholders brugt, f.eks. ['{SERVICE}', '{BYNAVN}']"
-    )
-    
-    # Headline Variations for Step 4 Integration
-    short_headlines = models.JSONField(
-        default=list,
-        help_text="Array med korte headline versioner (max 30 chars), f.eks. ['Ring nu - få pris', 'Pris i telefonen']"
-    )
-    best_for_headline = models.CharField(
-        max_length=30,
-        blank=True,
-        help_text="Primær anbefalet headline version (max 30 karakterer)"
-    )
-    best_for_description = models.TextField(
-        blank=True, 
-        help_text="Bedste version til descriptions (kan være længere)"
     )
     
     # Legacy felter - beholdes for kompatibilitet

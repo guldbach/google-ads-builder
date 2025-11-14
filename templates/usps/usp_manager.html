@@ -3,6 +3,27 @@
 {% block title %}USP Manager - Administrer Alle USPs{% endblock %}
 
 {% block content %}
+<style>
+    .usp-headline-field {
+        transition: all 0.3s ease-in-out;
+    }
+    
+    .animate-fade-in {
+        animation: fadeIn 0.3s ease-in-out;
+    }
+    
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+
 <div class="max-w-7xl mx-auto section-spacing container-padding">
     <!-- Hero Section -->
     <div class="text-center mb-12 p-12 bg-gradient-to-br from-purple-100 via-blue-50 to-pink-100 rounded-3xl">
@@ -115,18 +136,6 @@
                                     </div>
                                     {% endif %}
 
-                                    {% if usp.use_cases %}
-                                    <div>
-                                        <span class="text-xs font-medium text-gray-700">Use Cases:</span>
-                                        <div class="flex flex-wrap gap-1 mt-1">
-                                            {% for use_case in usp.use_cases %}
-                                            <span class="inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                                                {{ use_case }}
-                                            </span>
-                                            {% endfor %}
-                                        </div>
-                                    </div>
-                                    {% endif %}
 
                                     {% if usp.ideal_for_industries.all %}
                                     <div>
@@ -151,38 +160,6 @@
                                             </span>
                                             {% endfor %}
                                         </div>
-                                    </div>
-                                    {% endif %}
-                                    
-                                    <!-- New Headline Variations Section -->
-                                    {% if usp.short_headlines %}
-                                    <div>
-                                        <span class="text-xs font-medium text-gray-700">🎯 Korte Headlines (≤30 chars):</span>
-                                        <div class="flex flex-wrap gap-1 mt-1">
-                                            {% for headline in usp.short_headlines %}
-                                            <span class="inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                                                {{ headline }} <span class="text-blue-600">({{ headline|length }})</span>
-                                            </span>
-                                            {% endfor %}
-                                        </div>
-                                    </div>
-                                    {% endif %}
-                                    
-                                    {% if usp.best_for_headline %}
-                                    <div>
-                                        <span class="text-xs font-medium text-gray-700">⭐ Bedste Headline:</span>
-                                        <div class="mt-1">
-                                            <span class="inline-block px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
-                                                {{ usp.best_for_headline }} <span class="text-green-600">({{ usp.best_for_headline|length }})</span>
-                                            </span>
-                                        </div>
-                                    </div>
-                                    {% endif %}
-                                    
-                                    {% if usp.best_for_description %}
-                                    <div>
-                                        <span class="text-xs font-medium text-gray-700">📝 Bedste Description:</span>
-                                        <p class="text-xs text-gray-600 mt-1 bg-gray-50 p-2 rounded">{{ usp.best_for_description }}</p>
                                     </div>
                                     {% endif %}
 
@@ -244,6 +221,36 @@
             </button>
         </div>
         {% endfor %}
+    </div>
+</div>
+
+<!-- Slide-In Panel System -->
+<div id="slide-panel-overlay" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 transition-opacity duration-300">
+    <div id="slide-panel" class="fixed right-0 top-0 h-full bg-white shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out overflow-y-auto" style="width: 1000px;">
+        <!-- Panel Header -->
+        <div id="slide-panel-header" class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 z-10">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 id="slide-panel-title" class="text-xl font-semibold text-gray-900">Panel Title</h3>
+                    <p id="slide-panel-subtitle" class="text-sm text-gray-600 mt-1">Panel subtitle</p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button id="slide-panel-save" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                        Gem
+                    </button>
+                    <button id="slide-panel-close" class="text-gray-400 hover:text-gray-600 p-2">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Panel Content -->
+        <div id="slide-panel-content" class="px-6 py-4">
+            <!-- Dynamic content will be loaded here -->
+        </div>
     </div>
 </div>
 
@@ -360,48 +367,60 @@
                                   placeholder="Forklar hvornår denne USP skal bruges..."></textarea>
                     </div>
                     
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Use Cases (kommasepareret)</label>
-                        <input type="text" id="usp-use-cases" name="use_cases" 
-                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                               placeholder="let_at_udregne, telefon_vurdering">
-                    </div>
                     
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Eksempel Headlines (kommasepareret)</label>
                         <textarea id="usp-headlines" name="example_headlines" rows="2"
                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                   placeholder="Ring nu - få pris på 2 min, {SERVICE} priser i telefon"></textarea>
+                        
+                        <!-- Headlines Preview -->
+                        <div id="main-headlines-preview" class="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3" style="display: none;">
+                            <div class="text-sm font-medium text-blue-900 mb-2">📱 Preview:</div>
+                            <div id="main-headlines-list" class="space-y-1">
+                                <!-- Will be populated by JavaScript -->
+                            </div>
+                        </div>
                     </div>
                     
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">🎯 Korte Headlines (kommasepareret, ≤30 chars)</label>
-                        <textarea id="usp-short-headlines" name="short_headlines" rows="2"
-                                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                  placeholder="Ring nu - få pris, Pris i telefonen"></textarea>
-                        <div class="text-xs text-gray-500 mt-1">Til Google Ads headlines - maks 30 karakterer hver</div>
-                    </div>
                     
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">⭐ Bedste Headline (maks 30 chars)</label>
-                        <input type="text" id="usp-best-headline" name="best_for_headline" maxlength="30"
-                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                               placeholder="Ring nu - få pris">
-                        <div class="text-xs text-gray-500 mt-1">Primær anbefalet headline version</div>
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">📝 Bedste Description</label>
-                        <textarea id="usp-best-description" name="best_for_description" rows="2"
-                                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                  placeholder="Bedste version til descriptions - kan være længere end headlines"></textarea>
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Placeholders (kommasepareret)</label>
-                        <input type="text" id="usp-placeholders" name="placeholders_used" 
-                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                               placeholder="{SERVICE}, {BYNAVN}">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">🔗 Placeholders</label>
+                        <div class="space-y-3">
+                            <!-- Tag Input Container -->
+                            <div id="placeholders-container" class="min-h-[100px] w-full px-4 py-3 border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-purple-500 focus-within:border-transparent bg-white">
+                                <div id="placeholders-tags" class="flex flex-wrap gap-2 mb-2"></div>
+                                <input type="text" id="placeholder-input" 
+                                       class="w-full border-0 outline-none text-sm placeholder-gray-400"
+                                       placeholder="Tilføj placeholder (f.eks. {SERVICE}, {BYNAVN})...">
+                            </div>
+                            
+                            <!-- Hidden input for form submission -->
+                            <input type="hidden" id="usp-placeholders" name="placeholders_used">
+                            
+                            <!-- Common Placeholders -->
+                            <div class="flex flex-wrap gap-2">
+                                <span class="text-xs text-gray-500 mr-2">Ofte brugte:</span>
+                                <button type="button" class="common-placeholder text-xs px-2 py-1 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-full border" data-placeholder="{SERVICE}">
+                                    {SERVICE}
+                                </button>
+                                <button type="button" class="common-placeholder text-xs px-2 py-1 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-full border" data-placeholder="{BYNAVN}">
+                                    {BYNAVN}
+                                </button>
+                                <button type="button" class="common-placeholder text-xs px-2 py-1 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-full border" data-placeholder="{PRIS}">
+                                    {PRIS}
+                                </button>
+                                <button type="button" class="common-placeholder text-xs px-2 py-1 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-full border" data-placeholder="{OMRÅDE}">
+                                    {OMRÅDE}
+                                </button>
+                                <button type="button" class="common-placeholder text-xs px-2 py-1 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-full border" data-placeholder="{BEDØMMELSE}">
+                                    {BEDØMMELSE}
+                                </button>
+                                <button type="button" class="common-placeholder text-xs px-2 py-1 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-full border" data-placeholder="{BEDØMMELSESPLATFORM}">
+                                    {BEDØMMELSESPLATFORM}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -433,8 +452,138 @@
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
+// CSRF Token Setup for AJAX
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+const csrftoken = getCookie('csrftoken');
+
+// Configure AJAX to always send CSRF token
+$.ajaxSetup({
+    beforeSend: function(xhr, settings) {
+        if (!(/^http:.*/.test(settings.url) || /^https:.*/.test(settings.url))) {
+            xhr.setRequestHeader("X-CSRFToken", csrftoken);
+        }
+    }
+});
+
 $(document).ready(function() {
-    // Modal management
+    // Notification System
+    function showNotification(message, type = 'success') {
+        const notification = $(`
+            <div class="fixed top-4 right-4 z-[60] max-w-sm w-full bg-white rounded-lg shadow-lg border-l-4 ${type === 'success' ? 'border-green-500' : 'border-red-500'} transform translate-x-full transition-transform duration-300 ease-in-out">
+                <div class="p-4">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            ${type === 'success' ? 
+                                '<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>' : 
+                                '<svg class="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>'
+                            }
+                        </div>
+                        <div class="ml-3 w-0 flex-1">
+                            <p class="text-sm font-medium text-gray-900">${message}</p>
+                        </div>
+                        <button class="ml-4 text-gray-400 hover:text-gray-600" onclick="$(this).closest('[class*=fixed]').remove()">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `);
+        
+        $('body').append(notification);
+        
+        // Show notification with animation
+        setTimeout(() => {
+            notification.removeClass('translate-x-full');
+        }, 10);
+        
+        // Auto-remove after 4 seconds
+        setTimeout(() => {
+            notification.addClass('translate-x-full');
+            setTimeout(() => notification.remove(), 300);
+        }, 4000);
+    }
+    
+    function showSuccessNotification(message) {
+        showNotification(message, 'success');
+    }
+    
+    function showErrorNotification(message) {
+        showNotification(message, 'error');
+    }
+
+    // Slide-In Panel Management
+    let currentPanelType = null;
+    let currentPanelData = null;
+    
+    function openSlidePanel(title, subtitle, content, saveCallback) {
+        $('#slide-panel-title').text(title);
+        $('#slide-panel-subtitle').text(subtitle || '');
+        $('#slide-panel-content').html(content);
+        
+        // Store save callback
+        $('#slide-panel-save').off('click').on('click', saveCallback);
+        
+        // Show panel with animation
+        $('#slide-panel-overlay').removeClass('hidden');
+        setTimeout(() => {
+            $('#slide-panel-overlay').removeClass('opacity-0');
+            $('#slide-panel').removeClass('translate-x-full');
+        }, 10);
+        
+        // Focus management
+        setTimeout(() => {
+            $('#slide-panel-content input:first').focus();
+            // Trigger custom event for initialization
+            $(document).trigger('slideInOpened');
+        }, 300);
+    }
+    
+    function closeSlidePanel() {
+        $('#slide-panel').addClass('translate-x-full');
+        $('#slide-panel-overlay').addClass('opacity-0');
+        
+        setTimeout(() => {
+            $('#slide-panel-overlay').addClass('hidden');
+            $('#slide-panel-content').html('');
+            currentPanelType = null;
+            currentPanelData = null;
+            // Trigger custom event for cleanup
+            $(document).trigger('slideInClosed');
+        }, 300);
+    }
+    
+    // Panel event handlers
+    $('#slide-panel-close').click(closeSlidePanel);
+    $('#slide-panel-overlay').click(function(e) {
+        if (e.target === this) {
+            closeSlidePanel();
+        }
+    });
+    
+    // Keyboard shortcuts
+    $(document).keydown(function(e) {
+        if (e.key === 'Escape' && !$('#slide-panel-overlay').hasClass('hidden')) {
+            closeSlidePanel();
+        }
+    });
+    
+    // Modal management (keep existing for backwards compatibility)
     function openModal(modalId) {
         $(`#${modalId}`).removeClass('hidden');
     }
@@ -451,6 +600,7 @@ $(document).ready(function() {
     });
     
     $('#cancel-category').click(function() {
+        $('#category-form').removeData('edit-id');  // Clear edit mode
         closeModal('category-modal');
     });
     
@@ -460,8 +610,51 @@ $(document).ready(function() {
         $('#usp-form')[0].reset();
         $('input[name="ideal_for_industries"]').prop('checked', false);
         $('#usp-form').removeData('edit-id'); // Clear edit mode
+        $('#main-headlines-preview').hide(); // Hide preview when opening new form
         openModal('usp-modal');
     });
+    
+    // Main form headlines preview functionality
+    function updateMainHeadlinesPreview() {
+        const headlinesText = $('#usp-headlines').val().trim();
+        const headlines = headlinesText.split(',').map(h => h.trim()).filter(h => h);
+        
+        if (headlines.length === 0) {
+            $('#main-headlines-preview').hide();
+            return;
+        }
+        
+        let previewHTML = '';
+        
+        headlines.forEach(headline => {
+            const charCount = headline.length;
+            let colorClass, icon;
+            
+            if (charCount <= 30) {
+                colorClass = 'text-green-700 bg-green-100';
+                icon = '✓';
+            } else if (charCount <= 90) {
+                colorClass = 'text-blue-700 bg-blue-100';
+                icon = '📝';
+            } else {
+                colorClass = 'text-red-700 bg-red-100';
+                icon = '⚠️';
+            }
+            
+            previewHTML += `
+                <div class="flex items-center justify-between ${colorClass} px-2 py-1 rounded text-xs">
+                    <span>${icon} ${headline}</span>
+                    <span class="font-mono">${charCount} chars</span>
+                </div>
+            `;
+        });
+        
+        $('#main-headlines-list').html(previewHTML);
+        $('#main-headlines-preview').show();
+    }
+    
+    // Setup main headlines input listener
+    $('#usp-headlines').on('input', updateMainHeadlinesPreview);
     
     $('.add-usp-to-category-btn').click(function() {
         const categoryId = $(this).data('category-id');
@@ -470,10 +663,13 @@ $(document).ready(function() {
         $('#usp-main-category').val(categoryId);
         $('input[name="ideal_for_industries"]').prop('checked', false);
         $('#usp-form').removeData('edit-id'); // Clear edit mode
+        $('#main-headlines-preview').hide(); // Hide preview when opening new form
         openModal('usp-modal');
     });
     
     $('#cancel-usp').click(function() {
+        $('#usp-form').removeData('edit-id');  // Clear edit mode
+        $('#main-headlines-preview').hide(); // Hide preview when closing modal
         closeModal('usp-modal');
     });
     
@@ -514,13 +710,14 @@ $(document).ready(function() {
             contentType: 'application/json',
             success: function(response) {
                 if (response.success) {
-                    location.reload(); // Reload to show updated category
+                    showSuccessNotification('Kategori gemt succesfuldt!');
+                    setTimeout(() => location.reload(), 1000); // Give time to show notification
                 } else {
-                    alert('Fejl: ' + response.error);
+                    showErrorNotification('Fejl: ' + response.error);
                 }
             },
             error: function() {
-                alert('Der opstod en fejl ved behandling af kategorien');
+                showErrorNotification('Der opstod en fejl ved behandling af kategorien');
             }
         });
     });
@@ -540,11 +737,7 @@ $(document).ready(function() {
             priority_rank: parseInt($('#usp-priority').val()),
             effectiveness_score: parseFloat($('#usp-effectiveness').val()),
             explanation: $('#usp-explanation').val(),
-            use_cases: $('#usp-use-cases').val(),
             example_headlines: $('#usp-headlines').val(),
-            short_headlines: $('#usp-short-headlines').val(),
-            best_for_headline: $('#usp-best-headline').val(),
-            best_for_description: $('#usp-best-description').val(),
             placeholders_used: $('#usp-placeholders').val(),
             ideal_for_industries: selectedIndustries
         };
@@ -559,13 +752,14 @@ $(document).ready(function() {
             contentType: 'application/json',
             success: function(response) {
                 if (response.success) {
-                    location.reload(); // Reload to show updated USP
+                    showSuccessNotification('USP gemt succesfuldt!');
+                    setTimeout(() => location.reload(), 1000);
                 } else {
-                    alert('Fejl: ' + response.error);
+                    showErrorNotification('Fejl: ' + response.error);
                 }
             },
             error: function() {
-                alert('Der opstod en fejl ved behandling af USPen');
+                showErrorNotification('Der opstod en fejl ved behandling af USPen');
             }
         });
     });
@@ -580,13 +774,14 @@ $(document).ready(function() {
             method: 'POST',
             success: function(response) {
                 if (response.success) {
-                    location.reload(); // Reload to show duplicated USP
+                    showSuccessNotification('USP duplikeret succesfuldt!');
+                    setTimeout(() => location.reload(), 1000);
                 } else {
-                    alert('Fejl: ' + response.error);
+                    showErrorNotification('Fejl: ' + response.error);
                 }
             },
             error: function() {
-                alert('Der opstod en fejl ved duplikering af USPen');
+                showErrorNotification('Der opstod en fejl ved duplikering af USPen');
             }
         });
     });
@@ -603,19 +798,181 @@ $(document).ready(function() {
                 method: 'POST',
                 success: function(response) {
                     if (response.success) {
-                        location.reload(); // Reload to remove deleted USP
+                        showSuccessNotification('USP slettet succesfuldt!');
+                        setTimeout(() => location.reload(), 1000);
                     } else {
-                        alert('Fejl: ' + response.error);
+                        showErrorNotification('Fejl: ' + response.error);
                     }
                 },
                 error: function() {
-                    alert('Der opstod en fejl ved sletning af USPen');
+                    showErrorNotification('Der opstod en fejl ved sletning af USPen');
                 }
             });
         }
     });
     
-    // Use event delegation for edit buttons too
+    // USP Edit Slide-In Panel
+    function generateUSPEditContent(usp) {
+        return `
+            <div class="space-y-6">
+                <!-- USP Basic Info -->
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">USP Tekst</label>
+                        <input type="text" id="edit-usp-text" value="${usp.text}" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                               maxlength="200">
+                        <div class="text-xs text-gray-500 mt-1">
+                            <span id="edit-usp-text-count">${usp.text.length}</span>/200 karakterer
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Prioritet</label>
+                            <input type="number" id="edit-usp-priority" value="${usp.priority_rank}" min="1"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Score</label>
+                            <input type="number" id="edit-usp-score" value="${usp.effectiveness_score}" min="0" max="1" step="0.1"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Forklaring</label>
+                        <textarea id="edit-usp-explanation" rows="3"
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                  placeholder="Hvornår skal denne USP bruges...">${usp.explanation}</textarea>
+                    </div>
+                    
+                </div>
+                
+                <!-- Eksempel Headlines Section -->
+                <div class="border-t border-gray-200 pt-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="text-lg font-medium text-gray-900">💡 Eksempel Headlines</h4>
+                        <button type="button" id="add-headline-btn" class="text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded-lg transition-colors">
+                            + Ny Headline
+                        </button>
+                    </div>
+                    
+                    <!-- Headlines List -->
+                    <div class="space-y-3">
+                        <div id="headlines-container" class="space-y-2">
+                            <!-- Headlines will be populated here -->
+                        </div>
+                        
+                        <!-- Add New Headline Form (Hidden by default) -->
+                        <div id="add-headline-form" class="hidden bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <div class="flex items-center space-x-2">
+                                <input type="text" id="new-headline-text" placeholder="F.eks. Ring nu - få pris" maxlength="30"
+                                       class="flex-1 px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                                <button type="button" id="save-new-headline" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm">
+                                    Gem
+                                </button>
+                                <button type="button" id="cancel-new-headline" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded-lg text-sm">
+                                    Annuller
+                                </button>
+                            </div>
+                            <div class="text-xs text-gray-600 mt-1">Maks 30 karakterer (Google Ads krav) - kan indeholde placeholders som {SERVICE}, {BYNAVN}</div>
+                        </div>
+                        
+                        <!-- Hidden field for form submission -->
+                        <input type="hidden" id="edit-usp-example-headlines" value="${usp.example_headlines}">
+                        
+                        <div class="text-xs text-gray-500">Headlines der kan bruges som inspiration til kampagner</div>
+                    </div>
+                </div>
+                <!-- Brancher Section -->
+                <div class="border-t border-gray-200 pt-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="text-lg font-medium text-gray-900">🏢 Brancher & Industrier</h4>
+                        <button type="button" id="add-industry-btn" class="text-sm bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1 rounded-lg transition-colors">
+                            + Ny Branche
+                        </button>
+                    </div>
+                    
+                    <!-- Industry Search & Selection -->
+                    <div class="space-y-3">
+                        <div>
+                            <input type="text" id="industry-search" placeholder="Søg brancher..." 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm">
+                        </div>
+                        
+                        <div id="industries-container" class="max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3 space-y-2">
+                            <!-- Industries will be populated here -->
+                        </div>
+                        
+                        <!-- Add New Industry Form (Hidden by default) -->
+                        <div id="add-industry-form" class="hidden bg-green-50 border border-green-200 rounded-lg p-3">
+                            <div class="flex items-center space-x-2">
+                                <input type="text" id="new-industry-name" placeholder="Navn på ny branche..." 
+                                       class="flex-1 px-3 py-2 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm">
+                                <button type="button" id="save-new-industry" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm">
+                                    Gem
+                                </button>
+                                <button type="button" id="cancel-new-industry" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded-lg text-sm">
+                                    Annuller
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="text-xs text-gray-500">Vælg hvilke brancher denne USP passer bedst til</div>
+                    </div>
+                </div>
+                
+                <!-- Additional Fields -->
+                <div class="border-t border-gray-200 pt-6">
+                    <h4 class="text-lg font-medium text-gray-900 mb-4">⚙️ Tekniske Detaljer</h4>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">🔗 Placeholders</label>
+                            <div class="space-y-3">
+                                <!-- Tag Input Container -->
+                                <div id="edit-placeholders-container" class="min-h-[100px] w-full px-3 py-2 border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-purple-500 focus-within:border-transparent bg-white">
+                                    <div id="edit-placeholders-tags" class="flex flex-wrap gap-2 mb-2"></div>
+                                    <input type="text" id="edit-placeholder-input" 
+                                           class="w-full border-0 outline-none text-sm placeholder-gray-400"
+                                           placeholder="Tilføj placeholder...">
+                                </div>
+                                
+                                <!-- Hidden input for form submission -->
+                                <input type="hidden" id="edit-usp-placeholders" value="${usp.placeholders_used}">
+                                
+                                <!-- Common Placeholders -->
+                                <div class="flex flex-wrap gap-2">
+                                    <span class="text-xs text-gray-500 mr-2">Ofte brugte:</span>
+                                    <button type="button" class="edit-common-placeholder text-xs px-2 py-1 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-full border" data-placeholder="{SERVICE}">
+                                        {SERVICE}
+                                    </button>
+                                    <button type="button" class="edit-common-placeholder text-xs px-2 py-1 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-full border" data-placeholder="{BYNAVN}">
+                                        {BYNAVN}
+                                    </button>
+                                    <button type="button" class="edit-common-placeholder text-xs px-2 py-1 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-full border" data-placeholder="{PRIS}">
+                                        {PRIS}
+                                    </button>
+                                    <button type="button" class="edit-common-placeholder text-xs px-2 py-1 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-full border" data-placeholder="{OMRÅDE}">
+                                        {OMRÅDE}
+                                    </button>
+                                    <button type="button" class="edit-common-placeholder text-xs px-2 py-1 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-full border" data-placeholder="{BEDØMMELSE}">
+                                        {BEDØMMELSE}
+                                    </button>
+                                    <button type="button" class="edit-common-placeholder text-xs px-2 py-1 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-full border" data-placeholder="{BEDØMMELSESPLATFORM}">
+                                        {BEDØMMELSESPLATFORM}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Edit USP Button Handler
     $(document).on('click', '.edit-usp-btn', function() {
         const uspId = $(this).data('usp-id');
         
@@ -626,31 +983,28 @@ $(document).ready(function() {
             success: function(response) {
                 if (response.success) {
                     const usp = response.usp;
+                    currentPanelType = 'edit-usp';
+                    currentPanelData = { uspId: uspId, usp: usp };
                     
-                    // Populate form
-                    $('#usp-modal-title').text('Rediger USP');
-                    $('#usp-text').val(usp.text);
-                    $('#usp-main-category').val(usp.main_category_id);
-                    $('#usp-priority').val(usp.priority_rank);
-                    $('#usp-effectiveness').val(usp.effectiveness_score);
-                    $('#usp-explanation').val(usp.explanation);
-                    $('#usp-use-cases').val(usp.use_cases);
-                    $('#usp-headlines').val(usp.example_headlines);
-                    $('#usp-short-headlines').val(usp.short_headlines);
-                    $('#usp-best-headline').val(usp.best_for_headline);
-                    $('#usp-best-description').val(usp.best_for_description);
-                    $('#usp-placeholders').val(usp.placeholders_used);
+                    const content = generateUSPEditContent(usp);
                     
-                    // Set industry checkboxes
-                    $('input[name="ideal_for_industries"]').prop('checked', false);
-                    usp.ideal_for_industries.forEach(function(industryId) {
-                        $(`input[name="ideal_for_industries"][value="${industryId}"]`).prop('checked', true);
+                    openSlidePanel(
+                        'Rediger USP',
+                        `Prioritet ${usp.priority_rank} • ID: ${usp.id}`,
+                        content,
+                        saveUSPEdit
+                    );
+                    
+                    // Setup character counters
+                    $('#edit-usp-text').on('input', function() {
+                        $('#edit-usp-text-count').text(this.value.length);
                     });
                     
-                    // Store edit mode
-                    $('#usp-form').data('edit-id', uspId);
                     
-                    openModal('usp-modal');
+                    
+                    // Load and setup industries
+                    loadIndustriesForUSP(usp.ideal_for_industries);
+                    
                 } else {
                     alert('Fejl ved indlæsning af USP: ' + response.error);
                 }
@@ -660,6 +1014,167 @@ $(document).ready(function() {
             }
         });
     });
+    
+    // Save USP Edit Function
+    function saveUSPEdit() {
+        const uspId = currentPanelData.uspId;
+        
+        const formData = {
+            text: $('#edit-usp-text').val(),
+            priority_rank: parseInt($('#edit-usp-priority').val()),
+            effectiveness_score: parseFloat($('#edit-usp-score').val()),
+            explanation: $('#edit-usp-explanation').val(),
+            example_headlines: $('#edit-usp-example-headlines').val(),
+            placeholders_used: $('#edit-usp-placeholders').val(),
+            ideal_for_industries: selectedIndustries
+        };
+        
+        $.ajax({
+            url: `/usps/ajax/edit-usp/${uspId}/`,
+            method: 'POST',
+            data: JSON.stringify(formData),
+            contentType: 'application/json',
+            success: function(response) {
+                if (response.success) {
+                    showSuccessNotification('USP ændringer gemt succesfuldt!');
+                    closeSlidePanel();
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showErrorNotification('Fejl: ' + response.error);
+                }
+            },
+            error: function() {
+                showErrorNotification('Der opstod en fejl ved gem af USP');
+            }
+        });
+    }
+    
+    // Industries Management
+    let allIndustries = [];
+    let selectedIndustries = [];
+    
+    function loadIndustriesForUSP(selectedIds = []) {
+        // Fetch all industries from backend
+        $.ajax({
+            url: '{% url "usps:get_industries_ajax" %}',
+            method: 'GET',
+            success: function(response) {
+                if (response.success) {
+                    allIndustries = response.industries;
+                    // Ensure selectedIds are integers for proper comparison
+                    selectedIndustries = (selectedIds || []).map(id => parseInt(id));
+                    renderIndustriesContainer();
+                    setupIndustrySearch();
+                    setupIndustryActions();
+                } else {
+                    console.error('Failed to load industries');
+                }
+            },
+            error: function() {
+                console.error('Error loading industries');
+            }
+        });
+    }
+    
+    function renderIndustriesContainer(filterText = '') {
+        const container = $('#industries-container');
+        const filteredIndustries = allIndustries.filter(industry => 
+            industry.name.toLowerCase().includes(filterText.toLowerCase())
+        );
+        
+        let html = '';
+        
+        filteredIndustries.forEach(industry => {
+            const isSelected = selectedIndustries.includes(industry.id);
+            const bgClass = isSelected ? 'bg-purple-100 border-purple-300' : 'bg-white border-gray-200';
+            const textClass = isSelected ? 'text-purple-700' : 'text-gray-700';
+            
+            html += `
+                <div class="industry-item ${bgClass} border rounded-lg p-2 cursor-pointer hover:bg-gray-50 transition-colors"
+                     data-industry-id="${industry.id}">
+                    <div class="flex items-center justify-between">
+                        <span class="${textClass} text-sm">${industry.name}</span>
+                        ${isSelected ? '<span class="text-purple-600">✓</span>' : ''}
+                    </div>
+                </div>
+            `;
+        });
+        
+        if (html === '') {
+            html = '<div class="text-sm text-gray-500 text-center py-4">Ingen brancher fundet</div>';
+        }
+        
+        container.html(html);
+    }
+    
+    function setupIndustrySearch() {
+        $('#industry-search').off('input').on('input', function() {
+            const searchText = $(this).val();
+            renderIndustriesContainer(searchText);
+        });
+    }
+    
+    function setupIndustryActions() {
+        // Industry selection
+        $(document).off('click', '.industry-item').on('click', '.industry-item', function() {
+            const industryId = parseInt($(this).data('industry-id'));
+            
+            if (selectedIndustries.includes(industryId)) {
+                selectedIndustries = selectedIndustries.filter(id => id !== industryId);
+            } else {
+                selectedIndustries.push(industryId);
+            }
+            
+            renderIndustriesContainer($('#industry-search').val());
+        });
+        
+        // Add new industry
+        $('#add-industry-btn').off('click').on('click', function() {
+            $('#add-industry-form').removeClass('hidden');
+            $('#new-industry-name').focus();
+        });
+        
+        $('#cancel-new-industry').off('click').on('click', function() {
+            $('#add-industry-form').addClass('hidden');
+            $('#new-industry-name').val('');
+        });
+        
+        $('#save-new-industry').off('click').on('click', function() {
+            const industryName = $('#new-industry-name').val().trim();
+            
+            if (!industryName) {
+                alert('Indtast navn på branche');
+                return;
+            }
+            
+            // Create new industry via AJAX
+            $.ajax({
+                url: '{% url "usps:create_industry_ajax" %}', // We'll need to create this endpoint
+                method: 'POST',
+                data: JSON.stringify({ name: industryName }),
+                contentType: 'application/json',
+                success: function(response) {
+                    if (response.success) {
+                        // Add to local industries list
+                        allIndustries.push(response.industry);
+                        selectedIndustries.push(response.industry.id);
+                        
+                        // Re-render and hide form
+                        renderIndustriesContainer();
+                        $('#add-industry-form').addClass('hidden');
+                        $('#new-industry-name').val('');
+                        
+                        console.log(`Created new industry: ${response.industry.name}`);
+                    } else {
+                        alert('Fejl ved oprettelse: ' + response.error);
+                    }
+                },
+                error: function() {
+                    alert('Der opstod en fejl ved oprettelse af branche');
+                }
+            });
+        });
+    }
     
     $(document).on('click', '.edit-category-btn', function() {
         const categoryId = $(this).data('category-id');
@@ -720,6 +1235,531 @@ $(document).ready(function() {
             });
             icon.removeClass('rotate-180');
         }
+    });
+    
+    // ===== PLACEHOLDER TAG INPUT SYSTEM =====
+    
+    let placeholderTags = [];
+    let editPlaceholderTags = [];
+    
+    // Initialize placeholder tag systems
+    function initPlaceholderTagInput(containerId, tagsContainerId, inputId, hiddenInputId, commonButtonClass, tagsArray) {
+        const container = $(containerId);
+        const tagsContainer = $(tagsContainerId);
+        const input = $(inputId);
+        const hiddenInput = $(hiddenInputId);
+        
+        // Render tags
+        function renderTags() {
+            tagsContainer.empty();
+            tagsArray.forEach((tag, index) => {
+                const tagElement = $(`
+                    <span class="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-800 text-sm rounded-full border border-purple-200">
+                        <span class="font-medium">${tag}</span>
+                        <button type="button" class="ml-2 text-purple-600 hover:text-purple-800" data-index="${index}">
+                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                            </svg>
+                        </button>
+                    </span>
+                `);
+                tagsContainer.append(tagElement);
+            });
+            
+            // Update hidden input
+            hiddenInput.val(tagsArray.join(', '));
+        }
+        
+        // Add tag
+        function addTag(tag) {
+            tag = tag.trim();
+            if (!tag) return;
+            
+            // Auto-format placeholder if it doesn't start with {
+            if (!tag.startsWith('{') && !tag.endsWith('}')) {
+                tag = `{${tag.toUpperCase()}}`;
+            } else if (!tag.startsWith('{')) {
+                tag = `{${tag}}`;
+            } else if (!tag.endsWith('}')) {
+                tag = `${tag}}`;
+            }
+            
+            // Check for duplicates
+            if (!tagsArray.includes(tag)) {
+                tagsArray.push(tag);
+                renderTags();
+                input.val('');
+            }
+        }
+        
+        // Remove tag
+        function removeTag(index) {
+            tagsArray.splice(index, 1);
+            renderTags();
+        }
+        
+        // Event handlers
+        input.on('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ',' || e.key === 'Tab') {
+                e.preventDefault();
+                addTag(input.val());
+            } else if (e.key === 'Backspace' && input.val() === '' && tagsArray.length > 0) {
+                removeTag(tagsArray.length - 1);
+            }
+        });
+        
+        input.on('blur', function() {
+            if (input.val().trim()) {
+                addTag(input.val());
+            }
+        });
+        
+        // Remove tag button handler
+        tagsContainer.on('click', 'button', function(e) {
+            e.preventDefault();
+            const index = parseInt($(this).data('index'));
+            removeTag(index);
+        });
+        
+        // Common placeholder buttons
+        $(document).on('click', commonButtonClass, function(e) {
+            e.preventDefault();
+            const placeholder = $(this).data('placeholder');
+            addTag(placeholder);
+        });
+        
+        // Initialize from existing value
+        const existingValue = hiddenInput.val();
+        if (existingValue) {
+            const existingTags = existingValue.split(',').map(tag => tag.trim()).filter(tag => tag);
+            tagsArray.splice(0, tagsArray.length, ...existingTags);
+            renderTags();
+        }
+        
+        // Return public methods
+        return {
+            addTag: addTag,
+            removeTag: removeTag,
+            renderTags: renderTags,
+            getTags: () => tagsArray,
+            setTags: (newTags) => {
+                tagsArray.splice(0, tagsArray.length, ...newTags);
+                renderTags();
+            }
+        };
+    }
+    
+    // Initialize placeholder systems when needed
+    let mainPlaceholderSystem = null;
+    let editPlaceholderSystem = null;
+    
+    // Initialize main form placeholder system
+    $(document).on('focus', '#placeholder-input', function() {
+        if (!mainPlaceholderSystem) {
+            mainPlaceholderSystem = initPlaceholderTagInput(
+                '#placeholders-container',
+                '#placeholders-tags',
+                '#placeholder-input', 
+                '#usp-placeholders',
+                '.common-placeholder',
+                placeholderTags
+            );
+        }
+    });
+    
+    // Initialize edit form placeholder system when slide panel opens
+    $(document).on('slideInOpened', function() {
+        // Wait a bit for DOM to be ready
+        setTimeout(() => {
+            if ($('#edit-placeholder-input').length && !editPlaceholderSystem) {
+                editPlaceholderTags = [];
+                editPlaceholderSystem = initPlaceholderTagInput(
+                    '#edit-placeholders-container',
+                    '#edit-placeholders-tags', 
+                    '#edit-placeholder-input',
+                    '#edit-usp-placeholders',
+                    '.edit-common-placeholder',
+                    editPlaceholderTags
+                );
+                
+                // Load existing placeholders for edit
+                const existingPlaceholders = $('#edit-usp-placeholders').val();
+                if (existingPlaceholders) {
+                    const tags = existingPlaceholders.split(',').map(tag => tag.trim()).filter(tag => tag);
+                    editPlaceholderSystem.setTags(tags);
+                }
+            }
+        }, 100);
+    });
+    
+    // Reset systems when panels close
+    $(document).on('slideInClosed', function() {
+        editPlaceholderSystem = null;
+        editPlaceholderTags = [];
+    });
+    
+    // ===== USP HEADLINE AUTO-REVEAL SYSTEM =====
+    
+    let visibleUSPHeadlines = 1; // Start with headline 1 visible
+    
+    function setupUSPHeadlineAutoReveal() {
+        console.log('🎯 Setting up auto-reveal for USP headlines');
+        
+        // Setup input event listeners for all USP headlines 1-10
+        for (let i = 1; i <= 10; i++) {
+            const input = document.getElementById(`usp_headline_${i}`);
+            if (input) {
+                input.addEventListener('input', function() {
+                    revealNextUSPHeadline(i);
+                    updateUSPHeadlineProgress();
+                    updateUSPCharacterCount(`usp_headline_${i}`, `usp_headline_${i}_count`, 30);
+                    updateUSPHeadlinesHiddenField();
+                });
+            }
+        }
+        updateUSPHeadlineProgress();
+    }
+    
+    function revealNextUSPHeadline(currentIndex) {
+        // If user is typing in current visible headline and there are more to reveal
+        const input = document.getElementById(`usp_headline_${currentIndex}`);
+        if (input && input.value.length > 0 && currentIndex >= visibleUSPHeadlines && visibleUSPHeadlines < 10) {
+            const nextIndex = visibleUSPHeadlines + 1;
+            const nextContainer = document.getElementById(`usp_headline_${nextIndex}_container`);
+            
+            if (nextContainer) {
+                console.log(`🎯 Auto-revealing USP headline ${nextIndex}`);
+                nextContainer.style.display = 'block';
+                nextContainer.classList.add('animate-fade-in');
+                visibleUSPHeadlines = nextIndex;
+                
+                // Setup character count for the newly revealed field
+                const nextInput = document.getElementById(`usp_headline_${nextIndex}`);
+                if (nextInput) {
+                    updateUSPCharacterCount(`usp_headline_${nextIndex}`, `usp_headline_${nextIndex}_count`, 30);
+                }
+            }
+        }
+    }
+    
+    function updateUSPHeadlineProgress() {
+        const progressElement = document.getElementById('usp-headlines-progress');
+        if (progressElement) {
+            // Count filled headlines
+            let filledCount = 0;
+            for (let i = 1; i <= visibleUSPHeadlines; i++) {
+                const input = document.getElementById(`usp_headline_${i}`);
+                if (input && input.value.trim().length > 0) {
+                    filledCount++;
+                }
+            }
+            progressElement.textContent = `${filledCount} af ${visibleUSPHeadlines} udfyldt (max 10)`;
+        }
+    }
+    
+    function updateUSPCharacterCount(inputId, countId, maxLength) {
+        const input = document.getElementById(inputId);
+        const counter = document.getElementById(countId);
+        
+        if (input && counter) {
+            const length = input.value.length;
+            counter.textContent = `${length}/${maxLength}`;
+            
+            // Color coding
+            if (length > maxLength) {
+                counter.parentElement.classList.add('text-red-500');
+                counter.parentElement.classList.remove('text-yellow-500', 'text-green-500');
+            } else if (length > maxLength * 0.8) {
+                counter.parentElement.classList.add('text-yellow-500');
+                counter.parentElement.classList.remove('text-red-500', 'text-green-500');
+            } else {
+                counter.parentElement.classList.remove('text-red-500', 'text-yellow-500');
+            }
+        }
+    }
+    
+    function updateUSPHeadlinesHiddenField() {
+        // Collect all non-empty headline values
+        const headlines = [];
+        for (let i = 1; i <= 10; i++) {
+            const input = document.getElementById(`usp_headline_${i}`);
+            if (input && input.value.trim()) {
+                headlines.push(input.value.trim());
+            }
+        }
+        
+        // Update hidden field for form submission
+        const hiddenField = document.getElementById('edit-usp-short-headlines');
+        if (hiddenField) {
+            hiddenField.value = headlines.join(', ');
+        }
+    }
+    
+    function loadUSPHeadlinesFromString(headlinesString) {
+        if (!headlinesString) return;
+        
+        // Reset system
+        visibleUSPHeadlines = 1;
+        for (let i = 2; i <= 10; i++) {
+            const container = document.getElementById(`usp_headline_${i}_container`);
+            if (container) {
+                container.style.display = 'none';
+                container.classList.remove('animate-fade-in');
+            }
+        }
+        
+        // Parse headlines and populate fields
+        const headlines = headlinesString.split(',').map(h => h.trim()).filter(h => h);
+        headlines.forEach((headline, index) => {
+            const fieldIndex = index + 1;
+            if (fieldIndex <= 10) {
+                const input = document.getElementById(`usp_headline_${fieldIndex}`);
+                if (input) {
+                    input.value = headline;
+                    updateUSPCharacterCount(`usp_headline_${fieldIndex}`, `usp_headline_${fieldIndex}_count`, 30);
+                    
+                    // Show container if needed
+                    if (fieldIndex > 1) {
+                        const container = document.getElementById(`usp_headline_${fieldIndex}_container`);
+                        if (container) {
+                            container.style.display = 'block';
+                            visibleUSPHeadlines = Math.max(visibleUSPHeadlines, fieldIndex);
+                        }
+                    }
+                }
+            }
+        });
+        
+        updateUSPHeadlineProgress();
+    }
+    
+    // ===== HEADLINE MANAGEMENT SYSTEM =====
+    
+    let uspHeadlines = [];
+    
+    function setupHeadlineManagement() {
+        
+        // Initialize headlines array
+        uspHeadlines = [];
+        
+        // Load existing headlines
+        const existingHeadlines = $('#edit-usp-example-headlines').val();
+        if (existingHeadlines) {
+            const headlines = existingHeadlines.split(',').map(h => h.trim()).filter(h => h);
+            uspHeadlines = headlines;
+        }
+        
+        renderHeadlines();
+        
+        // Event handlers
+        $('#add-headline-btn').off('click').on('click', function() {
+            $('#add-headline-form').removeClass('hidden');
+            $('#new-headline-text').focus();
+        });
+        
+        $('#save-new-headline').off('click').on('click', function() {
+            const headlineText = $('#new-headline-text').val().trim();
+            if (headlineText && headlineText.length <= 30) {
+                addHeadline(headlineText);
+                $('#new-headline-text').val('');
+                $('#add-headline-form').addClass('hidden');
+            }
+        });
+        
+        $('#cancel-new-headline').off('click').on('click', function() {
+            $('#new-headline-text').val('');
+            $('#add-headline-form').addClass('hidden');
+        });
+        
+        // Enter key to save
+        $('#new-headline-text').off('keydown').on('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                $('#save-new-headline').click();
+            } else if (e.key === 'Escape') {
+                $('#cancel-new-headline').click();
+            }
+        });
+    }
+    
+    function addHeadline(text) {
+        if (text && !uspHeadlines.includes(text)) {
+            uspHeadlines.push(text);
+            renderHeadlines();
+            updateHeadlinesHiddenField();
+        }
+    }
+    
+    function removeHeadline(index) {
+        if (index >= 0 && index < uspHeadlines.length) {
+            uspHeadlines.splice(index, 1);
+            renderHeadlines();
+            updateHeadlinesHiddenField();
+        }
+    }
+    
+    function renderHeadlines() {
+        const container = $('#headlines-container');
+        container.empty();
+        
+        if (uspHeadlines.length === 0) {
+            container.html('<div class="text-sm text-gray-500 italic p-3 border border-gray-200 rounded-lg">Ingen headlines endnu. Klik "+ Ny Headline" for at tilføje.</div>');
+            return;
+        }
+        
+        uspHeadlines.forEach((headline, index) => {
+            const headlineElement = $(`
+                <div class="headline-item p-3 border border-gray-200 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors" data-index="${index}">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1">
+                            <div class="headline-display">
+                                <span class="text-sm font-medium text-gray-900 headline-text">${headline}</span>
+                                <div class="text-xs text-gray-500 mt-1">${headline.length}/30 karakterer</div>
+                            </div>
+                            <div class="headline-edit hidden">
+                                <input type="text" class="edit-headline-input w-full px-2 py-1 border border-gray-300 rounded text-sm" value="${headline}" maxlength="30">
+                                <div class="text-xs text-gray-500 mt-1">
+                                    <span class="edit-char-count">${headline.length}</span>/30 karakterer
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-1 ml-3">
+                            <div class="headline-display">
+                                <button type="button" class="edit-headline-btn text-blue-600 hover:text-blue-800 p-1" data-index="${index}">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path>
+                                    </svg>
+                                </button>
+                                <button type="button" class="remove-headline-btn text-red-600 hover:text-red-800 p-1" data-index="${index}">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="headline-edit hidden">
+                                <button type="button" class="save-headline-edit-btn text-green-600 hover:text-green-800 p-1" data-index="${index}">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                    </svg>
+                                </button>
+                                <button type="button" class="cancel-headline-edit-btn text-gray-600 hover:text-gray-800 p-1" data-index="${index}">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `);
+            container.append(headlineElement);
+        });
+        
+        // Add event handlers for buttons
+        $('.remove-headline-btn').off('click').on('click', function(e) {
+            e.preventDefault();
+            const index = parseInt($(this).data('index'));
+            removeHeadline(index);
+        });
+        
+        $('.edit-headline-btn').off('click').on('click', function(e) {
+            e.preventDefault();
+            const index = parseInt($(this).data('index'));
+            enterEditMode(index);
+        });
+        
+        $('.save-headline-edit-btn').off('click').on('click', function(e) {
+            e.preventDefault();
+            const index = parseInt($(this).data('index'));
+            saveHeadlineEdit(index);
+        });
+        
+        $('.cancel-headline-edit-btn').off('click').on('click', function(e) {
+            e.preventDefault();
+            const index = parseInt($(this).data('index'));
+            cancelEditMode(index);
+        });
+        
+        // Character count for edit inputs
+        $('.edit-headline-input').off('input').on('input', function() {
+            const $input = $(this);
+            const $container = $input.closest('.headline-item');
+            const $charCount = $container.find('.edit-char-count');
+            $charCount.text($input.val().length);
+        });
+        
+        // Enter key to save, Escape to cancel
+        $('.edit-headline-input').off('keydown').on('keydown', function(e) {
+            const index = parseInt($(this).closest('.headline-item').data('index'));
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                saveHeadlineEdit(index);
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                cancelEditMode(index);
+            }
+        });
+    }
+    
+    function updateHeadlinesHiddenField() {
+        $('#edit-usp-example-headlines').val(uspHeadlines.join(', '));
+    }
+    
+    function enterEditMode(index) {
+        const $item = $(`.headline-item[data-index="${index}"]`);
+        $item.find('.headline-display').addClass('hidden');
+        $item.find('.headline-edit').removeClass('hidden');
+        
+        // Focus on the input field
+        const $input = $item.find('.edit-headline-input');
+        $input.focus();
+        
+        // Select all text for easy editing
+        setTimeout(() => {
+            $input.select();
+        }, 10);
+    }
+    
+    function cancelEditMode(index) {
+        const $item = $(`.headline-item[data-index="${index}"]`);
+        $item.find('.headline-edit').addClass('hidden');
+        $item.find('.headline-display').removeClass('hidden');
+        
+        // Reset input value to original
+        const originalValue = uspHeadlines[index];
+        $item.find('.edit-headline-input').val(originalValue);
+        $item.find('.edit-char-count').text(originalValue.length);
+    }
+    
+    function saveHeadlineEdit(index) {
+        const $item = $(`.headline-item[data-index="${index}"]`);
+        const $input = $item.find('.edit-headline-input');
+        const newText = $input.val().trim();
+        
+        if (newText && newText.length <= 30) {
+            // Check for duplicates (excluding current item)
+            const otherHeadlines = uspHeadlines.filter((h, i) => i !== index);
+            if (otherHeadlines.includes(newText)) {
+                alert('Denne headline eksisterer allerede');
+                return;
+            }
+            
+            // Update the headline
+            uspHeadlines[index] = newText;
+            renderHeadlines();
+            updateHeadlinesHiddenField();
+        } else {
+            alert('Headline skal være mellem 1 og 30 karakterer (Google Ads krav)');
+        }
+    }
+    
+    // Initialize headline system when slide panel opens
+    $(document).on('slideInOpened', function() {
+        setTimeout(() => {
+            if ($('#headlines-container').length) {
+                setupHeadlineManagement();
+            }
+        }, 150);
     });
     
     console.log('📋 USP Manager initialized');

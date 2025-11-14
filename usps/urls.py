@@ -16,4 +16,6 @@ urlpatterns = [
     path('ajax/get-usp/<int:usp_id>/', views.get_usp_ajax, name='get_usp_ajax'),
     path('ajax/get-category/<int:category_id>/', views.get_category_ajax, name='get_category_ajax'),
     path('ajax/delete-usp/<int:usp_id>/', views.delete_usp_ajax, name='delete_usp_ajax'),
+    path('ajax/get-industries/', views.get_industries_ajax, name='get_industries_ajax'),
+    path('ajax/create-industry/', views.create_industry_ajax, name='create_industry_ajax'),
 ]
