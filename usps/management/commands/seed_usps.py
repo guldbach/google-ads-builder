@@ -113,7 +113,11 @@ class Command(BaseCommand):
                 'use_cases': ['let_at_udregne', 'telefon_vurdering'],
                 'industries': [elektriker, vvs, maler],
                 'headlines': ['Ring nu - få pris på 2 min', '{SERVICE} priser i telefon', 'Pris direkte over telefon'],
-                'placeholders': ['{SERVICE}', '{BYNAVN}']
+                'placeholders': ['{SERVICE}', '{BYNAVN}'],
+                # New headline variations (max 30 chars each)
+                'short_headlines': ['Ring nu - få pris', 'Pris i telefonen', 'Ring for tilbud', 'Hurtig prisoverslag'],
+                'best_for_headline': 'Ring nu - få pris',
+                'best_for_description': 'Ring og få et prisoverslag direkte i telefonen - den korteste vej fra a til b'
             },
             {
                 'category': hurtig_service,
@@ -123,7 +127,10 @@ class Command(BaseCommand):
                 'use_cases': ['vagtudkald', 'akut_service'],
                 'industries': [vvs, elektriker],
                 'headlines': ['Hos dig på 1-2 timer', 'Hurtig service {BYNAVN}', 'Akut {SERVICE} service'],
-                'placeholders': ['{SERVICE}', '{BYNAVN}']
+                'placeholders': ['{SERVICE}', '{BYNAVN}'],
+                'short_headlines': ['Hos dig på 1-2 timer', 'Akut service', 'Hurtig respons', 'Service på rekordtid'],
+                'best_for_headline': 'Hos dig på 1-2 timer',
+                'best_for_description': 'Vi kan være hos dig inden for 1-2 timer - perfekt til akut service og vagtudkald'
             },
             {
                 'category': hurtig_service,
@@ -133,7 +140,10 @@ class Command(BaseCommand):
                 'use_cases': ['tilbud_service', 'standard_respons'],
                 'industries': [],
                 'headlines': ['Tilbud på 24 timer', 'Hurtig tilbuds service', 'Fast respons {BYNAVN}'],
-                'placeholders': ['{SERVICE}', '{BYNAVN}']
+                'placeholders': ['{SERVICE}', '{BYNAVN}'],
+                'short_headlines': ['Tilbud på 24 timer', 'Fast respons', 'Hurtig service', 'Tilbud inden 24t'],
+                'best_for_headline': 'Tilbud på 24 timer',
+                'best_for_description': 'Modtag et tilbud der holder inden for 2-24 timer - fast respons garanteret'
             },
             
             # Anmeldelser
@@ -145,7 +155,10 @@ class Command(BaseCommand):
                 'use_cases': ['pris_vinder', 'ekspertise_bevis'],
                 'industries': [],
                 'headlines': ['Årets Håndværker 2024', 'Prisvindende {SERVICE}', 'Anerkendt ekspertise'],
-                'placeholders': ['{SERVICE}', '{BYNAVN}']
+                'placeholders': ['{SERVICE}', '{BYNAVN}'],
+                'short_headlines': ['Årets Håndværker 2024', 'Prisvinder', 'Anerkendt ekspert', 'Kvalitetsgaranti'],
+                'best_for_headline': 'Årets Håndværker 2024',
+                'best_for_description': 'Vinder af Årets Håndværker 2024 - anerkendt ekspertise og kvalitet'
             },
             {
                 'category': anmeldelser,
@@ -155,7 +168,10 @@ class Command(BaseCommand):
                 'use_cases': ['høj_rating', 'trustpilot'],
                 'industries': [],
                 'headlines': ['4,8/5 stjerner', 'Topbedømt {SERVICE}', 'Høj kundetilfredshed'],
-                'placeholders': ['{SERVICE}', '{BYNAVN}']
+                'placeholders': ['{SERVICE}', '{BYNAVN}'],
+                'short_headlines': ['4,8/5 stjerner', 'Topbedømt', 'Høje ratings', '4,8 på Trustpilot'],
+                'best_for_headline': '4,8/5 stjerner',
+                'best_for_description': '4,8/5 på Trustpilot - dokumenteret høj kundetilfredshed og kvalitet'
             },
             {
                 'category': anmeldelser,
@@ -165,7 +181,10 @@ class Command(BaseCommand):
                 'use_cases': ['perfekte_ratings', 'få_anmeldelser'],
                 'industries': [],
                 'headlines': ['Kun 5 stjerner', 'Perfekte anmeldelser', '100% tilfredse kunder'],
-                'placeholders': ['{SERVICE}', '{BYNAVN}']
+                'placeholders': ['{SERVICE}', '{BYNAVN}'],
+                'short_headlines': ['Kun 5 stjerner', 'Perfekte ratings', '100% tilfredse', 'Topbedømte'],
+                'best_for_headline': 'Kun 5 stjerner',
+                'best_for_description': 'Vi har kun 5 stjernede bedømmelser - 100% tilfredse kunder og perfekt service'
             },
             
             # Priser
@@ -177,7 +196,10 @@ class Command(BaseCommand):
                 'use_cases': ['fastpris', 'fra_pris', 'gennemsigtig_pris'],
                 'industries': [elektriker],
                 'headlines': ['Fra kun 4999 kr', 'Konkurrencedygtige priser', 'Gennemsigtige priser'],
-                'placeholders': ['{SERVICE}', '{BYNAVN}']
+                'placeholders': ['{SERVICE}', '{BYNAVN}'],
+                'short_headlines': ['Fra kun 4999 kr', 'Lave priser', 'Fra 4999,-', 'Skarp pris'],
+                'best_for_headline': 'Fra kun 4999 kr',
+                'best_for_description': 'Priser fra kun 4999 kr - konkurrencedygtige og gennemsigtige priser'
             },
             {
                 'category': priser,
@@ -187,7 +209,10 @@ class Command(BaseCommand):
                 'use_cases': ['prisgaranti', 'konkurrence_match'],
                 'industries': [],
                 'headlines': ['Prisgaranti', 'Matcher konkurrenter', 'Bedste pris garanti'],
-                'placeholders': ['{SERVICE}', '{BYNAVN}']
+                'placeholders': ['{SERVICE}', '{BYNAVN}'],
+                'short_headlines': ['Prisgaranti', 'Bedste pris', 'Matcher priser', 'Pris garanti'],
+                'best_for_headline': 'Prisgaranti',
+                'best_for_description': 'Prisgaranti - vi matcher konkurrenternes priser og sikrer dig den bedste pris'
             },
             
             # Erfaring
@@ -199,7 +224,10 @@ class Command(BaseCommand):
                 'use_cases': ['lang_erfaring', 'ekspertise'],
                 'industries': [],
                 'headlines': ['+15 års erfaring', 'Erfaren {SERVICE}', 'Mange års ekspertise'],
-                'placeholders': ['{SERVICE}', '{BYNAVN}']
+                'placeholders': ['{SERVICE}', '{BYNAVN}'],
+                'short_headlines': ['+15 års erfaring', 'Erfaren', 'Lang erfaring', '15+ års ekspertise'],
+                'best_for_headline': '+15 års erfaring',
+                'best_for_description': '+15 års erfaring - dokumenteret ekspertise og mange års praksis'
             },
             {
                 'category': erfaring,
@@ -209,7 +237,10 @@ class Command(BaseCommand):
                 'use_cases': ['mange_opgaver', 'dokumenteret_erfaring'],
                 'industries': [],
                 'headlines': ['+10.000 opgaver løst', 'Bredt erfaring', 'Dokumenteret ekspertise'],
-                'placeholders': ['{SERVICE}', '{BYNAVN}']
+                'placeholders': ['{SERVICE}', '{BYNAVN}'],
+                'short_headlines': ['+10.000 opgaver', 'Mange opgaver løst', 'Bred erfaring', '10k+ jobs'],
+                'best_for_headline': '+10.000 opgaver',
+                'best_for_description': '+10.000 løste opgaver - dokumenteret erfaring og bred ekspertise'
             },
             
             # Sikkerhed
@@ -221,7 +252,10 @@ class Command(BaseCommand):
                 'use_cases': ['garantiordning', 'byggegaranti'],
                 'industries': [],
                 'headlines': ['Byg garantiordning', 'Fuld garanti', 'Sikker investering'],
-                'placeholders': ['{SERVICE}', '{BYNAVN}']
+                'placeholders': ['{SERVICE}', '{BYNAVN}'],
+                'short_headlines': ['Byg garanti', 'Fuld garanti', 'Sikker job', 'Garantiordning'],
+                'best_for_headline': 'Byg garanti',
+                'best_for_description': 'Medlem af byg garantiordning - din sikkerhed og garanti ved alle opgaver'
             },
             {
                 'category': sikkerhed,
@@ -231,24 +265,37 @@ class Command(BaseCommand):
                 'use_cases': ['høj_forsikring', 'tryg_forsikring'],
                 'industries': [],
                 'headlines': ['10 mio. forsikring', 'Fuld dækning', 'Tryg hos Tryg'],
-                'placeholders': ['{SERVICE}', '{BYNAVN}']
+                'placeholders': ['{SERVICE}', '{BYNAVN}'],
+                'short_headlines': ['10 mio. forsikring', 'Fuld dækning', 'Tryg forsikret', '10M dækning'],
+                'best_for_headline': '10 mio. forsikring',
+                'best_for_description': 'Forsikret hos Tryg med dækning op til 10 millioner - fuld sikkerhed for alle opgaver'
             }
         ]
         
         # Opret USP templates
         for usp_data in usp_templates:
+            defaults = {
+                'text': usp_data['text'],
+                'explanation': usp_data['explanation'],
+                'use_cases': usp_data['use_cases'],
+                'example_headlines': usp_data['headlines'],
+                'placeholders_used': usp_data['placeholders'],
+                'effectiveness_score': 0.8,  # Højt score som standard
+                'is_active': True
+            }
+            
+            # Add headline variations if present
+            if 'short_headlines' in usp_data:
+                defaults['short_headlines'] = usp_data['short_headlines']
+            if 'best_for_headline' in usp_data:
+                defaults['best_for_headline'] = usp_data['best_for_headline']
+            if 'best_for_description' in usp_data:
+                defaults['best_for_description'] = usp_data['best_for_description']
+            
             usp, created = USPTemplate.objects.get_or_create(
                 main_category=usp_data['category'],
                 priority_rank=usp_data['priority'],
-                defaults={
-                    'text': usp_data['text'],
-                    'explanation': usp_data['explanation'],
-                    'use_cases': usp_data['use_cases'],
-                    'example_headlines': usp_data['headlines'],
-                    'placeholders_used': usp_data['placeholders'],
-                    'effectiveness_score': 0.8,  # Højt score som standard
-                    'is_active': True
-                }
+                defaults=defaults
             )
             
             if created:

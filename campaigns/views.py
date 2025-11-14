@@ -933,7 +933,14 @@ def create_geo_campaign_v2(request):
         selected_cities = request.POST.get('selected_cities', '')
         cities = [city.strip() for city in selected_cities.split(',') if city.strip()]
         
-        # Step 3: Headlines and descriptions
+        # Step 3: USP Workshop Data
+        selected_usps_data = request.POST.get('selected_usps_data', '{}')
+        try:
+            usps_data = json.loads(selected_usps_data)
+        except json.JSONDecodeError:
+            usps_data = {}
+        
+        # Step 4: Headlines and descriptions
         # All headline templates (1-15)
         headline_templates = {}
         for i in range(1, 16):
@@ -1072,6 +1079,9 @@ def create_geo_campaign_v2(request):
             status='draft'
         )
         
+        # Process and save USPs from USP Workshop
+        usps_created = save_campaign_usps(campaign, client, usps_data)
+        
         # Generate geo keywords using enhanced template
         from .geo_export import GeoCampaignManager
         geo_keywords = GeoCampaignManager.create_geo_keywords(
@@ -1081,12 +1091,70 @@ def create_geo_campaign_v2(request):
             domain=domain
         )
         
-        messages.success(request, f'Multi-step geo kampagne "{campaign_name}" oprettet med {len(geo_keywords)} keywords!')
+        messages.success(request, f'Multi-step geo kampagne "{campaign_name}" oprettet med {len(geo_keywords)} keywords og {usps_created} USPs!')
         return redirect('geo_campaign_success', campaign_id=campaign.id)
         
     except Exception as e:
         messages.error(request, f'Fejl ved oprettelse af geo kampagne: {str(e)}')
         return redirect('geo_campaign_builder_v2')
+
+
+def save_campaign_usps(campaign, client, usps_data):
+    """
+    Process and save USPs from USP Workshop data
+    
+    Args:
+        campaign: Campaign object
+        client: Client object  
+        usps_data: Dict with USP data from frontend
+        
+    Returns:
+        int: Number of USPs created
+    """
+    from usps.models import ClientUSP, USPTemplate
+    
+    usps_created = 0
+    
+    for key, usp_info in usps_data.items():
+        try:
+            # Extract USP information
+            template_id = usp_info.get('template_id')
+            original_text = usp_info.get('original_text') 
+            current_text = usp_info.get('current_text', '')
+            is_modified = usp_info.get('is_modified', False)
+            is_custom = usp_info.get('is_custom', False)
+            
+            # Skip empty USPs
+            if not current_text or not current_text.strip():
+                continue
+                
+            # Get template reference if not custom
+            usp_template = None
+            if not is_custom and template_id:
+                try:
+                    usp_template = USPTemplate.objects.get(id=template_id)
+                except USPTemplate.DoesNotExist:
+                    usp_template = None
+            
+            # Create ClientUSP
+            client_usp = ClientUSP.objects.create(
+                client=client,
+                campaign=campaign,
+                usp_template=usp_template,
+                custom_text=current_text.strip(),
+                original_text=original_text,
+                is_modified=is_modified,
+                is_custom=is_custom,
+                is_selected=True
+            )
+            
+            usps_created += 1
+            
+        except Exception as e:
+            print(f"Error saving USP {key}: {e}")
+            continue
+    
+    return usps_created
 
 
 # =========================

@@ -153,6 +153,38 @@
                                         </div>
                                     </div>
                                     {% endif %}
+                                    
+                                    <!-- New Headline Variations Section -->
+                                    {% if usp.short_headlines %}
+                                    <div>
+                                        <span class="text-xs font-medium text-gray-700">🎯 Korte Headlines (≤30 chars):</span>
+                                        <div class="flex flex-wrap gap-1 mt-1">
+                                            {% for headline in usp.short_headlines %}
+                                            <span class="inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                                                {{ headline }} <span class="text-blue-600">({{ headline|length }})</span>
+                                            </span>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    {% if usp.best_for_headline %}
+                                    <div>
+                                        <span class="text-xs font-medium text-gray-700">⭐ Bedste Headline:</span>
+                                        <div class="mt-1">
+                                            <span class="inline-block px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
+                                                {{ usp.best_for_headline }} <span class="text-green-600">({{ usp.best_for_headline|length }})</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    {% if usp.best_for_description %}
+                                    <div>
+                                        <span class="text-xs font-medium text-gray-700">📝 Bedste Description:</span>
+                                        <p class="text-xs text-gray-600 mt-1 bg-gray-50 p-2 rounded">{{ usp.best_for_description }}</p>
+                                    </div>
+                                    {% endif %}
 
                                     {% if usp.placeholders_used %}
                                     <div>
@@ -343,6 +375,29 @@
                     </div>
                     
                     <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">🎯 Korte Headlines (kommasepareret, ≤30 chars)</label>
+                        <textarea id="usp-short-headlines" name="short_headlines" rows="2"
+                                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                  placeholder="Ring nu - få pris, Pris i telefonen"></textarea>
+                        <div class="text-xs text-gray-500 mt-1">Til Google Ads headlines - maks 30 karakterer hver</div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">⭐ Bedste Headline (maks 30 chars)</label>
+                        <input type="text" id="usp-best-headline" name="best_for_headline" maxlength="30"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                               placeholder="Ring nu - få pris">
+                        <div class="text-xs text-gray-500 mt-1">Primær anbefalet headline version</div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">📝 Bedste Description</label>
+                        <textarea id="usp-best-description" name="best_for_description" rows="2"
+                                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                  placeholder="Bedste version til descriptions - kan være længere end headlines"></textarea>
+                    </div>
+                    
+                    <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Placeholders (kommasepareret)</label>
                         <input type="text" id="usp-placeholders" name="placeholders_used" 
                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
@@ -487,6 +542,9 @@ $(document).ready(function() {
             explanation: $('#usp-explanation').val(),
             use_cases: $('#usp-use-cases').val(),
             example_headlines: $('#usp-headlines').val(),
+            short_headlines: $('#usp-short-headlines').val(),
+            best_for_headline: $('#usp-best-headline').val(),
+            best_for_description: $('#usp-best-description').val(),
             placeholders_used: $('#usp-placeholders').val(),
             ideal_for_industries: selectedIndustries
         };
@@ -578,6 +636,9 @@ $(document).ready(function() {
                     $('#usp-explanation').val(usp.explanation);
                     $('#usp-use-cases').val(usp.use_cases);
                     $('#usp-headlines').val(usp.example_headlines);
+                    $('#usp-short-headlines').val(usp.short_headlines);
+                    $('#usp-best-headline').val(usp.best_for_headline);
+                    $('#usp-best-description').val(usp.best_for_description);
                     $('#usp-placeholders').val(usp.placeholders_used);
                     
                     // Set industry checkboxes

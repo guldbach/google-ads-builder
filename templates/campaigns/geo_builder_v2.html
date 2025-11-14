@@ -320,101 +320,168 @@
             </div>
         </div>
 
-        <!-- Step 3: USP Selection -->
+        <!-- Step 3: USP Workshop -->
         <div id="step-3" class="form-step">
             <div class="card p-8 mb-6">
                 <h2 class="text-2xl font-semibold text-gray-900 mb-6 flex items-center">
                     <i data-lucide="star" class="w-6 h-6 mr-2 text-yellow-600"></i>
-                    Step 3: Vælg Dine USPs
+                    Step 3: USP Workshop
                 </h2>
                 
                 <div class="mb-6">
                     <p class="text-gray-600 mb-4">
-                        Vælg 1 USP fra hver kategori for at skabe en komplet og overbevisende kampagne.
-                        De er sorteret med den bedste øverst.
+                        Byg dine unikke salgsargumenter (USPs). Du kan <strong>vælge fra inspiration</strong>, 
+                        <strong>tilpasse teksten</strong> eller <strong>tilføje helt nye</strong> USPs.
                     </p>
                     
-                    <!-- USP Completion Progress -->
-                    <div class="bg-gray-100 rounded-2xl p-4 mb-6">
+                    <!-- USP Summary -->
+                    <div class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-4 mb-6">
                         <div class="flex justify-between items-center mb-2">
-                            <span class="text-sm font-medium text-gray-700">USP Kategorier Fuldført</span>
-                            <span id="usp-progress-text" class="text-sm text-gray-600">0 af 5</span>
+                            <span class="text-sm font-medium text-gray-700">Valgte USPs</span>
+                            <span id="usp-count" class="text-sm text-blue-600 font-medium">0 valgt</span>
                         </div>
-                        <div class="w-full bg-gray-200 rounded-full h-2">
-                            <div id="usp-progress-bar" class="bg-gradient-to-r from-yellow-500 to-orange-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                        <div id="selected-usps-preview" class="flex flex-wrap gap-2 min-h-[24px]">
+                            <span class="text-sm text-gray-500" id="no-usps-placeholder">Ingen USPs valgt endnu</span>
                         </div>
                     </div>
                 </div>
 
                 <!-- USP Categories Grid -->
-                <div id="usp-categories" class="space-y-6">
+                <div id="usp-categories" class="space-y-8">
                     {% for category in usp_categories %}
-                    <div class="usp-category-card bg-white border border-gray-200 rounded-2xl p-6 transition-all duration-200 hover:shadow-lg" 
-                         data-category-id="{{ category.id }}">
+                    <div class="usp-category-section" data-category-id="{{ category.id }}">
                         <!-- Category Header -->
-                        <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center justify-between mb-4 pb-3 border-b border-gray-200">
                             <div class="flex items-center space-x-3">
-                                <div class="flex items-center justify-center w-10 h-10 rounded-xl" 
-                                     style="background-color: {{ category.color }}20; color: {{ category.color }};">
-                                    <span class="text-2xl">{{ category.icon }}</span>
+                                <div class="flex items-center justify-center w-12 h-12 rounded-xl" 
+                                     style="background-color: {{ category.color }};">
+                                    <span class="text-2xl text-white">{{ category.icon }}</span>
                                 </div>
                                 <div>
-                                    <h3 class="text-lg font-semibold text-gray-900">{{ category.name }}</h3>
-                                    <p class="text-sm text-gray-600">Vælg {{ category.max_selections }} USP{% if category.max_selections > 1 %}s{% endif %}</p>
+                                    <h3 class="text-xl font-semibold text-gray-900">{{ category.name }}</h3>
+                                    <p class="text-sm text-gray-600">{{ category.description }}</p>
                                 </div>
                             </div>
-                            <div class="category-completion hidden">
-                                <span class="text-sm font-medium text-green-600">✓ Valgt</span>
-                            </div>
+                            <button class="add-custom-usp-btn bg-green-100 hover:bg-green-200 text-green-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                                    data-category-id="{{ category.id }}"
+                                    data-category-name="{{ category.name }}"
+                                    data-category-color="{{ category.color }}">
+                                ➕ Tilføj Custom USP
+                            </button>
                         </div>
                         
-                        <!-- Category Description -->
-                        <p class="text-sm text-gray-600 mb-4">{{ category.description }}</p>
-                        
-                        <!-- USP Options -->
-                        <div class="usp-options space-y-2">
+                        <!-- Inspiration USPs -->
+                        <div class="grid gap-3 mb-4">
                             {% for usp in usp_templates %}
                                 {% if usp.main_category.id == category.id %}
-                                <div class="usp-option p-3 border border-gray-100 rounded-xl cursor-pointer hover:border-gray-300 transition-all duration-200"
+                                <div class="usp-inspiration-item border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all duration-200"
                                      data-usp-id="{{ usp.id }}"
                                      data-category-id="{{ category.id }}"
-                                     data-priority="{{ usp.priority_rank }}">
+                                     data-original-text="{{ usp.text }}"
+                                     data-priority="{{ usp.priority_rank }}"
+                                     data-short-headlines="{{ usp.short_headlines|join:'|' }}"
+                                     data-best-headline="{{ usp.best_for_headline|default:'' }}"
+                                     data-best-description="{{ usp.best_for_description|default:'' }}">
                                     <div class="flex items-start justify-between">
-                                        <div class="flex-1">
-                                            <div class="flex items-center space-x-2 mb-1">
-                                                <span class="inline-flex items-center justify-center w-6 h-6 text-xs font-bold text-white rounded-full"
-                                                      style="background-color: {{ category.color }};">
-                                                    {{ usp.priority_rank }}
-                                                </span>
-                                                <span class="text-sm font-medium text-gray-900">{{ usp.text }}</span>
+                                        <div class="flex items-start space-x-3 flex-1">
+                                            <input type="checkbox" 
+                                                   class="usp-checkbox mt-1 w-4 h-4 rounded focus:ring-2 transition-colors"
+                                                   style="accent-color: {{ category.color }};"
+                                                   data-usp-id="{{ usp.id }}">
+                                            <div class="flex-1">
+                                                <div class="flex items-center space-x-2 mb-2">
+                                                    <span class="inline-flex items-center justify-center w-6 h-6 text-xs font-bold text-white rounded-full"
+                                                          style="background-color: {{ category.color }};">
+                                                        {{ usp.priority_rank }}
+                                                    </span>
+                                                    <span class="text-sm font-medium text-gray-700">Inspiration</span>
+                                                </div>
+                                                
+                                                <!-- USP Text Display/Edit -->
+                                                <div class="usp-text-container">
+                                                    <div class="usp-text-display">
+                                                        <span class="text-gray-900 font-medium">{{ usp.text }}</span>
+                                                        <button class="edit-usp-btn ml-2 text-blue-600 hover:text-blue-700 text-sm"
+                                                                data-usp-id="{{ usp.id }}">
+                                                            ✏️ Rediger
+                                                        </button>
+                                                    </div>
+                                                    <div class="usp-text-edit hidden">
+                                                        <input type="text" 
+                                                               class="usp-text-input w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                                               value="{{ usp.text }}"
+                                                               data-original="{{ usp.text }}"
+                                                               data-usp-id="{{ usp.id }}">
+                                                        <div class="flex space-x-2 mt-2">
+                                                            <button class="save-usp-btn bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                                                                    data-usp-id="{{ usp.id }}">
+                                                                ✓ Gem
+                                                            </button>
+                                                            <button class="cancel-usp-btn bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm"
+                                                                    data-usp-id="{{ usp.id }}">
+                                                                ✕ Annuller
+                                                            </button>
+                                                            <button class="reset-usp-btn bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-sm"
+                                                                    data-usp-id="{{ usp.id }}">
+                                                                🔄 Reset
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <div class="usp-modified-indicator hidden mt-1">
+                                                        <span class="text-xs text-orange-600">• Modificeret fra original</span>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Headline Variations Preview -->
+                                                {% if usp.short_headlines %}
+                                                <div class="headline-variations-preview mt-3 pt-2 border-t border-gray-100">
+                                                    <div class="mb-2">
+                                                        <span class="text-xs font-medium text-gray-600 flex items-center">
+                                                            🎯 Headlines til annoncer
+                                                            <span class="ml-1 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{{ usp.short_headlines|length }}</span>
+                                                        </span>
+                                                    </div>
+                                                    <div class="grid grid-cols-2 gap-2">
+                                                        {% for headline in usp.short_headlines %}
+                                                        <div class="headline-tag">
+                                                            <span class="inline-block bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded-md border border-gray-200 cursor-default transition-colors">
+                                                                {{ headline }}
+                                                                <span class="text-gray-400 ml-1">({{ headline|length }})</span>
+                                                            </span>
+                                                        </div>
+                                                        {% endfor %}
+                                                    </div>
+                                                    {% if usp.best_for_headline %}
+                                                    <div class="mt-2">
+                                                        <span class="text-xs text-green-700 bg-green-50 px-2 py-1 rounded-md border border-green-200">
+                                                            ⭐ Anbefalet: {{ usp.best_for_headline }}
+                                                        </span>
+                                                    </div>
+                                                    {% endif %}
+                                                </div>
+                                                {% endif %}
+                                                
+                                                {% if usp.explanation %}
+                                                <p class="text-xs text-gray-500 mt-2">{{ usp.explanation }}</p>
+                                                {% endif %}
                                             </div>
-                                            {% if usp.explanation %}
-                                            <p class="text-xs text-gray-500 mt-1">{{ usp.explanation }}</p>
-                                            {% endif %}
-                                            {% if usp.ideal_for_industries.all %}
-                                            <div class="flex flex-wrap gap-1 mt-2">
-                                                {% for industry in usp.ideal_for_industries.all %}
-                                                <span class="inline-block px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-md">
-                                                    {{ industry.name }}
-                                                </span>
-                                                {% endfor %}
-                                            </div>
-                                            {% endif %}
-                                        </div>
-                                        <div class="usp-selection-indicator hidden">
-                                            <span class="text-green-600">✓</span>
                                         </div>
                                     </div>
                                 </div>
                                 {% endif %}
                             {% endfor %}
                         </div>
+                        
+                        <!-- Custom USPs Container -->
+                        <div class="custom-usps-container" data-category-id="{{ category.id }}">
+                            <!-- Custom USPs will be added here dynamically -->
+                        </div>
                     </div>
                     {% endfor %}
                 </div>
                 
-                <!-- Hidden field to store selected USPs -->
-                <input type="hidden" name="selected_usps" id="selected_usps">
+                <!-- Hidden field to store selected USPs data -->
+                <input type="hidden" name="selected_usps_data" id="selected_usps_data">
             </div>
         </div>
 
@@ -425,6 +492,22 @@
                     <i data-lucide="edit-3" class="w-6 h-6 mr-2 text-blue-600"></i>
                     Step 4: Headlines og Beskrivelser
                 </h2>
+                
+                <!-- USP Helper Panel -->
+                <div id="usp-helper-panel" class="bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-4 mb-6" style="display: none;">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-sm font-semibold text-gray-800 flex items-center">
+                            🎯 USP Headline Helper
+                            <span id="usp-helper-count" class="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">0 USPs</span>
+                        </h3>
+                        <button id="auto-fill-headlines-btn" class="bg-purple-600 hover:bg-purple-700 text-white text-xs px-3 py-1 rounded-lg transition-colors">
+                            ⚡ Auto-udfyld headlines
+                        </button>
+                    </div>
+                    <div id="usp-helper-content" class="space-y-3">
+                        <!-- USP headlines will be populated here -->
+                    </div>
+                </div>
                 
                 <!-- Auto-Progressive Headlines and Descriptions -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -755,8 +838,9 @@
     let currentStep = 1;
     const totalSteps = 4;
     
-    // USP Selection Management
-    let selectedUSPs = {}
+    // USP Workshop Management
+    let selectedUSPs = {}; // Structure: { categoryId_uspId: { template_id, original_text, current_text, is_modified, is_custom, category_id } }
+    let customUSPCounter = 0;
 
     // Make currentStep globally accessible
     window.currentStep = currentStep;
@@ -939,76 +1023,403 @@
     }
     
     // USP Selection Functions
-    function setupUSPSelection() {
-        console.log('⭐ Setting up USP selection handlers');
+    function setupUSPWorkshop() {
+        console.log('🎨 Setting up USP Workshop handlers');
         
-        // Handle USP option clicks
-        $(document).on('click', '.usp-option', function() {
-            const $option = $(this);
-            const uspId = $option.data('usp-id');
-            const categoryId = $option.data('category-id');
-            const priority = $option.data('priority');
+        // Handle USP checkbox selection
+        $(document).on('change', '.usp-checkbox', function() {
+            const $checkbox = $(this);
+            const $container = $checkbox.closest('.usp-inspiration-item');
+            const uspId = $checkbox.data('usp-id');
+            const categoryId = $container.data('category-id');
+            const originalText = $container.data('original-text');
             
-            // Toggle selection
-            if ($option.hasClass('selected')) {
-                // Deselect
-                delete selectedUSPs[categoryId];
-                $option.removeClass('selected border-green-500 bg-green-50');
-                $option.find('.usp-selection-indicator').addClass('hidden');
+            if ($checkbox.is(':checked')) {
+                // Add to selection
+                const key = `${categoryId}_${uspId}`;
+                selectedUSPs[key] = {
+                    template_id: uspId,
+                    original_text: originalText,
+                    current_text: originalText,
+                    is_modified: false,
+                    is_custom: false,
+                    category_id: categoryId
+                };
             } else {
-                // Select this USP (and deselect others in same category)
-                $(`.usp-option[data-category-id="${categoryId}"]`).each(function() {
-                    $(this).removeClass('selected border-green-500 bg-green-50');
-                    $(this).find('.usp-selection-indicator').addClass('hidden');
-                });
-                
-                // Select this one
-                selectedUSPs[categoryId] = uspId;
-                $option.addClass('selected border-green-500 bg-green-50');
-                $option.find('.usp-selection-indicator').removeClass('hidden');
+                // Remove from selection
+                const key = `${categoryId}_${uspId}`;
+                delete selectedUSPs[key];
             }
             
-            // Update category completion indicator
-            updateCategoryCompletion(categoryId);
-            
-            // Update overall USP progress
-            updateUSPProgress();
-            
-            // Update hidden field
-            updateSelectedUSPsField();
-            
+            updateUSPDisplay();
+            updateSelectedUSPsDataField();
             console.log('Selected USPs:', selectedUSPs);
+        });
+        
+        // Handle USP text editing
+        $(document).on('click', '.edit-usp-btn', function() {
+            const uspId = $(this).data('usp-id');
+            const $container = $(this).closest('.usp-inspiration-item');
+            
+            $container.find('.usp-text-display').addClass('hidden');
+            $container.find('.usp-text-edit').removeClass('hidden');
+            $container.find('.usp-text-input').focus();
+        });
+        
+        // Handle USP text save
+        $(document).on('click', '.save-usp-btn', function() {
+            const uspId = $(this).data('usp-id');
+            const $container = $(this).closest('.usp-inspiration-item');
+            const $input = $container.find('.usp-text-input');
+            const newText = $input.val();
+            const originalText = $input.data('original');
+            const categoryId = $container.data('category-id');
+            
+            // Update display text
+            $container.find('.usp-text-display span').text(newText);
+            
+            // Update selection if this USP is selected
+            const key = `${categoryId}_${uspId}`;
+            if (selectedUSPs[key]) {
+                selectedUSPs[key].current_text = newText;
+                selectedUSPs[key].is_modified = (newText !== originalText);
+            }
+            
+            // Show/hide modification indicator
+            if (newText !== originalText) {
+                $container.find('.usp-modified-indicator').removeClass('hidden');
+            } else {
+                $container.find('.usp-modified-indicator').addClass('hidden');
+            }
+            
+            // Switch back to display mode
+            $container.find('.usp-text-display').removeClass('hidden');
+            $container.find('.usp-text-edit').addClass('hidden');
+            
+            updateUSPDisplay();
+            updateSelectedUSPsDataField();
+        });
+        
+        // Handle USP text cancel
+        $(document).on('click', '.cancel-usp-btn', function() {
+            const uspId = $(this).data('usp-id');
+            const $container = $(this).closest('.usp-inspiration-item');
+            const $input = $container.find('.usp-text-input');
+            const originalValue = $input.data('original');
+            
+            // Reset input to original value
+            $input.val(originalValue);
+            
+            // Switch back to display mode
+            $container.find('.usp-text-display').removeClass('hidden');
+            $container.find('.usp-text-edit').addClass('hidden');
+        });
+        
+        // Handle USP text reset
+        $(document).on('click', '.reset-usp-btn', function() {
+            const uspId = $(this).data('usp-id');
+            const $container = $(this).closest('.usp-inspiration-item');
+            const $input = $container.find('.usp-text-input');
+            const originalText = $input.data('original');
+            const categoryId = $container.data('category-id');
+            
+            // Reset to original text
+            $input.val(originalText);
+            $container.find('.usp-text-display span').text(originalText);
+            
+            // Update selection if this USP is selected
+            const key = `${categoryId}_${uspId}`;
+            if (selectedUSPs[key]) {
+                selectedUSPs[key].current_text = originalText;
+                selectedUSPs[key].is_modified = false;
+            }
+            
+            // Hide modification indicator
+            $container.find('.usp-modified-indicator').addClass('hidden');
+            
+            // Switch back to display mode
+            $container.find('.usp-text-display').removeClass('hidden');
+            $container.find('.usp-text-edit').addClass('hidden');
+            
+            updateUSPDisplay();
+            updateSelectedUSPsDataField();
+        });
+        
+        // Handle custom USP creation
+        $(document).on('click', '.add-custom-usp-btn', function() {
+            const categoryId = $(this).data('category-id');
+            const categoryName = $(this).data('category-name');
+            const categoryColor = $(this).data('category-color');
+            
+            addCustomUSP(categoryId, categoryName, categoryColor);
+        });
+        
+        // Handle custom USP deletion
+        $(document).on('click', '.delete-custom-usp-btn', function() {
+            const customId = $(this).data('custom-id');
+            const $customUSP = $(this).closest('.custom-usp-item');
+            
+            // Remove from selectedUSPs
+            delete selectedUSPs[customId];
+            
+            // Remove from DOM
+            $customUSP.remove();
+            
+            updateUSPDisplay();
+            updateSelectedUSPsDataField();
         });
     }
     
-    function updateCategoryCompletion(categoryId) {
-        const $categoryCard = $(`.usp-category-card[data-category-id="${categoryId}"]`);
-        const $completion = $categoryCard.find('.category-completion');
+    function addCustomUSP(categoryId, categoryName, categoryColor) {
+        customUSPCounter++;
+        const customId = `custom_${categoryId}_${customUSPCounter}`;
         
-        if (selectedUSPs[categoryId]) {
-            $completion.removeClass('hidden');
-            $categoryCard.addClass('border-green-200 bg-green-25');
-        } else {
-            $completion.addClass('hidden');
-            $categoryCard.removeClass('border-green-200 bg-green-25');
+        const customUSPHtml = `
+            <div class="custom-usp-item border-2 border-dashed border-green-300 rounded-xl p-4 mb-3" data-custom-id="${customId}">
+                <div class="flex items-start space-x-3">
+                    <input type="checkbox" 
+                           class="custom-usp-checkbox mt-1 w-4 h-4 rounded focus:ring-2 transition-colors"
+                           style="accent-color: ${categoryColor};"
+                           data-custom-id="${customId}"
+                           checked>
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2 mb-2">
+                            <span class="inline-flex items-center justify-center w-6 h-6 text-xs font-bold text-white rounded-full"
+                                  style="background-color: ${categoryColor};">
+                                ✏️
+                            </span>
+                            <span class="text-sm font-medium text-green-700">Custom USP</span>
+                            <button class="delete-custom-usp-btn text-red-500 hover:text-red-700 text-sm ml-auto"
+                                    data-custom-id="${customId}">
+                                🗑️ Slet
+                            </button>
+                        </div>
+                        <input type="text" 
+                               class="custom-usp-text w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                               placeholder="Skriv din custom USP her..."
+                               data-custom-id="${customId}">
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        $(`.custom-usps-container[data-category-id="${categoryId}"]`).append(customUSPHtml);
+        
+        // Add to selectedUSPs
+        selectedUSPs[customId] = {
+            template_id: null,
+            original_text: null,
+            current_text: '',
+            is_modified: false,
+            is_custom: true,
+            category_id: categoryId
+        };
+        
+        // Focus on the new input
+        $(`.custom-usp-text[data-custom-id="${customId}"]`).focus();
+        
+        updateUSPDisplay();
+        updateSelectedUSPsDataField();
+    }
+    
+    // Handle custom USP text changes
+    $(document).on('input', '.custom-usp-text', function() {
+        const customId = $(this).data('custom-id');
+        const newText = $(this).val();
+        
+        if (selectedUSPs[customId]) {
+            selectedUSPs[customId].current_text = newText;
         }
+        
+        updateUSPDisplay();
+        updateSelectedUSPsDataField();
+    });
+    
+    // Handle custom USP checkbox changes
+    $(document).on('change', '.custom-usp-checkbox', function() {
+        const customId = $(this).data('custom-id');
+        const $container = $(this).closest('.custom-usp-item');
+        const text = $container.find('.custom-usp-text').val();
+        const categoryId = $container.closest('.usp-category-section').data('category-id');
+        
+        if ($(this).is(':checked')) {
+            // Add to selection
+            selectedUSPs[customId] = {
+                template_id: null,
+                original_text: null,
+                current_text: text,
+                is_modified: false,
+                is_custom: true,
+                category_id: categoryId
+            };
+        } else {
+            // Remove from selection
+            delete selectedUSPs[customId];
+        }
+        
+        updateUSPDisplay();
+        updateSelectedUSPsDataField();
+    });
+    
+    function updateUSPDisplay() {
+        const $preview = $('#selected-usps-preview');
+        const $placeholder = $('#no-usps-placeholder');
+        const $counter = $('#usp-count');
+        
+        const selectedCount = Object.keys(selectedUSPs).length;
+        
+        if (selectedCount === 0) {
+            $placeholder.removeClass('hidden');
+            $preview.find('.usp-preview-tag').remove();
+        } else {
+            $placeholder.addClass('hidden');
+            
+            // Clear existing preview tags
+            $preview.find('.usp-preview-tag').remove();
+            
+            // Add preview tags for each selected USP
+            Object.values(selectedUSPs).forEach((usp, index) => {
+                const previewText = usp.current_text || 'Indtast tekst...';
+                const isModified = usp.is_modified;
+                const isCustom = usp.is_custom;
+                
+                let badgeClass = 'bg-blue-100 text-blue-800';
+                let indicator = '';
+                
+                if (isCustom) {
+                    badgeClass = 'bg-green-100 text-green-800';
+                    indicator = '✏️';
+                } else if (isModified) {
+                    badgeClass = 'bg-orange-100 text-orange-800';
+                    indicator = '📝';
+                }
+                
+                const previewTag = $(`
+                    <span class="usp-preview-tag inline-flex items-center px-3 py-1 rounded-full text-sm ${badgeClass}">
+                        ${indicator} ${previewText.substring(0, 30)}${previewText.length > 30 ? '...' : ''}
+                    </span>
+                `);
+                
+                $preview.append(previewTag);
+            });
+        }
+        
+        $counter.text(`${selectedCount} valgt`);
+        
+        // Update USP Helper Panel in Step 4
+        updateUSPHelperPanel();
     }
     
-    function updateUSPProgress() {
-        const totalCategories = {{ usp_categories.count }};
-        const completedCategories = Object.keys(selectedUSPs).length;
-        const progressPercent = (completedCategories / totalCategories) * 100;
-        
-        // Update progress bar
-        $('#usp-progress-bar').css('width', progressPercent + '%');
-        $('#usp-progress-text').text(`${completedCategories} af ${totalCategories}`);
-        
-        console.log(`USP Progress: ${completedCategories}/${totalCategories} (${progressPercent}%)`);
+    function updateSelectedUSPsDataField() {
+        const data = JSON.stringify(selectedUSPs);
+        $('#selected_usps_data').val(data);
+        console.log('Updated USPs data:', data);
     }
     
-    function updateSelectedUSPsField() {
-        const uspIds = Object.values(selectedUSPs);
-        $('#selected_usps').val(uspIds.join(','));
+    // USP Helper Panel for Step 4
+    function updateUSPHelperPanel() {
+        const $helperPanel = $('#usp-helper-panel');
+        const $helperContent = $('#usp-helper-content');
+        const $helperCount = $('#usp-helper-count');
+        
+        const selectedCount = Object.keys(selectedUSPs).length;
+        
+        if (selectedCount === 0) {
+            $helperPanel.hide();
+            return;
+        }
+        
+        $helperPanel.show();
+        $helperCount.text(`${selectedCount} USPs`);
+        
+        // Clear existing content
+        $helperContent.empty();
+        
+        // Add each selected USP with its headline variations
+        Object.values(selectedUSPs).forEach((usp, index) => {
+            // Get USP data with headline variations from the template
+            const uspElement = $(`.usp-inspiration-item[data-usp-id="${usp.template_id}"]`);
+            const headlineVariations = getUSPHeadlineVariations(usp.template_id);
+            
+            if (headlineVariations && headlineVariations.length > 0) {
+                const uspCard = $(`
+                    <div class="usp-helper-card bg-white rounded-lg border border-gray-200 p-3">
+                        <div class="flex justify-between items-center mb-2">
+                            <h4 class="text-sm font-medium text-gray-800">${usp.current_text.substring(0, 40)}${usp.current_text.length > 40 ? '...' : ''}</h4>
+                            <span class="text-xs text-gray-500">${headlineVariations.length} headlines</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-1">
+                            ${headlineVariations.map(headline => `
+                                <button class="headline-suggestion-btn text-left text-xs bg-gray-50 hover:bg-blue-50 hover:border-blue-200 border border-gray-200 rounded px-2 py-1 transition-colors"
+                                        data-headline="${headline}">
+                                    ${headline} <span class="text-gray-400">(${headline.length})</span>
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                `);
+                
+                $helperContent.append(uspCard);
+            }
+        });
+    }
+    
+    function getUSPHeadlineVariations(uspId) {
+        // Get headline variations from data attributes
+        const uspElement = $(`.usp-inspiration-item[data-usp-id="${uspId}"]`);
+        if (uspElement.length > 0) {
+            const shortHeadlines = uspElement.data('short-headlines');
+            const bestHeadline = uspElement.data('best-headline');
+            
+            if (shortHeadlines) {
+                // Split the pipe-separated headlines and filter out empty ones
+                const headlines = shortHeadlines.toString().split('|').filter(h => h.trim());
+                
+                // If we have a best headline and it's not already in the list, add it first
+                if (bestHeadline && !headlines.includes(bestHeadline)) {
+                    headlines.unshift(bestHeadline);
+                }
+                
+                return headlines;
+            }
+        }
+        return [];
+    }
+    
+    function autoFillHeadlines() {
+        console.log('⚡ Auto-filling headlines from selected USPs');
+        
+        const allHeadlines = [];
+        
+        // Collect all available headlines from selected USPs
+        Object.values(selectedUSPs).forEach((usp) => {
+            const headlineVariations = getUSPHeadlineVariations(usp.template_id);
+            if (headlineVariations && headlineVariations.length > 0) {
+                allHeadlines.push(...headlineVariations);
+            }
+        });
+        
+        // Fill available headline fields (starting from headline 2, keeping headline 1 as service + city)
+        let headlineIndex = 1; // Start from headline 2 (index 1)
+        for (let i = 0; i < allHeadlines.length && headlineIndex < 15; i++) {
+            const headline = allHeadlines[i];
+            const nextHeadlineInput = document.getElementById(`headline_${headlineIndex + 1}`);
+            
+            if (nextHeadlineInput && !nextHeadlineInput.value.trim()) {
+                nextHeadlineInput.value = headline;
+                updateCharacterCount(`headline_${headlineIndex + 1}`, `headline_${headlineIndex + 1}_count`, 30);
+                
+                // Trigger the auto-reveal for the next headline
+                if (headlineIndex + 1 <= visibleHeadlines) {
+                    revealNextHeadline(headlineIndex + 1);
+                }
+                
+                headlineIndex++;
+            }
+        }
+        
+        console.log(`✅ Auto-filled ${headlineIndex} headlines from USPs`);
+        alert(`Auto-fyldte ${headlineIndex} headlines fra dine valgte USPs!`);
     }
     
     function setupCharacterCounters() {
@@ -1126,11 +1537,42 @@
         setupAutoRevealHeadlines();
         setupAutoRevealDescriptions();
         
-        // Setup USP Selection
-        setupUSPSelection();
+        // Setup USP Workshop
+        setupUSPWorkshop();
         
         // Setup character counters for all potential fields
         setupCharacterCounters();
+        
+        // Setup USP Helper Panel event handlers
+        $(document).on('click', '#auto-fill-headlines-btn', function() {
+            autoFillHeadlines();
+        });
+        
+        // Setup headline suggestion buttons
+        $(document).on('click', '.headline-suggestion-btn', function() {
+            const headline = $(this).data('headline');
+            
+            // Find the next empty headline field
+            for (let i = 1; i <= 15; i++) {
+                const input = document.getElementById(`headline_${i}`);
+                if (input && !input.value.trim()) {
+                    input.value = headline;
+                    updateCharacterCount(`headline_${i}`, `headline_${i}_count`, 30);
+                    
+                    // Trigger auto-reveal if needed
+                    if (i > visibleHeadlines) {
+                        revealNextHeadline(i - 1);
+                    }
+                    
+                    // Flash the input to show it was filled
+                    $(input).addClass('bg-green-50 border-green-300').delay(1000).queue(function() {
+                        $(this).removeClass('bg-green-50 border-green-300').dequeue();
+                    });
+                    
+                    break;
+                }
+            }
+        });
         
         // Bidding strategy change handler
         document.getElementById('bidding_strategy').addEventListener('change', toggleBiddingFields);

@@ -75,6 +75,7 @@ def create_usp_ajax(request):
             use_cases = [case.strip() for case in data.get('use_cases', '').split(',') if case.strip()]
             example_headlines = [hl.strip() for hl in data.get('example_headlines', '').split(',') if hl.strip()]
             placeholders_used = [ph.strip() for ph in data.get('placeholders_used', '').split(',') if ph.strip()]
+            short_headlines = [hl.strip() for hl in data.get('short_headlines', '').split(',') if hl.strip()]
             
             category = USPMainCategory.objects.get(id=data.get('main_category'))
             
@@ -86,6 +87,9 @@ def create_usp_ajax(request):
                 use_cases=use_cases,
                 example_headlines=example_headlines,
                 placeholders_used=placeholders_used,
+                short_headlines=short_headlines,
+                best_for_headline=data.get('best_for_headline', ''),
+                best_for_description=data.get('best_for_description', ''),
                 effectiveness_score=float(data.get('effectiveness_score', 0.8))
             )
             
@@ -137,6 +141,9 @@ def duplicate_usp_ajax(request, usp_id):
                 explanation=original_usp.explanation,
                 use_cases=original_usp.use_cases.copy() if original_usp.use_cases else [],
                 example_headlines=original_usp.example_headlines.copy() if original_usp.example_headlines else [],
+                short_headlines=original_usp.short_headlines.copy() if original_usp.short_headlines else [],
+                best_for_headline=original_usp.best_for_headline,
+                best_for_description=original_usp.best_for_description,
                 placeholders_used=original_usp.placeholders_used.copy() if original_usp.placeholders_used else [],
                 effectiveness_score=original_usp.effectiveness_score,
                 urgency_level=original_usp.urgency_level,
@@ -207,6 +214,7 @@ def edit_usp_ajax(request, usp_id):
             use_cases = [case.strip() for case in data.get('use_cases', '').split(',') if case.strip()]
             example_headlines = [hl.strip() for hl in data.get('example_headlines', '').split(',') if hl.strip()]
             placeholders_used = [ph.strip() for ph in data.get('placeholders_used', '').split(',') if ph.strip()]
+            short_headlines = [hl.strip() for hl in data.get('short_headlines', '').split(',') if hl.strip()]
             
             usp.text = data.get('text', usp.text)
             usp.priority_rank = data.get('priority_rank', usp.priority_rank)
@@ -214,6 +222,9 @@ def edit_usp_ajax(request, usp_id):
             usp.use_cases = use_cases
             usp.example_headlines = example_headlines
             usp.placeholders_used = placeholders_used
+            usp.short_headlines = short_headlines
+            usp.best_for_headline = data.get('best_for_headline', usp.best_for_headline)
+            usp.best_for_description = data.get('best_for_description', usp.best_for_description)
             usp.effectiveness_score = float(data.get('effectiveness_score', usp.effectiveness_score))
             
             # Update main category if changed
@@ -267,6 +278,9 @@ def get_usp_ajax(request, usp_id):
                 'explanation': usp.explanation or '',
                 'use_cases': ', '.join(usp.use_cases) if usp.use_cases else '',
                 'example_headlines': ', '.join(usp.example_headlines) if usp.example_headlines else '',
+                'short_headlines': ', '.join(usp.short_headlines) if usp.short_headlines else '',
+                'best_for_headline': usp.best_for_headline or '',
+                'best_for_description': usp.best_for_description or '',
                 'placeholders_used': ', '.join(usp.placeholders_used) if usp.placeholders_used else '',
                 'ideal_for_industries': [industry.id for industry in usp.ideal_for_industries.all()]
             }

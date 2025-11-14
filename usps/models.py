@@ -111,6 +111,21 @@ class USPTemplate(models.Model):
         help_text="Array med placeholders brugt, f.eks. ['{SERVICE}', '{BYNAVN}']"
     )
     
+    # Headline Variations for Step 4 Integration
+    short_headlines = models.JSONField(
+        default=list,
+        help_text="Array med korte headline versioner (max 30 chars), f.eks. ['Ring nu - få pris', 'Pris i telefonen']"
+    )
+    best_for_headline = models.CharField(
+        max_length=30,
+        blank=True,
+        help_text="Primær anbefalet headline version (max 30 karakterer)"
+    )
+    best_for_description = models.TextField(
+        blank=True, 
+        help_text="Bedste version til descriptions (kan være længere)"
+    )
+    
     # Legacy felter - beholdes for kompatibilitet
     urgency_level = models.CharField(max_length=10, choices=URGENCY_LEVELS, default='medium')
     keywords = models.TextField(blank=True, help_text="Komma-separerede søgeord")
@@ -137,8 +152,16 @@ class USPTemplate(models.Model):
 
 class ClientUSP(models.Model):
     client = models.ForeignKey(Client, on_delete=models.CASCADE)
-    usp_template = models.ForeignKey(USPTemplate, on_delete=models.CASCADE, null=True, blank=True)
-    custom_text = models.CharField(max_length=200)
+    campaign = models.ForeignKey('campaigns.Campaign', on_delete=models.CASCADE, null=True, blank=True, help_text="Tilknyttet kampagne")
+    usp_template = models.ForeignKey(USPTemplate, on_delete=models.CASCADE, null=True, blank=True, help_text="Original template (null for custom USPs)")
+    custom_text = models.CharField(max_length=200, help_text="Final tekst brugt for denne kampagne")
+    original_text = models.CharField(max_length=200, null=True, blank=True, help_text="Original template tekst (for tracking changes)")
+    
+    # New fields for flexible USP workshop
+    is_modified = models.BooleanField(default=False, help_text="True hvis custom_text er ændret fra original template")
+    is_custom = models.BooleanField(default=False, help_text="True hvis helt ny USP (ikke baseret på template)")
+    
+    # Existing fields
     is_discovered = models.BooleanField(default=False, help_text="Fundet via website crawling")
     is_selected = models.BooleanField(default=True)
     source_url = models.URLField(blank=True, help_text="URL hvor USP blev fundet")
@@ -147,6 +170,29 @@ class ClientUSP(models.Model):
 
     def __str__(self):
         return f"{self.client.name} - {self.custom_text[:50]}"
+
+    def save(self, *args, **kwargs):
+        """Auto-set is_modified and is_custom flags"""
+        if self.usp_template and self.usp_template.text:
+            self.original_text = self.usp_template.text
+            self.is_custom = False
+            self.is_modified = (self.custom_text != self.usp_template.text)
+        else:
+            self.is_custom = True
+            self.is_modified = False
+        super().save(*args, **kwargs)
+    
+    @property
+    def display_text(self):
+        """Get the text to display - custom_text takes precedence"""
+        return self.custom_text
+    
+    @property
+    def category_name(self):
+        """Get category name from template or return 'Custom' for custom USPs"""
+        if self.usp_template and self.usp_template.main_category:
+            return self.usp_template.main_category.name
+        return "Custom"
 
     class Meta:
         verbose_name_plural = "Client USPs"
