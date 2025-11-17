@@ -1462,3 +1462,953 @@ def apply_negative_keywords_to_campaign(request, campaign_id):
             messages.error(request, f'Fejl ved tilføjelse: {str(e)}')
     
     return redirect('campaign_detail', campaign_id=campaign_id)
+
+
+# ====================================
+# MODERN NEGATIVE KEYWORDS MANAGER - AJAX ENDPOINTS
+# ====================================
+
+@csrf_exempt
+def negative_keywords_manager(request):
+    """Modern negative keywords manager with enhanced UI"""
+    if request.user.is_authenticated:
+        keyword_lists = NegativeKeywordList.objects.filter(
+            created_by=request.user
+        ).prefetch_related('negative_keywords').select_related('industry').order_by('-created_at')
+    else:
+        # For demo purposes, show all lists when not authenticated
+        keyword_lists = NegativeKeywordList.objects.all().prefetch_related('negative_keywords').select_related('industry').order_by('-created_at')
+    
+    # Get all industries for filter dropdown
+    industries = Industry.objects.all().order_by('name')
+    
+    # Calculate statistics
+    categories_used = set(kl.category for kl in keyword_lists)
+    industries_used = set(kl.industry for kl in keyword_lists if kl.industry)
+    
+    context = {
+        'keyword_lists': keyword_lists,
+        'industries': industries,
+        'total_keywords': sum(kl.keywords_count for kl in keyword_lists),
+        'active_lists': keyword_lists.filter(is_active=True).count(),
+        'categories_count': len(categories_used),
+        'industries_count': len(industries_used),
+    }
+    
+    return render(request, 'campaigns/negative_keywords_manager.html', context)
+
+
+@csrf_exempt
+def create_negative_keyword_list_ajax(request):
+    """AJAX endpoint to create new negative keyword list"""
+    if request.method == 'POST':
+        try:
+            name = request.POST.get('name', '').strip()
+            category = request.POST.get('category', 'general')
+            description = request.POST.get('description', '').strip()
+            is_active = request.POST.get('is_active') == 'true'
+            industry_id = request.POST.get('industry', '').strip()
+            
+            if not name:
+                return JsonResponse({'success': False, 'error': 'Liste navn er påkrævet'})
+            
+            # Check if name already exists for this user
+            if NegativeKeywordList.objects.filter(
+                name__iexact=name, 
+                created_by=request.user
+            ).exists():
+                return JsonResponse({'success': False, 'error': 'En liste med dette navn eksisterer allerede'})
+            
+            # Get industry if provided
+            industry = None
+            if industry_id and industry_id != '':
+                try:
+                    industry = Industry.objects.get(id=industry_id)
+                except Industry.DoesNotExist:
+                    return JsonResponse({'success': False, 'error': 'Ugyldig branche valgt'})
+            
+            keyword_list = NegativeKeywordList.objects.create(
+                name=name,
+                category=category,
+                description=description,
+                industry=industry,
+                is_active=is_active,
+                created_by=request.user,
+                auto_apply_to_industries=[]
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'list': {
+                    'id': keyword_list.id,
+                    'name': keyword_list.name,
+                    'category': keyword_list.category,
+                    'description': keyword_list.description,
+                    'is_active': keyword_list.is_active,
+                    'keywords_count': 0
+                }
+            })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid method'})
+
+
+@csrf_exempt  
+def add_negative_keyword_ajax(request):
+    """AJAX endpoint to add new keyword to list"""
+    if request.method == 'POST':
+        try:
+            list_id = request.POST.get('list_id')
+            keyword_text = request.POST.get('keyword_text', '').strip()
+            match_type = request.POST.get('match_type', 'broad')
+            
+            if not keyword_text:
+                return JsonResponse({'success': False, 'error': 'Søgeord er påkrævet'})
+            
+            # Get the list (allow access for demo mode)
+            if request.user.is_authenticated:
+                keyword_list = get_object_or_404(
+                    NegativeKeywordList, 
+                    id=list_id, 
+                    created_by=request.user
+                )
+            else:
+                # Demo mode - allow access to any list
+                keyword_list = get_object_or_404(NegativeKeywordList, id=list_id)
+            
+            # Intelligent hierarkisk analyse som ved Excel import
+            from .services import NegativeKeywordConflictAnalyzer
+            analyzer = NegativeKeywordConflictAnalyzer(keyword_list)
+            
+            # Normaliser keyword til analyzer format
+            normalized_kw = {
+                'text': keyword_text.lower().strip(),
+                'original_text': keyword_text,
+                'match_type': match_type
+            }
+            
+            # Analyser relationerne
+            relationships = analyzer._analyze_all_relationships(normalized_kw)
+            removed_keywords = []
+            
+            if relationships['identical']:
+                # Identisk keyword eksisterer allerede
+                existing = relationships['identical'][0]
+                return JsonResponse({
+                    'success': False, 
+                    'error': f'"{existing["original_text"]}" ({existing["match_type"]}) eksisterer allerede i listen'
+                })
+                
+            elif relationships['blocked_by']:
+                # Blokeret af højere hierarki
+                blocking_kw = relationships['blocked_by'][0]
+                return JsonResponse({
+                    'success': False, 
+                    'error': f'Blokeret af eksisterende "{blocking_kw["original_text"]}" ({blocking_kw["match_type"]}) - denne har højere hierarki og dækker allerede dette keyword'
+                })
+            
+            else:
+                # Safe to add - men check for cleanup opportunities
+                if relationships['will_override']:
+                    # Fjern redundante keywords først
+                    for override_kw in relationships['will_override']:
+                        existing_to_remove = NegativeKeyword.objects.filter(
+                            id=override_kw['id'],
+                            keyword_list=keyword_list
+                        ).first()
+                        
+                        if existing_to_remove:
+                            removed_keywords.append({
+                                'text': existing_to_remove.keyword_text,
+                                'match_type': existing_to_remove.match_type
+                            })
+                            existing_to_remove.delete()
+                
+                # Create the keyword
+                keyword = NegativeKeyword.objects.create(
+                    keyword_list=keyword_list,
+                    keyword_text=keyword_text,
+                    match_type=match_type
+                )
+                
+                # Opdater keyword count
+                keyword_list.update_keywords_count()
+                
+                response_data = {
+                    'success': True,
+                    'keyword': {
+                        'id': keyword.id,
+                        'text': keyword.keyword_text,
+                        'match_type': keyword.match_type,
+                        'match_type_display': keyword.get_match_type_display(),
+                        'added_at': keyword.added_at.strftime('%d/%m %Y')
+                    }
+                }
+                
+                # Tilføj cleanup information hvis relevant
+                if removed_keywords:
+                    response_data['removed_keywords'] = removed_keywords
+                    response_data['message'] = f'Tilføjet "{keyword_text}" ({match_type}) og fjernet {len(removed_keywords)} redundante keywords'
+                
+                return JsonResponse(response_data)
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid method'})
+
+
+@csrf_exempt
+def delete_negative_keyword_ajax(request, keyword_id):
+    """AJAX endpoint to delete a negative keyword"""
+    if request.method == 'POST':
+        try:
+            if request.user.is_authenticated:
+                keyword = get_object_or_404(
+                    NegativeKeyword, 
+                    id=keyword_id,
+                    keyword_list__created_by=request.user
+                )
+            else:
+                # Demo mode - allow access to any keyword
+                keyword = get_object_or_404(NegativeKeyword, id=keyword_id)
+            
+            keyword_text = keyword.keyword_text
+            keyword.delete()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Søgeordet "{keyword_text}" er slettet'
+            })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid method'})
+
+
+@csrf_exempt
+def update_negative_keyword_ajax(request, keyword_id):
+    """AJAX endpoint to update a negative keyword"""
+    if request.method == 'POST':
+        try:
+            if request.user.is_authenticated:
+                keyword = get_object_or_404(
+                    NegativeKeyword, 
+                    id=keyword_id,
+                    keyword_list__created_by=request.user
+                )
+            else:
+                # Demo mode - allow access to any keyword
+                keyword = get_object_or_404(NegativeKeyword, id=keyword_id)
+            
+            # Get new values
+            new_keyword_text = request.POST.get('keyword_text', '').strip()
+            new_match_type = request.POST.get('match_type', 'broad')
+            
+            # Validate inputs
+            if not new_keyword_text:
+                return JsonResponse({
+                    'success': False, 
+                    'error': 'Søgeord kan ikke være tomt'
+                })
+            
+            if new_match_type not in ['broad', 'phrase', 'exact']:
+                return JsonResponse({
+                    'success': False, 
+                    'error': 'Ugyldig match type'
+                })
+            
+            # Check for duplicates in the same list (excluding current keyword)
+            existing_keyword = NegativeKeyword.objects.filter(
+                keyword_list=keyword.keyword_list,
+                keyword_text__iexact=new_keyword_text,
+                match_type=new_match_type
+            ).exclude(id=keyword_id).first()
+            
+            if existing_keyword:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Søgeordet "{new_keyword_text}" med {new_match_type} match findes allerede i listen'
+                })
+            
+            # Update the keyword
+            old_text = keyword.keyword_text
+            old_match = keyword.match_type
+            
+            keyword.keyword_text = new_keyword_text
+            keyword.match_type = new_match_type
+            keyword.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Søgeord opdateret fra "{old_text}" ({old_match}) til "{new_keyword_text}" ({new_match_type})',
+                'keyword': {
+                    'id': keyword.id,
+                    'text': keyword.keyword_text,
+                    'match_type': keyword.match_type,
+                    'match_type_display': keyword.get_match_type_display()
+                }
+            })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid method'})
+
+
+@csrf_exempt
+def delete_negative_keyword_list_ajax(request, list_id):
+    """AJAX endpoint to delete an entire negative keyword list"""
+    if request.method == 'POST':
+        try:
+            keyword_list = get_object_or_404(
+                NegativeKeywordList, 
+                id=list_id,
+                created_by=request.user
+            )
+            
+            # Count keywords before deletion
+            keywords_count = keyword_list.negative_keywords.count()
+            list_name = keyword_list.name
+            
+            # Delete the list (keywords will be deleted automatically due to CASCADE)
+            keyword_list.delete()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Listen "{list_name}" og {keywords_count} søgeord er slettet'
+            })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid method'})
+
+
+@csrf_exempt
+def edit_negative_keyword_list_ajax(request, list_id):
+    """AJAX endpoint to edit negative keyword list"""
+    if request.method == 'POST':
+        try:
+            keyword_list = get_object_or_404(
+                NegativeKeywordList, 
+                id=list_id,
+                created_by=request.user
+            )
+            
+            # Update fields
+            keyword_list.name = request.POST.get('name', keyword_list.name).strip()
+            keyword_list.category = request.POST.get('category', keyword_list.category)
+            keyword_list.description = request.POST.get('description', keyword_list.description).strip()
+            keyword_list.is_active = request.POST.get('is_active') == 'true'
+            
+            # Update industry if provided
+            industry_id = request.POST.get('industry')
+            if industry_id:
+                try:
+                    from .models import Industry
+                    industry = Industry.objects.get(id=industry_id)
+                    keyword_list.industry = industry
+                except Industry.DoesNotExist:
+                    keyword_list.industry = None
+            else:
+                keyword_list.industry = None
+            
+            keyword_list.save()
+            
+            return JsonResponse({
+                'success': True,
+                'list': {
+                    'id': keyword_list.id,
+                    'name': keyword_list.name,
+                    'category': keyword_list.category,
+                    'description': keyword_list.description,
+                    'is_active': keyword_list.is_active
+                }
+            })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid method'})
+
+
+@csrf_exempt 
+def get_negative_keyword_list_ajax(request, list_id):
+    """AJAX endpoint to get negative keyword list data"""
+    if request.method == 'GET':
+        try:
+            keyword_list = get_object_or_404(
+                NegativeKeywordList, 
+                id=list_id,
+                created_by=request.user
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'list': {
+                    'id': keyword_list.id,
+                    'name': keyword_list.name,
+                    'category': keyword_list.category,
+                    'description': keyword_list.description,
+                    'is_active': keyword_list.is_active,
+                    'keywords_count': keyword_list.keywords_count
+                }
+            })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid method'})
+
+
+@csrf_exempt
+def analyze_excel_import_for_list(request, list_id):
+    """AJAX endpoint to analyze Excel import for specific list with conflict detection"""
+    if request.method == 'POST':
+        try:
+            from .services import NegativeKeywordConflictAnalyzer
+            import openpyxl
+            import io
+            
+            # Get the list (allow access for demo mode)
+            if request.user.is_authenticated:
+                keyword_list = get_object_or_404(
+                    NegativeKeywordList, 
+                    id=list_id, 
+                    created_by=request.user
+                )
+            else:
+                # Demo mode - allow access to any list
+                keyword_list = get_object_or_404(NegativeKeywordList, id=list_id)
+            
+            # Get uploaded file
+            excel_file = request.FILES.get('excel_file')
+            if not excel_file:
+                return JsonResponse({'success': False, 'error': 'Ingen fil uploadet'})
+            
+            # Parse Excel file
+            try:
+                workbook = openpyxl.load_workbook(excel_file)
+                worksheet = workbook.active
+                
+                # Read keywords from Excel
+                import_keywords = []
+                
+                # Skip header row and read data
+                for row_num in range(2, worksheet.max_row + 1):
+                    keyword_text = worksheet.cell(row=row_num, column=1).value
+                    match_type = worksheet.cell(row=row_num, column=2).value
+                    
+                    if keyword_text and match_type:
+                        # Clean and validate data
+                        keyword_text = str(keyword_text).strip()
+                        match_type = str(match_type).lower().strip()
+                        
+                        # Normalize match type
+                        if match_type in ['broad', 'broad match']:
+                            match_type = 'broad'
+                        elif match_type in ['phrase', 'phrase match']:
+                            match_type = 'phrase'
+                        elif match_type in ['exact', 'exact match']:
+                            match_type = 'exact'
+                        else:
+                            continue  # Skip invalid match types
+                        
+                        if keyword_text:  # Only add non-empty keywords
+                            import_keywords.append({
+                                'text': keyword_text,
+                                'match_type': match_type
+                            })
+                
+                if not import_keywords:
+                    return JsonResponse({
+                        'success': False, 
+                        'error': 'Ingen gyldige keywords fundet i Excel filen. Tjek formatet.'
+                    })
+                
+                # Initialize conflict analyzer
+                analyzer = NegativeKeywordConflictAnalyzer(keyword_list)
+                
+                # Analyze conflicts
+                analysis_result = analyzer.analyze_import(import_keywords)
+                
+                return JsonResponse({
+                    'success': True,
+                    'analysis': analysis_result,
+                    'list_info': {
+                        'id': keyword_list.id,
+                        'name': keyword_list.name,
+                        'existing_count': keyword_list.negative_keywords.count()
+                    }
+                })
+                
+            except Exception as e:
+                return JsonResponse({
+                    'success': False, 
+                    'error': f'Fejl ved læsning af Excel fil: {str(e)}'
+                })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid method'})
+
+
+@csrf_exempt
+def cleanup_keywords(request, list_id):
+    """AJAX endpoint til at slette specifikke keywords fra listen"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            keyword_ids = data.get('keyword_ids', [])
+            
+            # Find keyword listen
+            keyword_list = get_object_or_404(NegativeKeywordList, id=list_id)
+            
+            # Udfør cleanup
+            from .services import NegativeKeywordConflictAnalyzer
+            analyzer = NegativeKeywordConflictAnalyzer(keyword_list)
+            result = analyzer.execute_cleanup(keyword_ids)
+            
+            if result['success']:
+                return JsonResponse({
+                    'success': True,
+                    'removed_count': result['removed_count'],
+                    'removed_keywords': result['removed_keywords'],
+                    'message': f"Successfuldt slettet {result['removed_count']} keywords"
+                })
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'error': result['error']
+                }, status=400)
+                
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'success': False,
+                'error': 'Ugyldig JSON data'
+            }, status=400)
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Fejl under sletning: {str(e)}'
+            }, status=500)
+    
+    return JsonResponse({'success': False, 'error': 'Kun POST requests tilladt'}, status=405)
+
+
+@csrf_exempt
+def execute_excel_import(request, list_id):
+    """AJAX endpoint til at udføre den faktiske import efter konflikt-løsning"""
+    if request.method == 'POST':
+        try:
+            # Check if file was uploaded
+            if 'excel_file' not in request.FILES:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Ingen Excel fil uploadet'
+                }, status=400)
+            
+            excel_file = request.FILES['excel_file']
+            keywords_to_add = json.loads(request.POST.get('keywords_to_add', '[]'))
+            
+            # Find keyword listen
+            keyword_list = get_object_or_404(NegativeKeywordList, id=list_id)
+            
+            # Parse Excel filen igen for at få rå data
+            if excel_file.name.endswith('.xlsx'):
+                import openpyxl
+                workbook = openpyxl.load_workbook(excel_file, data_only=True)
+                sheet = workbook.active
+                excel_keywords = []
+                
+                for row_num, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), 2):
+                    if row[0]:  # Hvis der er tekst i første kolonne
+                        keyword_text = str(row[0]).strip()
+                        match_type_raw = str(row[1]).strip().lower() if row[1] else 'broad'
+                        
+                        # Normalize match type from Excel format to our format
+                        if match_type_raw in ['broad', 'broad match']:
+                            match_type = 'broad'
+                        elif match_type_raw in ['phrase', 'phrase match']:
+                            match_type = 'phrase'
+                        elif match_type_raw in ['exact', 'exact match']:
+                            match_type = 'exact'
+                        else:
+                            match_type = 'broad'
+                        
+                        excel_keywords.append({
+                            'text': keyword_text,
+                            'match_type': match_type
+                        })
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Kun .xlsx filer understøttes'
+                }, status=400)
+            
+            # Filtrer keywords baseret på brugerens valg (keywords_to_add)
+            keywords_to_import = []
+            print(f"[DEBUG] Filtering {len(excel_keywords)} excel keywords against {len(keywords_to_add)} selected")
+            print(f"[DEBUG] Selected keywords: {keywords_to_add}")
+            
+            for kw in excel_keywords:
+                # Check if this keyword should be added based on user selection
+                # Normalize text to lowercase to match frontend analysis format
+                keyword_key = f"{kw['text'].lower().strip()}_{kw['match_type']}"
+                print(f"[DEBUG] Checking: {keyword_key}")
+                if keyword_key in keywords_to_add:
+                    keywords_to_import.append(kw)
+                    print(f"[DEBUG] ✅ MATCHED: {keyword_key}")
+                else:
+                    print(f"[DEBUG] ❌ NOT SELECTED: {keyword_key}")
+            
+            keyword_list_debug = [f"{kw['text'].lower().strip()}_{kw['match_type']}" for kw in keywords_to_import]
+            print(f"[DEBUG] Final keywords to import: {len(keywords_to_import)} - {keyword_list_debug}")
+            
+            # Intelligent hierarkisk import med auto-cleanup
+            added_count = 0
+            skipped_count = 0
+            removed_count = 0
+            errors = []
+            removed_keywords = []
+            
+            # Brug conflict analyzer til hierarkisk analyse
+            from .services import NegativeKeywordConflictAnalyzer
+            analyzer = NegativeKeywordConflictAnalyzer(keyword_list)
+            
+            for kw in keywords_to_import:
+                try:
+                    # Normaliser keyword til format forventet af analyzer
+                    normalized_kw = {
+                        'text': kw['text'].lower().strip(),
+                        'original_text': kw['text'],
+                        'match_type': kw['match_type']
+                    }
+                    
+                    # Analyser relationerne
+                    relationships = analyzer._analyze_all_relationships(normalized_kw)
+                    
+                    if relationships['identical']:
+                        # Identisk keyword eksisterer allerede - skip
+                        skipped_count += 1
+                        print(f"[DEBUG] SKIPPED - Identisk: {kw['text']} ({kw['match_type']})")
+                        
+                    elif relationships['blocked_by']:
+                        # Blokeret af højere hierarki - skip
+                        blocking_kw = relationships['blocked_by'][0]
+                        skipped_count += 1
+                        print(f"[DEBUG] BLOCKED - {kw['text']} ({kw['match_type']}) blokeret af {blocking_kw['original_text']} ({blocking_kw['match_type']})")
+                        
+                    else:
+                        # Safe to add eller vil overskrive eksisterende
+                        if relationships['will_override']:
+                            # Fjern redundante keywords først
+                            for override_kw in relationships['will_override']:
+                                existing_to_remove = NegativeKeyword.objects.filter(
+                                    id=override_kw['id'],
+                                    keyword_list=keyword_list
+                                ).first()
+                                
+                                if existing_to_remove:
+                                    removed_keywords.append(f"{existing_to_remove.keyword_text} ({existing_to_remove.match_type})")
+                                    existing_to_remove.delete()
+                                    removed_count += 1
+                                    print(f"[DEBUG] REMOVED - {existing_to_remove.keyword_text} ({existing_to_remove.match_type}) - overskrevet af {kw['text']} ({kw['match_type']})")
+                        
+                        # Tilføj det nye keyword
+                        new_keyword = NegativeKeyword.objects.create(
+                            keyword_list=keyword_list,
+                            keyword_text=kw['text'],
+                            match_type=kw['match_type']
+                        )
+                        added_count += 1
+                        print(f"[DEBUG] ADDED - {kw['text']} ({kw['match_type']})")
+                        
+                        # Opdater analyzer's existing keywords efter tilføjelse
+                        analyzer.existing_keywords = analyzer._get_existing_keywords()
+                        
+                except Exception as e:
+                    errors.append(f"Fejl ved tilføjelse af '{kw['text']}': {str(e)}")
+                    print(f"[DEBUG] ERROR - {kw['text']}: {str(e)}")
+            
+            # Opdater keywords count på listen
+            keyword_list.update_keywords_count()
+            
+            print(f"[FINAL DEBUG] Import result: {added_count} added, {skipped_count} skipped, {len(errors)} errors")
+            
+            # Opret intelligent besked
+            message_parts = [f"{added_count} tilføjet"]
+            if removed_count > 0:
+                message_parts.append(f"{removed_count} fjernet (redundante)")
+            if skipped_count > 0:
+                message_parts.append(f"{skipped_count} sprunget over")
+            
+            return JsonResponse({
+                'success': True,
+                'added_count': added_count,
+                'skipped_count': skipped_count,
+                'removed_count': removed_count,
+                'removed_keywords': removed_keywords,
+                'errors': errors,
+                'total_keywords_in_list': keyword_list.keywords_count,
+                'message': f"Import færdig: {', '.join(message_parts)}"
+            })
+            
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'success': False,
+                'error': 'Ugyldig JSON data'
+            }, status=400)
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Fejl under import: {str(e)}'
+            }, status=500)
+    
+    return JsonResponse({'success': False, 'error': 'Kun POST requests tilladt'}, status=405)
+
+
+def download_negative_keywords_template(request):
+    """Download Excel template for negative keywords import"""
+    import openpyxl
+    from django.http import HttpResponse
+    from openpyxl.styles import Font, PatternFill
+    import io
+    
+    # Create workbook and worksheet
+    workbook = openpyxl.Workbook()
+    worksheet = workbook.active
+    worksheet.title = "Negative Keywords Template"
+    
+    # Headers - kun 2 kolonner: Søgeord og Match Type
+    headers = ['Søgeord', 'Match Type']
+    for col, header in enumerate(headers, 1):
+        cell = worksheet.cell(row=1, column=col)
+        cell.value = header
+        cell.font = Font(bold=True)
+        cell.fill = PatternFill(start_color="E3F2FD", end_color="E3F2FD", fill_type="solid")
+    
+    # Example data - kun søgeord og match type
+    examples = [
+        ['gratis', 'broad'],
+        ['job', 'phrase'],
+        ['diy', 'broad'],
+        ['billigst', 'broad'],
+        ['københavn', 'exact'],
+    ]
+    
+    for row, example in enumerate(examples, 2):
+        for col, value in enumerate(example, 1):
+            worksheet.cell(row=row, column=col).value = value
+    
+    # Adjust column widths
+    for column in worksheet.columns:
+        max_length = 0
+        column_letter = column[0].column_letter
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = (max_length + 2) * 1.2
+        worksheet.column_dimensions[column_letter].width = min(adjusted_width, 50)
+    
+    # Save to response
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename="negative_keywords_template.xlsx"'
+    
+    # Save workbook to response
+    virtual_workbook = io.BytesIO()
+    workbook.save(virtual_workbook)
+    virtual_workbook.seek(0)
+    response.write(virtual_workbook.read())
+    
+    return response
+
+
+@csrf_exempt
+def import_negative_keywords_excel(request):
+    """AJAX endpoint to import negative keywords from Excel file"""
+    if request.method == 'POST':
+        try:
+            if 'excel_file' not in request.FILES:
+                return JsonResponse({'success': False, 'error': 'Ingen fil uploaded'})
+            
+            excel_file = request.FILES['excel_file']
+            
+            # Validate file type
+            if not excel_file.name.lower().endswith(('.xlsx', '.xls')):
+                return JsonResponse({'success': False, 'error': 'Kun Excel filer (.xlsx, .xls) er understøttet'})
+            
+            # Process the Excel file
+            result = process_negative_keywords_excel(excel_file, request.user)
+            
+            return JsonResponse(result)
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': f'Fejl ved import: {str(e)}'})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid method'})
+
+
+def process_negative_keywords_excel(excel_file, user):
+    """Process uploaded Excel file with negative keywords"""
+    import openpyxl
+    import io
+    from collections import defaultdict
+    
+    try:
+        # Read Excel file
+        workbook = openpyxl.load_workbook(excel_file)
+        worksheet = workbook.active
+        
+        # Expected headers
+        expected_headers = ['Liste Navn', 'Kategori', 'Søgeord', 'Match Type']
+        
+        # Get headers from first row
+        headers = []
+        for col in range(1, 6):  # Check first 5 columns
+            cell_value = worksheet.cell(row=1, column=col).value
+            if cell_value:
+                headers.append(str(cell_value).strip())
+        
+        # Check if we have minimum required headers
+        missing_headers = []
+        for expected in expected_headers:
+            if expected not in headers:
+                missing_headers.append(expected)
+        
+        if missing_headers:
+            return {
+                'success': False, 
+                'error': f'Manglende kolonner: {", ".join(missing_headers)}'
+            }
+        
+        # Map header positions
+        header_map = {}
+        for i, header in enumerate(headers):
+            header_map[header] = i + 1
+        
+        # Process data rows
+        lists_data = defaultdict(lambda: {
+            'category': 'general',
+            'keywords': []
+        })
+        
+        processed_rows = 0
+        skipped_rows = 0
+        errors = []
+        
+        for row_num in range(2, worksheet.max_row + 1):
+            try:
+                # Get cell values
+                list_name = worksheet.cell(row=row_num, column=header_map['Liste Navn']).value
+                category = worksheet.cell(row=row_num, column=header_map.get('Kategori', 1)).value
+                keyword = worksheet.cell(row=row_num, column=header_map['Søgeord']).value
+                match_type = worksheet.cell(row=row_num, column=header_map['Match Type']).value
+                
+                # Skip empty rows
+                if not list_name or not keyword:
+                    skipped_rows += 1
+                    continue
+                
+                # Clean and validate data
+                list_name = str(list_name).strip()
+                category = str(category).strip().lower() if category else 'general'
+                keyword = str(keyword).strip()
+                match_type = str(match_type).strip().lower() if match_type else 'broad'
+                
+                # Validate match type
+                valid_match_types = ['broad', 'phrase', 'exact']
+                if match_type not in valid_match_types:
+                    match_type = 'broad'
+                
+                # Validate category
+                valid_categories = [
+                    'general', 'job', 'diy', 'competitor', 'location', 
+                    'service_specific', 'quality', 'other'
+                ]
+                if category not in valid_categories:
+                    category = 'general'
+                
+                # Add to lists_data
+                if list_name not in lists_data:
+                    lists_data[list_name]['category'] = category
+                
+                lists_data[list_name]['keywords'].append({
+                    'text': keyword,
+                    'match_type': match_type
+                })
+                
+                processed_rows += 1
+                
+            except Exception as e:
+                errors.append(f'Række {row_num}: {str(e)}')
+                skipped_rows += 1
+                continue
+        
+        # Create lists and keywords in database
+        created_lists = 0
+        created_keywords = 0
+        
+        for list_name, list_data in lists_data.items():
+            try:
+                # Get or create the list
+                keyword_list, created = NegativeKeywordList.objects.get_or_create(
+                    name=list_name,
+                    created_by=user,
+                    defaults={
+                        'category': list_data['category'],
+                        'description': f'Importeret fra Excel - {len(list_data["keywords"])} søgeord',
+                        'is_active': True,
+                        'auto_apply_to_industries': []
+                    }
+                )
+                
+                if created:
+                    created_lists += 1
+                
+                # Add keywords to the list
+                for keyword_data in list_data['keywords']:
+                    # Check if keyword already exists
+                    if not NegativeKeyword.objects.filter(
+                        keyword_list=keyword_list,
+                        keyword_text__iexact=keyword_data['text'],
+                        match_type=keyword_data['match_type']
+                    ).exists():
+                        NegativeKeyword.objects.create(
+                            keyword_list=keyword_list,
+                            keyword_text=keyword_data['text'],
+                            match_type=keyword_data['match_type']
+                        )
+                        created_keywords += 1
+                
+            except Exception as e:
+                errors.append(f'Liste "{list_name}": {str(e)}')
+                continue
+        
+        # Return results
+        return {
+            'success': True,
+            'summary': {
+                'created_lists': created_lists,
+                'created_keywords': created_keywords,
+                'processed_rows': processed_rows,
+                'skipped_rows': skipped_rows,
+                'errors': errors[:10]  # Limit to first 10 errors
+            }
+        }
+        
+    except Exception as e:
+        return {
+            'success': False,
+            'error': f'Fejl ved læsning af Excel fil: {str(e)}'
+        }

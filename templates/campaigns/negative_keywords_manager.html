@@ -1,0 +1,2081 @@
+{% extends 'base.html' %}
+
+{% block title %}Negative Søgeordslister | Google Ads Builder{% endblock %}
+
+{% block content %}
+
+<!-- Include jQuery for this page -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+<!-- Custom CSS for expand/collapse and edit mode -->
+<style>
+.rotate-180 {
+    transform: rotate(180deg);
+}
+.expansion-icon {
+    transition: transform 0.2s ease;
+}
+
+/* Panel scroll fix */
+body.overflow-hidden {
+    overflow: hidden !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* Panel scroll behavior */
+#slide-panel {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+}
+
+#slide-panel-content {
+    overscroll-behavior: contain;
+    /* Reserve space for header (~80px) and footer (~80px) */
+    max-height: calc(100vh - 160px);
+}
+
+/* Enhanced Edit Mode Styles */
+.edit-mode {
+    background-color: #eff6ff !important;
+    border-left: 4px solid #3b82f6 !important;
+    box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.1);
+    transition: all 0.3s ease;
+}
+
+.edit-keyword-input {
+    border: 2px solid #3b82f6 !important;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    background-color: white;
+}
+
+.edit-keyword-input:focus {
+    border-color: #1d4ed8 !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    outline: none;
+}
+
+.edit-match-type-select {
+    border: 2px solid #3b82f6 !important;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    background-color: white;
+}
+
+.edit-match-type-select:focus {
+    border-color: #1d4ed8 !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    outline: none;
+}
+
+.edit-mode-indicator {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { 
+        opacity: 1; 
+    }
+    50% { 
+        opacity: 0.7; 
+    }
+}
+
+/* Loading States */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+/* Enhanced Button Hover Effects */
+.edit-keyword-btn:hover {
+    transform: scale(1.1);
+    transition: transform 0.2s ease;
+}
+
+.cancel-edit-btn:hover {
+    transform: scale(1.1);
+    transition: transform 0.2s ease;
+}
+
+.delete-keyword-btn:hover {
+    transform: scale(1.1);
+    transition: transform 0.2s ease;
+}
+
+/* Table Row Hover Enhancement */
+.keyword-row:hover {
+    background-color: #f9fafb;
+    transition: background-color 0.2s ease;
+}
+
+.keyword-row.edit-mode:hover {
+    background-color: #eff6ff !important;
+}
+</style>
+{% csrf_token %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    
+    <!-- Hero Section -->
+    <div class="text-center mb-12 p-12 bg-gradient-to-br from-purple-100 via-blue-50 to-pink-100 rounded-3xl">
+        <div class="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl mb-6 shadow-2xl">
+            <span class="text-4xl text-white">🚫</span>
+        </div>
+        <h1 class="text-5xl font-bold text-gray-900 mb-4">Negative Søgeordslister</h1>
+        <p class="text-xl text-gray-600 max-w-2xl mx-auto">
+            Administrer dine negative søgeordslister effektivt. Importer fra Excel, organiser i kategorier og anvend automatisk til kampagner.
+        </p>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-gray-100">
+        <div class="flex flex-wrap justify-between items-center gap-4">
+            <div>
+                <h2 class="text-lg font-semibold text-gray-900">Quick Actions</h2>
+                <p class="text-sm text-gray-600">Hurtige handlinger til negative keywords administration</p>
+            </div>
+            <div class="flex flex-wrap gap-3">
+                <button id="create-list-btn" class="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center space-x-2">
+                    <span>➕</span>
+                    <span>Ny Liste</span>
+                </button>
+                <button id="download-template-btn" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-all duration-200 flex items-center space-x-2">
+                    <span>📥</span>
+                    <span>Download Template</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Overview -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Total Lister</p>
+                    <p class="text-3xl font-bold text-gray-900">{{ keyword_lists|length }}</p>
+                </div>
+                <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                    <span class="text-2xl">📋</span>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Aktive Lister</p>
+                    <p class="text-3xl font-bold text-green-600">{{ active_lists }}</p>
+                </div>
+                <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                    <span class="text-2xl">✅</span>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Total Keywords</p>
+                    <p class="text-3xl font-bold text-blue-600">{{ total_keywords }}</p>
+                </div>
+                <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                    <span class="text-2xl">🔍</span>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Kategorier</p>
+                    <p class="text-3xl font-bold text-purple-600">{{ categories_count }}</p>
+                </div>
+                <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                    <span class="text-2xl">📂</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search and Filter -->
+    <div class="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-gray-100">
+        <div class="flex flex-col lg:flex-row gap-4">
+            <div class="flex-1">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Søg i lister</label>
+                <input type="text" id="search-lists" placeholder="Søg efter listenavn, beskrivelse eller keywords..." 
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+            </div>
+            <div class="lg:w-1/5">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Filter kategori</label>
+                <select id="filter-category" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    <option value="">Alle kategorier</option>
+                    <option value="general">Generel Negativ Liste</option>
+                    <option value="job">Job/Karriere Negative</option>
+                    <option value="diy">Gør Det Selv Negative</option>
+                    <option value="competitor">Konkurrent Negative</option>
+                    <option value="location">Lokation Negative</option>
+                    <option value="service_specific">Service Specifik</option>
+                    <option value="quality">Kvalitet/Pris Negative</option>
+                    <option value="other">Andet</option>
+                </select>
+            </div>
+            <div class="lg:w-1/5">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Filter branche</label>
+                <select id="filter-industry" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    <option value="">Alle brancher</option>
+                    {% for industry in industries %}
+                    <option value="{{ industry.id }}">{{ industry.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="lg:w-1/6 flex items-end">
+                <button id="reset-filters-btn" class="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200">
+                    Reset
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Negative Keyword Lists -->
+    <div class="space-y-8" id="keyword-lists-container">
+        {% for list in keyword_lists %}
+        <div class="keyword-list-section bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden" 
+             data-list-id="{{ list.id }}" data-category="{{ list.category }}" data-industry="{{ list.industry.id|default:'' }}">
+            
+            <!-- List Header -->
+            <div class="list-header p-6 cursor-pointer" 
+                 style="background: linear-gradient(135deg, 
+                     {% if list.category == 'general' %}#EF444420, #EF444410{% elif list.category == 'job' %}#3B82F620, #3B82F610{% elif list.category == 'diy' %}#10B98120, #10B98110{% elif list.category == 'competitor' %}#8B5CF620, #8B5CF610{% elif list.category == 'location' %}#F59E0B20, #F59E0B10{% elif list.category == 'service_specific' %}#06B6D420, #06B6D410{% elif list.category == 'quality' %}#84CC1620, #84CC1610{% else %}#6B728020, #6B728010{% endif %});"
+                 onclick="toggleListExpansion({{ list.id }})">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl text-white" 
+                             style="background-color: {% if list.category == 'general' %}#EF4444{% elif list.category == 'job' %}#3B82F6{% elif list.category == 'diy' %}#10B981{% elif list.category == 'competitor' %}#8B5CF6{% elif list.category == 'location' %}#F59E0B{% elif list.category == 'service_specific' %}#06B6D4{% elif list.category == 'quality' %}#84CC16{% else %}#6B7280{% endif %};">
+                            {% if list.category == 'general' %}🚫{% elif list.category == 'job' %}💼{% elif list.category == 'diy' %}🔨{% elif list.category == 'competitor' %}🏢{% elif list.category == 'location' %}📍{% elif list.category == 'service_specific' %}⚙️{% elif list.category == 'quality' %}💰{% else %}📝{% endif %}
+                        </div>
+                        <div>
+                            <h3 class="text-2xl font-bold text-gray-900">{{ list.name }}</h3>
+                            <div class="flex items-center space-x-4 mt-1">
+                                <p class="text-gray-600">{{ list.description|default:"Ingen beskrivelse" }}</p>
+                                {% if list.industry %}
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-purple-100 to-pink-100 text-purple-800 border border-purple-200">
+                                    🏢 {{ list.industry.name }}
+                                </span>
+                                {% endif %}
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
+                                    {% if list.is_active %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-800{% endif %}">
+                                    {% if list.is_active %}Aktiv{% else %}Inaktiv{% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="text-right mr-4">
+                            <span class="inline-flex items-center justify-center w-8 h-8 text-sm font-bold text-white rounded-full" 
+                                  style="background-color: {% if list.category == 'general' %}#EF4444{% elif list.category == 'job' %}#3B82F6{% elif list.category == 'diy' %}#10B981{% elif list.category == 'competitor' %}#8B5CF6{% elif list.category == 'location' %}#F59E0B{% elif list.category == 'service_specific' %}#06B6D4{% elif list.category == 'quality' %}#84CC16{% else %}#6B7280{% endif %};">
+                                {{ list.keywords_count }}
+                            </span>
+                            <p class="text-xs text-gray-500 mt-1">keywords</p>
+                        </div>
+                        <button class="edit-list-btn text-gray-500 hover:text-blue-600 p-2" 
+                                data-list-id="{{ list.id }}" title="Redigér liste" onclick="event.stopPropagation(); editList({{ list.id }})">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                            </svg>
+                        </button>
+                        <button class="delete-list-btn text-gray-500 hover:text-red-600 p-2" 
+                                data-list-id="{{ list.id }}" title="Slet liste" onclick="event.stopPropagation(); deleteList({{ list.id }}, '{{ list.name }}')">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                            </svg>
+                        </button>
+                        <div class="expansion-icon text-gray-400 transition-transform duration-200">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Keywords List (Collapsible) -->
+            <div class="keywords-content" style="display: none;" data-list-id="{{ list.id }}">
+                <div class="border-t border-gray-200">
+                    <!-- Add New Keyword Form -->
+                    <div class="p-6 bg-gray-50 border-b border-gray-200">
+                        <div class="flex items-center justify-between mb-4">
+                            <h4 class="text-lg font-medium text-gray-900">➕ Tilføj Nye Keywords</h4>
+                            <button class="import-excel-btn bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center space-x-2"
+                                    data-list-id="{{ list.id }}" title="Importer keywords fra Excel fil">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                                </svg>
+                                <span>Importer Excel</span>
+                            </button>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <input type="text" placeholder="Negativt søgeord..." 
+                                   class="new-keyword-text px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                   data-list-id="{{ list.id }}">
+                            <select class="new-keyword-match-type px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                    data-list-id="{{ list.id }}">
+                                <option value="broad">Broad Match</option>
+                                <option value="phrase">Phrase Match</option>
+                                <option value="exact">Exact Match</option>
+                            </select>
+                            <button class="add-keyword-btn bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200"
+                                    data-list-id="{{ list.id }}">
+                                Tilføj
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Keywords Table -->
+                    <div class="keywords-list p-6" data-list-id="{{ list.id }}">
+                        {% if list.negative_keywords.all %}
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="text-left py-3 px-4 font-medium text-gray-700">Søgeord</th>
+                                        <th class="text-left py-3 px-4 font-medium text-gray-700">Match Type</th>
+                                        <th class="text-right py-3 px-4 font-medium text-gray-700">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    {% for keyword in list.negative_keywords.all %}
+                                    <tr class="keyword-row hover:bg-gray-50 transition-colors duration-200" data-keyword-id="{{ keyword.id }}">
+                                        <td class="py-3 px-4">
+                                            <span class="font-medium text-gray-900">{{ keyword.keyword_text }}</span>
+                                        </td>
+                                        <td class="py-3 px-4">
+                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
+                                                {% if keyword.match_type == 'exact' %}bg-purple-100 text-purple-800
+                                                {% elif keyword.match_type == 'phrase' %}bg-blue-100 text-blue-800
+                                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                                {{ keyword.get_match_type_display }}
+                                            </span>
+                                        </td>
+                                        <td class="py-3 px-4 text-right">
+                                            <div class="flex items-center justify-end space-x-2">
+                                                <button class="edit-keyword-btn text-gray-500 hover:text-purple-600 p-1" 
+                                                        data-keyword-id="{{ keyword.id }}" title="Redigér keyword">
+                                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                                        <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                                                    </svg>
+                                                </button>
+                                                <button class="delete-keyword-btn text-gray-500 hover:text-red-600 p-1" 
+                                                        data-keyword-id="{{ keyword.id }}" title="Slet keyword">
+                                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="text-center py-12 text-gray-500">
+                            <span class="text-4xl">🔍</span>
+                            <p class="mt-2">Ingen negative keywords endnu</p>
+                            <p class="text-sm">Tilføj dit første keyword ovenfor</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="text-center py-12 bg-white rounded-2xl shadow-lg">
+            <span class="text-6xl">📋</span>
+            <h3 class="text-xl font-medium text-gray-900 mt-4">Ingen negative keyword lister endnu</h3>
+            <p class="text-gray-500 mt-2">Opret din første liste for at komme i gang</p>
+            <button class="mt-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-lg hover:shadow-lg transition-all duration-200">
+                Opret Din Første Liste
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Slide-in Panel Overlay -->
+    <div id="slide-panel-overlay" class="fixed bg-black bg-opacity-50 backdrop-blur-sm hidden opacity-0 transition-all duration-300 z-50" style="top: 0; left: 0; right: 0; bottom: 0;">
+        <div id="slide-panel" class="fixed right-0 top-0 bg-white shadow-2xl transform translate-x-full transition-transform duration-300 flex flex-col" style="width: 800px; height: 100vh; max-height: 100vh;">
+            <!-- Panel Header -->
+            <div class="bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-4 flex-shrink-0">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 id="slide-panel-title" class="text-2xl font-bold text-white">Panel Title</h2>
+                        <p id="slide-panel-subtitle" class="text-purple-100">Panel subtitle</p>
+                    </div>
+                    <button id="slide-panel-close" class="text-white hover:text-purple-200 transition-colors">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Panel Content -->
+            <div id="slide-panel-content" class="flex-1 p-6 overflow-y-auto min-h-0">
+                <!-- Content will be dynamically inserted here -->
+            </div>
+
+            <!-- Panel Footer -->
+            <div class="border-t border-gray-200 px-6 py-4 bg-gray-50 flex-shrink-0">
+                <div class="flex justify-end space-x-3">
+                    <button id="slide-panel-cancel" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-all duration-200">
+                        Annullér
+                    </button>
+                    <button id="slide-panel-save" class="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-2 rounded-lg hover:shadow-lg transition-all duration-200">
+                        Gem
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Success/Error Notifications -->
+<div id="notification-container" class="fixed top-4 right-4 z-50 space-y-2">
+    <!-- Notifications will be inserted here -->
+</div>
+
+<script>
+// Global variables
+let currentEditingList = null;
+let currentEditingKeyword = null;
+
+// List expansion toggle - wait for jQuery to load
+function initializeToggleFunction() {
+    window.toggleListExpansion = function(listId) {
+        console.log('Toggling list expansion for ID:', listId);
+        
+        const content = $(`.keywords-content[data-list-id="${listId}"]`);
+        const icon = $(`.keyword-list-section[data-list-id="${listId}"] .expansion-icon svg`);
+        
+        console.log('Content element found:', content.length > 0);
+        console.log('Icon element found:', icon.length > 0);
+        
+        if (content.is(':visible')) {
+            content.slideUp(200);
+            icon.removeClass('rotate-180');
+            console.log('Collapsing list');
+        } else {
+            content.slideDown(200);
+            icon.addClass('rotate-180');
+            console.log('Expanding list');
+        }
+    };
+}
+
+// Initialize immediately
+initializeToggleFunction();
+
+// Initialize page
+$(document).ready(function() {
+    // Event listeners
+    $('#create-list-btn').click(openCreateListPanel);
+    $('#download-template-btn').click(downloadTemplate);
+    $('#search-lists').on('input', filterLists);
+    $('#filter-category').change(filterLists);
+    $('#filter-industry').change(filterLists);
+    $('#reset-filters-btn').click(resetFilters);
+    
+    // Slide panel events
+    $('#slide-panel-close, #slide-panel-cancel').click(closeSlidePanel);
+    $('#slide-panel-overlay').click(function(e) {
+        if (e.target === this) {
+            forceClosePanel();
+        }
+    });
+    
+    // Add keyword events
+    $(document).on('click', '.add-keyword-btn', addNewKeyword);
+    $(document).on('keypress', '.new-keyword-text', function(e) {
+        if (e.which === 13) {
+            $(this).siblings('.add-keyword-btn').click();
+        }
+    });
+    
+    // Import Excel events
+    console.log('Registering import excel event listener...');
+    $(document).on('click', '.import-excel-btn', function(e) {
+        console.log('Import Excel button clicked!', e);
+        openImportExcelForList(e);
+    });
+    $(document).on('change', '#list-excel-file-input', function() {
+        const file = this.files[0];
+        if (file) {
+            $('#list-file-selected-info').removeClass('hidden');
+            $('#list-selected-file-name').text(file.name);
+        }
+    });
+    
+    // Edit/delete keyword events
+    $(document).on('click', '.edit-keyword-btn', editKeyword);
+    $(document).on('click', '.cancel-edit-btn', cancelKeywordEdit);
+    $(document).on('click', '.delete-keyword-btn', deleteKeyword);
+    
+    // Keyboard navigation for edit mode
+    $(document).on('keydown', '.edit-keyword-input, .edit-match-type-select', function(e) {
+        const row = $(this).closest('tr');
+        const keywordId = row.find('.edit-keyword-btn').data('keyword-id');
+        
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveKeywordEdit(row, keywordId);
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            const originalKeyword = row.find('.edit-keyword-input').data('original');
+            exitKeywordEditMode(row, originalKeyword, 'broad');
+            location.reload(); // Simple solution to restore original state
+        }
+    });
+    
+    // File upload events
+    $(document).on('change', '#excel-file-input', handleFileSelect);
+    setupDragAndDrop();
+});
+
+// Panel functions
+function openCreateListPanel() {
+    const title = "Opret Ny Negative Keyword Liste";
+    const subtitle = "Definér en ny liste til negative søgeord";
+    const content = generateCreateListContent();
+    
+    openSlidePanel(title, subtitle, content, saveNewList);
+}
+
+function openImportExcelPanel() {
+    const title = "Importer Negative Keywords fra Excel";
+    const subtitle = "Upload en Excel fil med negative søgeord";
+    const content = generateImportExcelContent();
+    
+    openSlidePanel(title, subtitle, content, processExcelImport);
+}
+
+function openImportExcelForList(e) {
+    const listId = $(e.target).closest('.import-excel-btn').data('list-id');
+    const listName = $(e.target).closest('.keyword-list-section').find('h3').text().trim();
+    
+    const title = `Importer Excel til "${listName}"`;
+    const subtitle = "Upload Excel fil med intelligente duplikat-tjek";
+    const content = generateImportExcelForListContent(listId, listName);
+    
+    openSlidePanel(title, subtitle, content, () => analyzeExcelForList(listId));
+    
+    // Change button text to "Analysér" for Excel import
+    $('#slide-panel-save').text('Analysér');
+}
+
+function generateImportExcelForListContent(listId, listName) {
+    return `
+        <div class="space-y-4">
+            <!-- List Info -->
+            <div class="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                <div class="flex items-center space-x-2">
+                    <svg class="w-4 h-4 text-purple-600" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span class="text-sm font-medium text-purple-800">Importerer til: ${listName}</span>
+                </div>
+            </div>
+            
+            <!-- File Upload -->
+            <div>
+                <h4 class="text-base font-medium text-gray-900 mb-3">📊 Upload Excel Fil</h4>
+                
+                <div id="list-excel-dropzone" class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-purple-400 transition-colors">
+                    <input type="file" id="list-excel-file-input" accept=".xlsx,.xls" class="hidden" data-list-id="${listId}">
+                    <div class="cursor-pointer" onclick="document.getElementById('list-excel-file-input').click()">
+                        <span class="text-2xl">📁</span>
+                        <p class="mt-1 text-sm font-medium text-gray-900">Klik for at vælge Excel fil</p>
+                        <p class="text-xs text-gray-500">Eller træk og slip filen her</p>
+                        <p class="text-xs text-gray-400">(.xlsx, .xls)</p>
+                    </div>
+                    <div id="list-file-selected-info" class="hidden mt-3 p-2 bg-blue-50 rounded-lg border border-blue-200">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-blue-600">📊</span>
+                            <span id="list-selected-file-name" class="text-xs font-medium text-blue-800"></span>
+                            <button type="button" onclick="clearListSelectedFile()" class="text-blue-600 hover:text-blue-800">
+                                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Excel Format Info -->
+            <div class="border-t border-gray-200 pt-3">
+                <h4 class="text-base font-medium text-gray-900 mb-2">📋 Excel Format</h4>
+                
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p class="text-xs text-blue-800 mb-2"><strong>Påkrævede kolonner:</strong></p>
+                    <ul class="text-xs text-blue-700 space-y-1">
+                        <li>• <strong>A: Søgeord</strong> - Det negative søgeord</li>
+                        <li>• <strong>B: Match Type</strong> - broad, phrase eller exact</li>
+                    </ul>
+                </div>
+                
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-2 mt-2">
+                    <div class="flex items-start space-x-2">
+                        <svg class="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+                        </svg>
+                        <div>
+                            <p class="text-xs font-medium text-yellow-800">Intelligent Duplikat-detektion</p>
+                            <p class="text-xs text-yellow-700">Tjekker konflikter og foreslår optimeringer.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Analysis Results (initially hidden) -->
+            <div id="analysis-results" class="hidden border-t border-gray-200 pt-3">
+                <h4 class="text-base font-medium text-gray-900 mb-2">🔍 Analyse Resultat</h4>
+                <div id="analysis-content"></div>
+            </div>
+        </div>
+    `;
+}
+
+// Store uploaded file globally so it doesn't get lost
+let currentUploadedFile = null;
+
+function analyzeExcelForList(listId) {
+    const fileInput = document.getElementById('list-excel-file-input');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        showErrorNotification('Vælg en Excel fil først');
+        return;
+    }
+    
+    // Store file reference globally
+    currentUploadedFile = file;
+    
+    // Show loading state
+    $('#slide-panel-save').prop('disabled', true).html('🔍 Analyserer...');
+    
+    // Create form data
+    const formData = new FormData();
+    formData.append('excel_file', file);
+    formData.append('csrfmiddlewaretoken', $('[name=csrfmiddlewaretoken]').val());
+    
+    $.ajax({
+        url: `/ajax/analyze-excel-import/${listId}/`,
+        method: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+            if (response.success) {
+                displayAnalysisResults(response.analysis, listId);
+                $('#slide-panel-save').html('✅ Udfør Import').prop('disabled', false).off('click').on('click', function() {
+                    executeImport(listId, response.analysis);
+                });
+            } else {
+                showErrorNotification('Analyse fejl: ' + response.error);
+                $('#slide-panel-save').prop('disabled', false).html('Analysér');
+            }
+        },
+        error: function() {
+            showErrorNotification('Der opstod en fejl under analyse');
+            $('#slide-panel-save').prop('disabled', false).html('Analysér');
+        }
+    });
+}
+
+function displayAnalysisResults(analysis, listId) {
+    $('#analysis-results').removeClass('hidden');
+    
+    let html = `
+        <div class="space-y-3">
+            <!-- Summary -->
+            <div class="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-3">
+                <h5 class="text-sm font-bold text-gray-900 mb-2">📊 Import Analyse</h5>
+                <div class="grid grid-cols-4 gap-2 text-center">
+                    <div class="bg-white rounded-lg p-2">
+                        <div class="text-lg font-bold text-blue-600">${analysis.total_keywords}</div>
+                        <div class="text-xs text-gray-600">Total</div>
+                    </div>
+                    <div class="bg-white rounded-lg p-2">
+                        <div class="text-lg font-bold text-green-600">${analysis.safe_to_add.length}</div>
+                        <div class="text-xs text-gray-600">Tilføj</div>
+                    </div>
+                    <div class="bg-white rounded-lg p-2">
+                        <div class="text-lg font-bold text-orange-600">${analysis.conflicts.length}</div>
+                        <div class="text-xs text-gray-600">Konflikter</div>
+                    </div>
+                    <div class="bg-white rounded-lg p-2">
+                        <div class="text-lg font-bold text-purple-600">${analysis.optimizations.length}</div>
+                        <div class="text-xs text-gray-600">Optim.</div>
+                    </div>
+                </div>
+            </div>
+    `;
+    
+    // Safe to add keywords with checkboxes
+    if (analysis.safe_to_add.length > 0) {
+        html += `
+            <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+                <h6 class="text-sm font-medium text-green-800 mb-2 flex items-center justify-between">
+                    <span class="flex items-center">
+                        <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                        </svg>
+                        Kan Tilføjes (${analysis.safe_to_add.length})
+                    </span>
+                    <div class="flex items-center space-x-2">
+                        <button type="button" onclick="selectAllSafe(true)" class="text-xs text-green-600 hover:text-green-800">Alle</button>
+                        <button type="button" onclick="selectAllSafe(false)" class="text-xs text-green-600 hover:text-green-800">Ingen</button>
+                    </div>
+                </h6>
+                <div class="space-y-1 max-h-32 overflow-y-auto">
+        `;
+        analysis.safe_to_add.forEach(kw => {
+            const keywordKey = `${kw.text}_${kw.match_type}`;
+            html += `
+                <div class="flex items-center space-x-2 bg-white rounded p-2">
+                    <input type="checkbox" name="keywords_to_add" value="${keywordKey}" checked
+                           class="h-3 w-3 text-green-600 focus:ring-green-500 border-gray-300 rounded">
+                    <span class="text-xs text-green-700 flex-1">"${kw.original_text}" (${kw.match_type})</span>
+                </div>
+            `;
+        });
+        html += `</div></div>`;
+    }
+    
+    // Conflicts
+    if (analysis.conflicts.length > 0) {
+        html += `
+            <div class="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                <h6 class="text-sm font-medium text-orange-800 mb-2 flex items-center">
+                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+                    </svg>
+                    Konflikter (${analysis.conflicts.length})
+                </h6>
+                <div class="space-y-1 max-h-32 overflow-y-auto">
+        `;
+        analysis.conflicts.forEach(conflict => {
+            html += `
+                <div class="bg-white border border-orange-200 rounded p-2">
+                    <div class="text-xs font-medium text-gray-900">"${conflict.import_keyword.original_text}" (${conflict.import_keyword.match_type})</div>
+                    <div class="text-xs text-orange-700">${conflict.reason}</div>
+                </div>
+            `;
+        });
+        html += `</div></div>`;
+    }
+    
+    // Redundancy in upload
+    if (analysis.redundant_in_upload.length > 0) {
+        html += `
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-2">
+                <h6 class="text-sm font-medium text-yellow-800 mb-2 flex items-center">
+                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 9v3.75m9 3.75-3-3m0 0l-3 3m3-3V21m-9-15V9l3-3 3 3v7.5"/>
+                    </svg>
+                    Dubletter (${analysis.redundant_in_upload.length})
+                </h6>
+                <div class="space-y-1 max-h-24 overflow-y-auto">
+        `;
+        analysis.redundant_in_upload.forEach(redundant => {
+            html += `
+                <div class="bg-white border border-yellow-200 rounded p-2">
+                    <div class="text-xs text-gray-900">"${redundant.keyword1.original_text}" vs "${redundant.keyword2.original_text}"</div>
+                    <div class="text-xs text-yellow-700">${redundant.recommendation}</div>
+                </div>
+            `;
+        });
+        html += `</div></div>`;
+    }
+    
+    // Optimizations
+    if (analysis.optimizations.length > 0) {
+        html += `
+            <div class="bg-purple-50 border border-purple-200 rounded-lg p-2">
+                <h6 class="text-sm font-medium text-purple-800 mb-2 flex items-center">
+                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                    </svg>
+                    Optimeringer (${analysis.optimizations.length})
+                </h6>
+                <div class="space-y-1 max-h-24 overflow-y-auto">
+        `;
+        analysis.optimizations.forEach(opt => {
+            html += `
+                <div class="bg-white border border-purple-200 rounded p-2">
+                    <div class="text-xs font-medium text-gray-900">${opt.suggestion}</div>
+                    <div class="text-xs text-purple-700">Gevinst: ${opt.efficiency_gain} færre</div>
+                </div>
+            `;
+        });
+        html += `</div></div>`;
+    }
+    
+    // Cleanup suggestions
+    if (analysis.cleanup_suggestions.length > 0) {
+        html += `
+            <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-2">
+                <h6 class="text-sm font-medium text-indigo-800 mb-2 flex items-center">
+                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                    Oprydning (${analysis.cleanup_suggestions.length})
+                </h6>
+                <div class="space-y-1 max-h-24 overflow-y-auto">
+        `;
+        analysis.cleanup_suggestions.forEach(suggestion => {
+            html += `
+                <div class="bg-white border border-indigo-200 rounded p-2">
+                    <div class="text-xs font-medium text-gray-900">${suggestion.description}</div>
+                    <button class="cleanup-suggestion-btn text-xs bg-indigo-600 text-white px-2 py-1 rounded mt-1 hover:bg-indigo-700" 
+                            data-keywords='${JSON.stringify(suggestion.keywords_to_remove.map(k => k.id))}'>
+                        Slet ${suggestion.keywords_to_remove.length}
+                    </button>
+                </div>
+            `;
+        });
+        html += `</div></div>`;
+    }
+    
+    // Add execution note (button is in panel footer)
+    html += `
+        <div class="border-t border-gray-200 pt-2 mt-2">
+            <div class="text-xs text-gray-600 text-center">
+                Vælg keywords ovenfor og klik 'Udfør Import' for at tilføje dem.
+            </div>
+        </div>
+    `;
+    
+    html += '</div>';
+    
+    $('#analysis-content').html(html);
+    
+    // Add event listeners for cleanup buttons
+    $('.cleanup-suggestion-btn').on('click', function() {
+        const keywordIds = JSON.parse($(this).data('keywords'));
+        executeCleanup(listId, keywordIds);
+    });
+}
+
+function executeCleanup(listId, keywordIds) {
+    if (confirm(`Er du sikker på at du vil slette ${keywordIds.length} keywords?`)) {
+        $.ajax({
+            url: `/ajax/cleanup-keywords/${listId}/`,
+            method: 'POST',
+            data: {
+                keyword_ids: keywordIds,
+                csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+            },
+            success: function(response) {
+                if (response.success) {
+                    showSuccessNotification(`${response.removed_count} keywords slettet!`);
+                    // Re-analyze after cleanup
+                    analyzeExcelForList(listId);
+                } else {
+                    showErrorNotification('Fejl: ' + response.error);
+                }
+            },
+            error: function() {
+                showErrorNotification('Der opstod en fejl');
+            }
+        });
+    }
+}
+
+function executeImport(listId, analysis) {
+    console.log('executeImport called with:', listId, analysis);
+    
+    // Collect selected keywords to add
+    const selectedKeywords = [];
+    $('input[name="keywords_to_add"]:checked').each(function() {
+        selectedKeywords.push($(this).val());
+    });
+    
+    console.log('Selected keywords:', selectedKeywords);
+    
+    if (selectedKeywords.length === 0) {
+        showErrorNotification('Ingen keywords valgt til import');
+        return;
+    }
+    
+    // Use globally stored file reference instead of trying to access input again
+    if (!currentUploadedFile) {
+        showErrorNotification('Ingen Excel fil valgt - upload fil igen');
+        return;
+    }
+    console.log('Using stored file:', currentUploadedFile);
+    
+    // Show loading state
+    const saveBtn = $('#slide-panel-save');
+    const originalText = saveBtn.text();
+    saveBtn.text('Importerer...').prop('disabled', true);
+    
+    // Create form data
+    const formData = new FormData();
+    formData.append('excel_file', currentUploadedFile);
+    formData.append('keywords_to_add', JSON.stringify(selectedKeywords));
+    formData.append('csrfmiddlewaretoken', $('[name=csrfmiddlewaretoken]').val());
+    
+    // Execute the import
+    $.ajax({
+        url: `/ajax/execute-excel-import/${listId}/`,
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+            if (response.success) {
+                showSuccessNotification(response.message || 'Keywords importeret succesfuldt!');
+                // Close the slide panel
+                closeSlidePanel();
+                // Refresh the page to show updated keyword counts
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showErrorNotification(response.error || 'Fejl under import');
+                saveBtn.text(originalText).prop('disabled', false);
+            }
+        },
+        error: function(xhr) {
+            const error = xhr.responseJSON?.error || 'Fejl under import';
+            showErrorNotification(error);
+            saveBtn.text(originalText).prop('disabled', false);
+        }
+    });
+}
+
+// File handling for list-specific import
+function clearListSelectedFile() {
+    document.getElementById('list-excel-file-input').value = '';
+    document.getElementById('list-file-selected-info').classList.add('hidden');
+}
+
+function generateCreateListContent() {
+    return `
+        <div class="space-y-6">
+            <!-- Basic Information -->
+            <div>
+                <h4 class="text-lg font-medium text-gray-900 mb-4">📝 Grundlæggende Information</h4>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Liste Navn</label>
+                        <input type="text" id="create-list-name" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                               placeholder="F.eks. VVS Generel Negativ Liste" maxlength="100" required>
+                        <div class="text-xs text-gray-500 mt-1">
+                            <span id="create-list-name-count">0</span>/100 karakterer
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Kategori</label>
+                        <select id="create-list-category" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                            <option value="general">Generel Negativ Liste</option>
+                            <option value="job">Job/Karriere Negative</option>
+                            <option value="diy">Gør Det Selv Negative</option>
+                            <option value="competitor">Konkurrent Negative</option>
+                            <option value="location">Lokation Negative</option>
+                            <option value="service_specific">Service Specifik</option>
+                            <option value="quality">Kvalitet/Pris Negative</option>
+                            <option value="other">Andet</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">🏢 Branche (Valgfri)</label>
+                    <select id="create-list-industry" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        <option value="">Vælg branche (valgfri)</option>
+                        {% for industry in industries %}
+                        <option value="{{ industry.id }}">{{ industry.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="text-xs text-gray-500 mt-1">
+                        Tilknyt listen til en specifik branche for automatisk anvendelse
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Beskrivelse</label>
+                    <textarea id="create-list-description" rows="3" 
+                              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                              placeholder="Beskrivelse af hvad denne liste indeholder..." maxlength="500"></textarea>
+                    <div class="text-xs text-gray-500 mt-1">
+                        <span id="create-list-description-count">0</span>/500 karakterer
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Settings -->
+            <div class="border-t border-gray-200 pt-6">
+                <h4 class="text-lg font-medium text-gray-900 mb-4">⚙️ Indstillinger</h4>
+                
+                <div class="space-y-4">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="create-list-active" checked
+                               class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded">
+                        <label for="create-list-active" class="ml-2 block text-sm text-gray-900">
+                            Liste er aktiv og kan bruges til kampagner
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function generateImportExcelContent() {
+    return `
+        <div class="space-y-6">
+            <!-- File Upload -->
+            <div>
+                <h4 class="text-lg font-medium text-gray-900 mb-4">📊 Upload Excel Fil</h4>
+                
+                <div id="excel-dropzone" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-purple-400 transition-colors">
+                    <input type="file" id="excel-file-input" accept=".xlsx,.xls" class="hidden">
+                    <div class="cursor-pointer" onclick="document.getElementById('excel-file-input').click()">
+                        <span class="text-4xl">📁</span>
+                        <p class="mt-2 text-lg font-medium text-gray-900">Klik for at vælge Excel fil</p>
+                        <p class="text-sm text-gray-500">Eller træk og slip filen her</p>
+                        <p class="text-xs text-gray-400 mt-1">Understøttede formater: .xlsx, .xls</p>
+                    </div>
+                    <div id="file-selected-info" class="hidden mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-blue-600">📊</span>
+                            <span id="selected-file-name" class="text-sm font-medium text-blue-800"></span>
+                            <button type="button" onclick="clearSelectedFile()" class="text-blue-600 hover:text-blue-800">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Template Info -->
+            <div class="border-t border-gray-200 pt-6">
+                <h4 class="text-lg font-medium text-gray-900 mb-4">📋 Excel Format</h4>
+                
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p class="text-sm text-blue-800 mb-2"><strong>Påkrævede kolonner:</strong></p>
+                    <ul class="text-sm text-blue-700 space-y-1">
+                        <li>• <strong>Liste Navn:</strong> Navn på den negative keyword liste</li>
+                        <li>• <strong>Kategori:</strong> Kategori for listen (general, job, diy, etc.)</li>
+                        <li>• <strong>Søgeord:</strong> Det negative søgeord</li>
+                        <li>• <strong>Match Type:</strong> broad, phrase eller exact</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Preview Area -->
+            <div id="excel-preview" class="hidden border-t border-gray-200 pt-6">
+                <h4 class="text-lg font-medium text-gray-900 mb-4">👁️ Forhåndsvisning</h4>
+                <div id="excel-preview-content"></div>
+            </div>
+        </div>
+    `;
+}
+
+// Duplicate function removed - using global version above
+
+// Filter functions
+function filterLists() {
+    const searchTerm = $('#search-lists').val().toLowerCase();
+    const categoryFilter = $('#filter-category').val();
+    const industryFilter = $('#filter-industry').val();
+    
+    $('.keyword-list-section').each(function() {
+        const listElement = $(this);
+        const listName = listElement.find('h3').text().toLowerCase();
+        const listDescription = listElement.find('.text-gray-600').text().toLowerCase();
+        const listCategory = listElement.data('category');
+        const listIndustry = listElement.data('industry');
+        
+        const matchesSearch = listName.includes(searchTerm) || listDescription.includes(searchTerm);
+        const matchesCategory = !categoryFilter || listCategory === categoryFilter;
+        const matchesIndustry = !industryFilter || (listIndustry && listIndustry.toString() === industryFilter);
+        
+        if (matchesSearch && matchesCategory && matchesIndustry) {
+            listElement.show();
+        } else {
+            listElement.hide();
+        }
+    });
+}
+
+function resetFilters() {
+    $('#search-lists').val('');
+    $('#filter-category').val('');
+    $('#filter-industry').val('');
+    $('.keyword-list-section').show();
+}
+
+// CRUD operations
+function addNewKeyword(e) {
+    const listId = $(e.target).data('list-id');
+    const keywordText = $(`.new-keyword-text[data-list-id="${listId}"]`).val().trim();
+    const matchType = $(`.new-keyword-match-type[data-list-id="${listId}"]`).val();
+    
+    if (!keywordText) {
+        showErrorNotification('Indtast et søgeord');
+        return;
+    }
+    
+    $.ajax({
+        url: `/ajax/add-negative-keyword/`,
+        method: 'POST',
+        data: {
+            list_id: listId,
+            keyword_text: keywordText,
+            match_type: matchType,
+            csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+        },
+        success: function(response) {
+            if (response.success) {
+                showSuccessNotification('Keyword tilføjet!');
+                
+                // Clear the input fields
+                $(`.new-keyword-text[data-list-id="${listId}"]`).val('');
+                $(`.new-keyword-match-type[data-list-id="${listId}"]`).val('broad');
+                
+                // Add the new keyword to the table dynamically
+                addKeywordToTable(listId, response.keyword);
+                
+                // Update the keyword count in the list header
+                updateKeywordCount(listId);
+            } else {
+                showErrorNotification('Fejl: ' + response.error);
+            }
+        },
+        error: function() {
+            showErrorNotification('Der opstod en fejl');
+        }
+    });
+}
+
+function addKeywordToTable(listId, keyword) {
+    // Find the table body for this list
+    const tableBody = $(`.keywords-content[data-list-id="${listId}"] tbody`);
+    
+    if (tableBody.length === 0) {
+        // If no table exists yet (empty list), create the table structure
+        const tableContainer = $(`.keywords-content[data-list-id="${listId}"]`);
+        const emptyMessage = tableContainer.find('.text-center.py-12');
+        
+        if (emptyMessage.length > 0) {
+            emptyMessage.remove();
+            
+            // Create new table
+            const tableHTML = `
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="text-left py-3 px-4 font-medium text-gray-700">Søgeord</th>
+                                <th class="text-left py-3 px-4 font-medium text-gray-700">Match Type</th>
+                                <th class="text-right py-3 px-4 font-medium text-gray-700">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200"></tbody>
+                    </table>
+                </div>
+            `;
+            
+            tableContainer.append(tableHTML);
+        }
+    }
+    
+    // Get match type display and styling
+    let badgeClass = 'bg-gray-100 text-gray-800';
+    let displayText = 'Broad Match';
+    
+    if (keyword.match_type === 'exact') {
+        badgeClass = 'bg-purple-100 text-purple-800';
+        displayText = 'Exact Match';
+    } else if (keyword.match_type === 'phrase') {
+        badgeClass = 'bg-blue-100 text-blue-800';
+        displayText = 'Phrase Match';
+    }
+    
+    // Create new row HTML
+    const newRowHTML = `
+        <tr class="keyword-row hover:bg-gray-50 transition-colors duration-200" data-keyword-id="${keyword.id}">
+            <td class="py-3 px-4">
+                <span class="font-medium text-gray-900">${keyword.text}</span>
+            </td>
+            <td class="py-3 px-4">
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${badgeClass}" data-match-type="${keyword.match_type}">
+                    ${displayText}
+                </span>
+            </td>
+            <td class="py-3 px-4 text-right">
+                <div class="flex items-center justify-end space-x-2">
+                    <button class="edit-keyword-btn text-gray-500 hover:text-purple-600 p-1" 
+                            data-keyword-id="${keyword.id}" title="Redigér keyword">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                        </svg>
+                    </button>
+                    <button class="delete-keyword-btn text-gray-500 hover:text-red-600 p-1" 
+                            data-keyword-id="${keyword.id}" title="Slet keyword">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                        </svg>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `;
+    
+    // Add the new row to the table with a subtle animation
+    const newRow = $(newRowHTML);
+    newRow.hide(); // Hide initially for animation
+    
+    const currentTableBody = $(`.keywords-content[data-list-id="${listId}"] tbody`);
+    currentTableBody.append(newRow);
+    
+    // Animate the new row appearing
+    newRow.fadeIn(300);
+}
+
+function updateKeywordCount(listId) {
+    // Count current keywords in the table
+    const keywordCount = $(`.keywords-content[data-list-id="${listId}"] tbody tr`).length;
+    
+    // Update the count badge in the header
+    const countBadge = $(`.keyword-list-section[data-list-id="${listId}"] .inline-flex.items-center.justify-center.w-8.h-8`);
+    if (countBadge.length > 0) {
+        countBadge.text(keywordCount);
+    }
+}
+
+function editKeyword(e) {
+    const button = $(e.target).closest('.edit-keyword-btn');
+    const keywordId = button.data('keyword-id');
+    const row = button.closest('tr');
+    
+    // Check if already in edit mode
+    if (row.hasClass('edit-mode')) {
+        saveKeywordEdit(row, keywordId);
+    } else {
+        enableKeywordEditMode(row, keywordId);
+    }
+}
+
+function enableKeywordEditMode(row, keywordId) {
+    const keywordCell = row.find('td:first-child');
+    const matchTypeCell = row.find('td:nth-child(2)');
+    const editButton = row.find('.edit-keyword-btn');
+    
+    // Get current values
+    const currentKeyword = keywordCell.find('span').text().trim();
+    const currentMatchType = matchTypeCell.find('span').data('match-type') || 
+                           matchTypeCell.find('span').text().toLowerCase().replace(' match', '');
+    
+    // Replace keyword text with input
+    keywordCell.html(`
+        <input type="text" class="edit-keyword-input w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent" 
+               value="${currentKeyword}" data-original="${currentKeyword}">
+    `);
+    
+    // Replace match type with select
+    matchTypeCell.html(`
+        <select class="edit-match-type-select px-2 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+            <option value="broad" ${currentMatchType === 'broad' ? 'selected' : ''}>Broad Match</option>
+            <option value="phrase" ${currentMatchType === 'phrase' ? 'selected' : ''}>Phrase Match</option>
+            <option value="exact" ${currentMatchType === 'exact' ? 'selected' : ''}>Exact Match</option>
+        </select>
+    `);
+    
+    // Change edit button to save button
+    editButton.html(`
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+        </svg>
+    `).attr('title', 'Gem ændringer').removeClass('hover:text-purple-600').addClass('hover:text-green-600');
+    
+    // Add cancel button
+    editButton.after(`
+        <button class="cancel-edit-btn text-gray-500 hover:text-red-600 p-1" title="Annullér">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>
+        </button>
+    `);
+    
+    // Mark row as in edit mode
+    row.addClass('edit-mode bg-blue-50 border-l-4 border-blue-500');
+    
+    // Add edit mode indicator
+    if (row.find('.edit-mode-indicator').length === 0) {
+        keywordCell.prepend('<span class="edit-mode-indicator text-blue-600 mr-2" title="Redigerer...">✏️</span>');
+    }
+    
+    // Focus on keyword input and select all text
+    const input = row.find('.edit-keyword-input');
+    input.focus().select();
+}
+
+function saveKeywordEdit(row, keywordId) {
+    const keywordInput = row.find('.edit-keyword-input');
+    const matchTypeSelect = row.find('.edit-match-type-select');
+    
+    const newKeyword = keywordInput.val().trim();
+    const newMatchType = matchTypeSelect.val();
+    const originalKeyword = keywordInput.data('original');
+    
+    if (!newKeyword) {
+        showErrorNotification('Søgeord kan ikke være tomt');
+        keywordInput.focus();
+        return;
+    }
+    
+    // Show loading state
+    row.find('.edit-keyword-btn').prop('disabled', true).html(`
+        <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" stroke-width="4" opacity="0.25"/>
+            <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+        </svg>
+    `);
+    
+    $.ajax({
+        url: `/ajax/update-negative-keyword/${keywordId}/`,
+        method: 'POST',
+        data: {
+            keyword_text: newKeyword,
+            match_type: newMatchType,
+            csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+        },
+        success: function(response) {
+            if (response.success) {
+                showSuccessNotification('Keyword opdateret!');
+                exitKeywordEditMode(row, newKeyword, newMatchType);
+            } else {
+                showErrorNotification('Fejl: ' + response.error);
+                row.find('.edit-keyword-btn').prop('disabled', false).html(`
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                    </svg>
+                `);
+            }
+        },
+        error: function() {
+            showErrorNotification('Der opstod en fejl');
+            row.find('.edit-keyword-btn').prop('disabled', false).html(`
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+            `);
+        }
+    });
+}
+
+function exitKeywordEditMode(row, keyword, matchType) {
+    const keywordCell = row.find('td:first-child');
+    const matchTypeCell = row.find('td:nth-child(2)');
+    const editButton = row.find('.edit-keyword-btn');
+    
+    // Restore keyword text (remove edit indicator)
+    keywordCell.html(`<span class="font-medium text-gray-900">${keyword}</span>`);
+    
+    // Restore match type badge
+    let badgeClass = 'bg-gray-100 text-gray-800';
+    let displayText = 'Broad Match';
+    
+    if (matchType === 'exact') {
+        badgeClass = 'bg-purple-100 text-purple-800';
+        displayText = 'Exact Match';
+    } else if (matchType === 'phrase') {
+        badgeClass = 'bg-blue-100 text-blue-800';
+        displayText = 'Phrase Match';
+    }
+    
+    matchTypeCell.html(`
+        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${badgeClass}" data-match-type="${matchType}">
+            ${displayText}
+        </span>
+    `);
+    
+    // Restore edit button
+    editButton.html(`
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+        </svg>
+    `).attr('title', 'Redigér keyword').removeClass('hover:text-green-600').addClass('hover:text-purple-600')
+      .prop('disabled', false);
+    
+    // Remove cancel button and edit mode
+    row.find('.cancel-edit-btn').remove();
+    row.removeClass('edit-mode bg-blue-50 border-l-4 border-blue-500');
+}
+
+function cancelKeywordEdit(e) {
+    const row = $(e.target).closest('tr');
+    const originalKeyword = row.find('.edit-keyword-input').data('original');
+    exitKeywordEditMode(row, originalKeyword, 'broad'); // Will be corrected by page state
+    location.reload(); // Simple solution to restore original state
+}
+
+function deleteKeyword(e) {
+    const keywordId = $(e.target).closest('.delete-keyword-btn').data('keyword-id');
+    const row = $(e.target).closest('tr');
+    const keywordText = row.find('.font-medium').text().trim();
+    
+    if (confirm(`Er du sikker på at du vil slette søgeordet "${keywordText}"?`)) {
+        $.ajax({
+            url: `/ajax/delete-negative-keyword/${keywordId}/`,
+            method: 'POST',
+            data: {
+                csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+            },
+            success: function(response) {
+                if (response.success) {
+                    showSuccessNotification('Keyword slettet!');
+                    
+                    // Remove the row with animation
+                    row.fadeOut(300, function() {
+                        const listId = row.closest('.keywords-content').data('list-id');
+                        row.remove();
+                        
+                        // Update keyword count
+                        updateKeywordCount(listId);
+                        
+                        // Check if table is now empty
+                        const remainingRows = $(`.keywords-content[data-list-id="${listId}"] tbody tr`);
+                        if (remainingRows.length === 0) {
+                            // Show empty state
+                            const tableContainer = $(`.keywords-content[data-list-id="${listId}"]`);
+                            tableContainer.find('.overflow-x-auto').remove();
+                            tableContainer.append(`
+                                <div class="text-center py-12 text-gray-500">
+                                    <span class="text-4xl">🔍</span>
+                                    <p class="mt-2">Ingen negative keywords endnu</p>
+                                    <p class="text-sm">Tilføj dit første keyword ovenfor</p>
+                                </div>
+                            `);
+                        }
+                    });
+                } else {
+                    showErrorNotification('Fejl: ' + response.error);
+                }
+            },
+            error: function() {
+                showErrorNotification('Der opstod en fejl');
+            }
+        });
+    }
+}
+
+function editList(listId) {
+    // Get list data from the DOM
+    const listElement = $(`.keyword-list-section[data-list-id="${listId}"]`);
+    const listName = listElement.find('h3').text().trim();
+    const listDescription = listElement.find('.text-gray-600').text().trim();
+    const listCategory = listElement.data('category') || 'general';
+    const listIndustry = listElement.data('industry') || '';
+    
+    const title = "Redigér Negative Keyword Liste";
+    const subtitle = "Opdatér listedetaljer og indstillinger";
+    const content = generateEditListContent(listId, listName, listDescription, listCategory, listIndustry);
+    
+    openSlidePanel(title, subtitle, content, () => saveListEdit(listId));
+}
+
+function generateEditListContent(listId, currentName, currentDescription, currentCategory, currentIndustry) {
+    return `
+        <div class="space-y-6">
+            <!-- Basic Information -->
+            <div>
+                <h4 class="text-lg font-medium text-gray-900 mb-4">📝 Grundlæggende Information</h4>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Liste Navn</label>
+                        <input type="text" id="edit-list-name" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                               value="${currentName}" maxlength="100" required>
+                        <div class="text-xs text-gray-500 mt-1">
+                            <span id="edit-list-name-count">${currentName.length}</span>/100 karakterer
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Kategori</label>
+                        <select id="edit-list-category" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                            <option value="general" ${currentCategory === 'general' ? 'selected' : ''}>Generel Negativ Liste</option>
+                            <option value="job" ${currentCategory === 'job' ? 'selected' : ''}>Job/Karriere Negative</option>
+                            <option value="diy" ${currentCategory === 'diy' ? 'selected' : ''}>Gør Det Selv Negative</option>
+                            <option value="competitor" ${currentCategory === 'competitor' ? 'selected' : ''}>Konkurrent Negative</option>
+                            <option value="location" ${currentCategory === 'location' ? 'selected' : ''}>Lokation Negative</option>
+                            <option value="service_specific" ${currentCategory === 'service_specific' ? 'selected' : ''}>Service Specifik</option>
+                            <option value="quality" ${currentCategory === 'quality' ? 'selected' : ''}>Kvalitet/Pris Negative</option>
+                            <option value="other" ${currentCategory === 'other' ? 'selected' : ''}>Andet</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">🏢 Branche (Valgfri)</label>
+                    <select id="edit-list-industry" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        <option value="">Vælg branche (valgfri)</option>
+                        {% for industry in industries %}
+                        <option value="{{ industry.id }}" ${currentIndustry == '{{ industry.id }}' ? 'selected' : ''}>{{ industry.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="text-xs text-gray-500 mt-1">
+                        Tilknyt listen til en specifik branche for automatisk anvendelse
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Beskrivelse</label>
+                    <textarea id="edit-list-description" rows="3" 
+                              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                              maxlength="500">${currentDescription}</textarea>
+                    <div class="text-xs text-gray-500 mt-1">
+                        <span id="edit-list-description-count">${currentDescription.length}</span>/500 karakterer
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Settings -->
+            <div class="border-t border-gray-200 pt-6">
+                <h4 class="text-lg font-medium text-gray-900 mb-4">⚙️ Indstillinger</h4>
+                
+                <div class="space-y-4">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="edit-list-active" checked
+                               class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded">
+                        <label for="edit-list-active" class="ml-2 block text-sm text-gray-900">
+                            Liste er aktiv og kan bruges til kampagner
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function saveListEdit(listId) {
+    const data = {
+        name: $('#edit-list-name').val().trim(),
+        category: $('#edit-list-category').val(),
+        description: $('#edit-list-description').val().trim(),
+        industry: $('#edit-list-industry').val(),
+        is_active: $('#edit-list-active').is(':checked'),
+        csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+    };
+    
+    if (!data.name) {
+        showErrorNotification('Liste navn er påkrævet');
+        return;
+    }
+    
+    // Show loading state
+    $('#slide-panel-save').prop('disabled', true).text('Gemmer...');
+    
+    $.ajax({
+        url: `/ajax/edit-negative-keyword-list/${listId}/`,
+        method: 'POST',
+        data: data,
+        success: function(response) {
+            if (response.success) {
+                showSuccessNotification('Liste opdateret!');
+                closeSlidePanel();
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showErrorNotification('Fejl: ' + response.error);
+            }
+        },
+        error: function() {
+            showErrorNotification('Der opstod en fejl');
+        },
+        complete: function() {
+            $('#slide-panel-save').prop('disabled', false).text('Gem');
+        }
+    });
+}
+
+function deleteList(listId, listName) {
+    if (confirm(`Er du sikker på at du vil slette listen "${listName}"?\\n\\nAlle keywords i listen vil også blive slettet.`)) {
+        $.ajax({
+            url: `/ajax/delete-negative-keyword-list/${listId}/`,
+            method: 'POST',
+            data: {
+                csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+            },
+            success: function(response) {
+                if (response.success) {
+                    showSuccessNotification('Liste slettet!');
+                    $(`.keyword-list-section[data-list-id="${listId}"]`).remove();
+                } else {
+                    showErrorNotification('Fejl: ' + response.error);
+                }
+            },
+            error: function() {
+                showErrorNotification('Der opstod en fejl');
+            }
+        });
+    }
+}
+
+// Panel management
+function openSlidePanel(title, subtitle, content, saveCallback) {
+    $('#slide-panel-title').text(title);
+    $('#slide-panel-subtitle').text(subtitle);
+    $('#slide-panel-content').html(content);
+    $('#slide-panel-save').off('click').on('click', saveCallback);
+    
+    // Block body scroll
+    const scrollY = window.scrollY;
+    $('body').addClass('overflow-hidden').css('top', `-${scrollY}px`);
+    
+    $('#slide-panel-overlay').removeClass('hidden');
+    setTimeout(() => {
+        $('#slide-panel-overlay').removeClass('opacity-0');
+        $('#slide-panel').removeClass('translate-x-full transform');
+    }, 10);
+    
+    // Add character counters
+    setupCharacterCounters();
+}
+
+function closeSlidePanel() {
+    // Re-enable body scroll
+    const body = $('body');
+    const scrollY = body.css('top');
+    body.removeClass('overflow-hidden').css('top', '');
+    if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY || '0', 10) * -1);
+    }
+    
+    $('#slide-panel-overlay').addClass('opacity-0');
+    $('#slide-panel').addClass('translate-x-full transform');
+    setTimeout(() => {
+        $('#slide-panel-overlay').addClass('hidden');
+    }, 300);
+}
+
+// Alternative close function for better reliability
+function forceClosePanel() {
+    // Re-enable body scroll
+    const body = document.body;
+    const scrollY = body.style.top;
+    body.classList.remove('overflow-hidden');
+    body.style.top = '';
+    if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY || '0', 10) * -1);
+    }
+    
+    const overlay = document.getElementById('slide-panel-overlay');
+    const panel = document.getElementById('slide-panel');
+    
+    if (overlay && panel) {
+        overlay.classList.add('opacity-0');
+        panel.classList.add('translate-x-full', 'transform');
+        
+        setTimeout(() => {
+            overlay.classList.add('hidden');
+        }, 300);
+    }
+}
+
+// Add ESC key support
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const overlay = document.getElementById('slide-panel-overlay');
+        if (overlay && !overlay.classList.contains('hidden')) {
+            forceClosePanel();
+        }
+    }
+});
+
+function setupCharacterCounters() {
+    $('[maxlength]').on('input', function() {
+        const maxLength = $(this).attr('maxlength');
+        const currentLength = $(this).val().length;
+        const counterId = $(this).attr('id') + '-count';
+        $(`#${counterId}`).text(currentLength);
+        
+        // Color coding
+        const counter = $(`#${counterId}`).parent();
+        if (currentLength > maxLength * 0.9) {
+            counter.addClass('text-red-500').removeClass('text-yellow-500 text-gray-500');
+        } else if (currentLength > maxLength * 0.8) {
+            counter.addClass('text-yellow-500').removeClass('text-red-500 text-gray-500');
+        } else {
+            counter.addClass('text-gray-500').removeClass('text-red-500 text-yellow-500');
+        }
+    });
+}
+
+// Save functions
+function saveNewList() {
+    const data = {
+        name: $('#create-list-name').val().trim(),
+        category: $('#create-list-category').val(),
+        description: $('#create-list-description').val().trim(),
+        industry: $('#create-list-industry').val(),
+        is_active: $('#create-list-active').is(':checked'),
+        csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+    };
+    
+    if (!data.name) {
+        showErrorNotification('Liste navn er påkrævet');
+        return;
+    }
+    
+    $.ajax({
+        url: '/ajax/create-negative-keyword-list/',
+        method: 'POST',
+        data: data,
+        success: function(response) {
+            if (response.success) {
+                showSuccessNotification('Liste oprettet!');
+                closeSlidePanel();
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showErrorNotification('Fejl: ' + response.error);
+            }
+        },
+        error: function() {
+            showErrorNotification('Der opstod en fejl');
+        }
+    });
+}
+
+function processExcelImport() {
+    const fileInput = document.getElementById('excel-file-input');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        showErrorNotification('Vælg en Excel fil først');
+        return;
+    }
+    
+    if (!file.name.toLowerCase().endsWith('.xlsx') && !file.name.toLowerCase().endsWith('.xls')) {
+        showErrorNotification('Kun Excel filer (.xlsx, .xls) er understøttet');
+        return;
+    }
+    
+    // Create form data
+    const formData = new FormData();
+    formData.append('excel_file', file);
+    formData.append('csrfmiddlewaretoken', $('[name=csrfmiddlewaretoken]').val());
+    
+    // Show loading state
+    $('#slide-panel-save').prop('disabled', true).text('Importerer...');
+    
+    $.ajax({
+        url: '/ajax/import-negative-keywords-excel/',
+        method: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+            if (response.success) {
+                const summary = response.summary;
+                showSuccessNotification(
+                    `Import gennemført! ${summary.created_lists} lister og ${summary.created_keywords} søgeord oprettet.`
+                );
+                
+                // Show detailed results
+                let detailsHtml = `
+                    <div class="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                        <h5 class="font-medium text-green-800 mb-2">Import Resultat:</h5>
+                        <ul class="text-sm text-green-700 space-y-1">
+                            <li>• ${summary.created_lists} nye lister oprettet</li>
+                            <li>• ${summary.created_keywords} søgeord tilføjet</li>
+                            <li>• ${summary.processed_rows} rækker behandlet</li>
+                            ${summary.skipped_rows > 0 ? `<li>• ${summary.skipped_rows} rækker sprunget over</li>` : ''}
+                        </ul>
+                `;
+                
+                if (summary.errors && summary.errors.length > 0) {
+                    detailsHtml += `
+                        <div class="mt-3">
+                            <p class="font-medium text-orange-800">Advarsler:</p>
+                            <ul class="text-sm text-orange-700">
+                                ${summary.errors.map(error => `<li>• ${error}</li>`).join('')}
+                            </ul>
+                        </div>
+                    `;
+                }
+                
+                detailsHtml += '</div>';
+                
+                $('#slide-panel-content').append(detailsHtml);
+                
+                setTimeout(() => {
+                    closeSlidePanel();
+                    location.reload();
+                }, 3000);
+            } else {
+                showErrorNotification('Import fejl: ' + response.error);
+            }
+        },
+        error: function(xhr, status, error) {
+            showErrorNotification('Der opstod en fejl under import: ' + error);
+        },
+        complete: function() {
+            $('#slide-panel-save').prop('disabled', false).text('Importér');
+        }
+    });
+}
+
+function downloadTemplate() {
+    // Create and download Excel template
+    window.location.href = '/download-negative-keywords-template/';
+}
+
+// File handling functions
+function setupDragAndDrop() {
+    const dropzone = document.getElementById('excel-dropzone');
+    
+    if (!dropzone) return;
+    
+    // Prevent default drag behaviors
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropzone.addEventListener(eventName, preventDefaults, false);
+        document.body.addEventListener(eventName, preventDefaults, false);
+    });
+    
+    // Highlight drop zone when item is dragged over it
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropzone.addEventListener(eventName, highlight, false);
+    });
+    
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropzone.addEventListener(eventName, unhighlight, false);
+    });
+    
+    // Handle dropped files
+    dropzone.addEventListener('drop', handleDrop, false);
+}
+
+function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+}
+
+function highlight(e) {
+    const dropzone = document.getElementById('excel-dropzone');
+    dropzone.classList.add('border-red-500', 'bg-red-50');
+}
+
+function unhighlight(e) {
+    const dropzone = document.getElementById('excel-dropzone');
+    dropzone.classList.remove('border-red-500', 'bg-red-50');
+}
+
+function handleDrop(e) {
+    const files = e.dataTransfer.files;
+    
+    if (files.length > 0) {
+        const file = files[0];
+        
+        // Validate file type
+        if (!file.name.toLowerCase().endsWith('.xlsx') && !file.name.toLowerCase().endsWith('.xls')) {
+            showErrorNotification('Kun Excel filer (.xlsx, .xls) er understøttet');
+            return;
+        }
+        
+        // Set file to input
+        const fileInput = document.getElementById('excel-file-input');
+        fileInput.files = files;
+        
+        // Show file info
+        showSelectedFile(file);
+    }
+}
+
+function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (file) {
+        showSelectedFile(file);
+    }
+}
+
+function showSelectedFile(file) {
+    document.getElementById('selected-file-name').textContent = file.name;
+    document.getElementById('file-selected-info').classList.remove('hidden');
+}
+
+function clearSelectedFile() {
+    document.getElementById('excel-file-input').value = '';
+    document.getElementById('file-selected-info').classList.add('hidden');
+}
+
+// Notification system
+function showSuccessNotification(message) {
+    const notification = $(`
+        <div class="bg-green-500 text-white px-4 py-3 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300">
+            <div class="flex items-center space-x-2">
+                <span>✅</span>
+                <span>${message}</span>
+            </div>
+        </div>
+    `);
+    
+    $('#notification-container').append(notification);
+    
+    setTimeout(() => notification.removeClass('translate-x-full'), 100);
+    setTimeout(() => {
+        notification.addClass('translate-x-full');
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
+
+function showErrorNotification(message) {
+    const notification = $(`
+        <div class="bg-red-500 text-white px-4 py-3 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300">
+            <div class="flex items-center space-x-2">
+                <span>❌</span>
+                <span>${message}</span>
+            </div>
+        </div>
+    `);
+    
+    $('#notification-container').append(notification);
+    
+    setTimeout(() => notification.removeClass('translate-x-full'), 100);
+    setTimeout(() => {
+        notification.addClass('translate-x-full');
+        setTimeout(() => notification.remove(), 300);
+    }, 5000);
+}
+
+// Cleanup and Import Execution Functions
+function performCleanup(listId, keywordIds, suggestionType) {
+    if (keywordIds.length === 0) {
+        showErrorNotification('Ingen keywords valgt til sletning');
+        return;
+    }
+    
+    if (!confirm(`Er du sikker på at du vil slette ${keywordIds.length} keywords?`)) {
+        return;
+    }
+    
+    $.ajax({
+        url: `/ajax/cleanup-keywords/${listId}/`,
+        type: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        data: JSON.stringify({
+            keyword_ids: keywordIds
+        }),
+        success: function(response) {
+            if (response.success) {
+                showSuccessNotification(response.message);
+                // Refresh the analysis or update UI as needed
+                location.reload(); // Simple refresh for now
+            } else {
+                showErrorNotification(response.error || 'Fejl under sletning');
+            }
+        },
+        error: function(xhr) {
+            const error = xhr.responseJSON?.error || 'Fejl under sletning';
+            showErrorNotification(error);
+        }
+    });
+}
+
+function executeImportGeneral(listId) {
+    // This is the old general import function - not used for list-specific import
+    // Collect selected keywords to add
+    const selectedKeywords = [];
+    $('input[name="keywords_to_add"]:checked').each(function() {
+        selectedKeywords.push($(this).val());
+    });
+    
+    if (selectedKeywords.length === 0) {
+        showErrorNotification('Ingen keywords valgt til import');
+        return;
+    }
+    
+    // Get the uploaded file (from general import)
+    const fileInput = $('#excel-file-input')[0];
+    if (!fileInput.files || fileInput.files.length === 0) {
+        showErrorNotification('Ingen Excel fil valgt');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('excel_file', fileInput.files[0]);
+    formData.append('keywords_to_add', JSON.stringify(selectedKeywords));
+    
+    // Show loading state
+    const importBtn = $('#execute-import-btn');
+    const originalText = importBtn.text();
+    importBtn.text('Importerer...').prop('disabled', true);
+    
+    $.ajax({
+        url: `/ajax/execute-excel-import/${listId}/`,
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+            if (response.success) {
+                showSuccessNotification(response.message);
+                // Close the slide panel
+                closeSlidePanel();
+                // Refresh the page to show updated keyword counts
+                location.reload();
+            } else {
+                showErrorNotification(response.error || 'Fejl under import');
+            }
+        },
+        error: function(xhr) {
+            const error = xhr.responseJSON?.error || 'Fejl under import';
+            showErrorNotification(error);
+        },
+        complete: function() {
+            importBtn.text(originalText).prop('disabled', false);
+        }
+    });
+}
+
+// Helper functions for checkbox selection
+function selectAllSafe(checked) {
+    $('input[name="keywords_to_add"]').prop('checked', checked);
+}
+
+// Update the displayAnalysisResults function to include action buttons
+function updateAnalysisResultsWithActions(listId) {
+    // Add cleanup buttons for suggestions
+    $(document).on('click', '.cleanup-btn', function() {
+        const suggestionData = JSON.parse($(this).data('suggestion'));
+        const keywordIds = suggestionData.keywords_to_remove.map(kw => kw.id);
+        const suggestionType = $(this).data('type');
+        
+        performCleanup(listId, keywordIds, suggestionType);
+    });
+    
+    // Note: Import execution is handled by the main panel footer button
+    // No need to add extra buttons here for list-specific import
+}
+</script>
+
+{% endblock %}
