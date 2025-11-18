@@ -1,0 +1,3945 @@
+{% extends 'base.html' %}
+
+{% block title %}Geografiske Regioner | Google Ads Builder{% endblock %}
+
+{% block content %}
+
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+<!-- Simple Toggle Function -->
+<script>
+function toggleRegionExpansion(regionId) {
+    console.log('Toggle region:', regionId);
+    const content = document.querySelector('.cities-content[data-region-id="' + regionId + '"]');
+    const icon = document.querySelector('.geographic-region-section[data-region-id="' + regionId + '"] .expansion-icon svg');
+    
+    if (content) {
+        if (content.style.display === 'none' || content.style.display === '') {
+            content.style.display = 'block';
+            if (icon) icon.classList.add('rotate-180');
+        } else {
+            content.style.display = 'none';
+            if (icon) icon.classList.remove('rotate-180');
+        }
+    }
+}
+</script>
+
+<!-- Import Functions -->
+<script>
+window.openImportExcelForRegion = function(e) {
+    console.log('Opening import Excel for region');
+    const button = e.target.closest('.import-excel-btn');
+    const regionId = button.getAttribute('data-region-id');
+    const regionSection = button.closest('.geographic-region-section');
+    const regionName = regionSection.querySelector('h3').textContent.trim();
+    
+    const content = window.generateImportExcelForRegionContent(regionId);
+    window.openSlidePanel(
+        'Importer Byer',
+        'Tilføj byer til ' + regionName,
+        content,
+        function() {
+            window.analyzeExcelForRegion(regionId);
+        }
+    );
+};
+
+window.generateImportExcelForRegionContent = function(regionId, regionName) {
+    return '<div class="space-y-6">' +
+        '<div>' +
+            '<h3 class="text-lg font-medium text-gray-900 mb-4">📊 Upload Excel Fil</h3>' +
+            '<div class="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-4">' +
+                '<div class="flex items-center space-x-2">' +
+                    '<svg class="w-4 h-4 text-purple-600" fill="currentColor" viewBox="0 0 24 24">' +
+                        '<path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>' +
+                    '</svg>' +
+                    '<span class="text-sm font-medium text-purple-800">Importerer til: ' + regionName + '</span>' +
+                '</div>' +
+            '</div>' +
+            '<div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-purple-500 transition-colors">' +
+                '<input type="file" id="region-excel-file-input" class="hidden" accept=".xlsx,.xls,.csv" />' +
+                '<label for="region-excel-file-input" class="cursor-pointer">' +
+                    '<div class="space-y-2">' +
+                        '<div class="text-4xl">📄</div>' +
+                        '<div class="text-lg font-medium text-gray-900">Vælg Excel fil</div>' +
+                        '<div class="text-sm text-gray-500">Understøtter .xlsx, .xls og .csv filer</div>' +
+                    '</div>' +
+                '</label>' +
+                '<div id="region-file-selected-info" class="hidden mt-3 p-2 bg-blue-50 rounded-lg border border-blue-200">' +
+                    '<div class="flex items-center space-x-2">' +
+                        '<span class="text-blue-600">📊</span>' +
+                        '<span id="region-selected-file-name" class="text-xs font-medium text-blue-800"></span>' +
+                        '<button type="button" onclick="clearRegionSelectedFile()" class="text-blue-600 hover:text-blue-800">' +
+                            '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">' +
+                                '<path d="M6 18L18 6M6 6l12 12"></path>' +
+                            '</svg>' +
+                        '</button>' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+        '</div>' +
+        '<div class="bg-blue-50 border border-blue-200 rounded-lg p-4">' +
+            '<h4 class="font-medium text-blue-900 mb-2">📋 Format Krav</h4>' +
+            '<ul class="text-sm text-blue-800 space-y-1">' +
+                '<li>• Kolonne A skal indeholde bynavne</li>' +
+                '<li>• Første række kan være header (bliver ignoreret)</li>' +
+                '<li>• Dubletter bliver automatisk filtreret ud</li>' +
+            '</ul>' +
+        '</div>' +
+    '</div>';
+};
+
+window.analyzeExcelForRegion = function(regionId) {
+    const fileInput = document.getElementById('region-excel-file-input');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        alert('Vælg venligst en fil først');
+        return;
+    }
+
+    console.log('Analyzing file for region:', regionId);
+    
+    const formData = new FormData();
+    formData.append('excel_file', file);
+    
+    const analyzeButton = document.getElementById('slide-panel-save');
+    if (analyzeButton) {
+        analyzeButton.disabled = true;
+        analyzeButton.textContent = 'Analyserer...';
+    }
+    
+    fetch('/ajax/analyze-excel-import-cities/' + regionId + '/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.showImportPreviewForRegion(regionId, data);
+        } else {
+            alert('Fejl: ' + data.error);
+            if (analyzeButton) {
+                analyzeButton.disabled = false;
+                analyzeButton.textContent = 'Analysér';
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Der opstod en fejl under analysen');
+        if (analyzeButton) {
+            analyzeButton.disabled = false;
+            analyzeButton.textContent = 'Analysér';
+        }
+    });
+};
+
+window.showImportPreviewForRegion = function(regionId, data) {
+    // Store cities to add for later execution
+    window.currentCitiesToAdd = data.cities_preview;
+    
+    var newCitiesSection = '';
+    if (data.new_cities > 0) {
+        newCitiesSection = '<div>' +
+            '<h4 class="font-medium text-gray-900 mb-3">📍 Nye byer der vil blive tilføjet:</h4>' +
+            '<div class="max-h-64 overflow-y-auto bg-gray-50 rounded-lg p-4">' +
+                '<div class="grid grid-cols-2 gap-2 text-sm">' +
+                    data.cities_preview.map(function(city) { return '<div class="text-gray-700">• ' + city + '</div>'; }).join('') +
+                '</div>' +
+            '</div>' +
+        '</div>';
+    } else {
+        newCitiesSection = '<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">' +
+            '<div class="text-yellow-800">' +
+                '<strong>⚠️ Ingen nye byer</strong><br>' +
+                'Alle byer i filen findes allerede i denne region.' +
+            '</div>' +
+        '</div>';
+    }
+    
+    var duplicatesSection = '';
+    if (data.duplicates > 0) {
+        duplicatesSection = '<div class="bg-blue-50 border border-blue-200 rounded-lg p-4">' +
+            '<details>' +
+                '<summary class="cursor-pointer font-medium text-blue-900">' +
+                    '📋 Vis dubletter (' + data.duplicates + ')' +
+                '</summary>' +
+                '<div class="mt-2 max-h-32 overflow-y-auto text-sm text-blue-800">' +
+                    data.duplicate_cities.map(function(city) { return '<div>• ' + city + '</div>'; }).join('') +
+                '</div>' +
+            '</details>' +
+        '</div>';
+    }
+    
+    const previewHtml = '<div class="space-y-6">' +
+        '<div class="bg-green-50 border border-green-200 rounded-lg p-4">' +
+            '<h3 class="text-lg font-medium text-green-900 mb-2">✅ Analyse Fuldført</h3>' +
+            '<div class="grid grid-cols-2 gap-4 text-sm">' +
+                '<div><span class="font-medium text-green-800">Totalt læst:</span> <span class="text-green-700">' + data.total_read + '</span></div>' +
+                '<div><span class="font-medium text-green-800">Unikke byer:</span> <span class="text-green-700">' + data.unique_cities + '</span></div>' +
+                '<div><span class="font-medium text-green-800">Nye byer:</span> <span class="text-green-700">' + data.new_cities + '</span></div>' +
+                '<div><span class="font-medium text-green-800">Dubletter:</span> <span class="text-green-700">' + data.duplicates + '</span></div>' +
+            '</div>' +
+        '</div>' +
+        newCitiesSection +
+        duplicatesSection +
+    '</div>';
+    
+    document.getElementById('slide-panel-content').innerHTML = previewHtml;
+    
+    const saveButton = document.getElementById('slide-panel-save');
+    if (saveButton) {
+        if (data.new_cities > 0) {
+            saveButton.textContent = 'Tilføj ' + data.new_cities + ' Byer';
+            saveButton.disabled = false;
+            saveButton.onclick = function() { window.executeRegionImport(regionId); };
+        } else {
+            saveButton.textContent = 'Ingen nye byer';
+            saveButton.disabled = false; // Enable button so it can be clicked to close
+            saveButton.onclick = function() {
+                console.log('Ingen nye byer button clicked - closing panel');
+                window.closeSlidePanel();
+            };
+        }
+    }
+    
+    // Hide cancel button after analysis is complete
+    const cancelButton = document.getElementById('slide-panel-cancel');
+    if (cancelButton) {
+        cancelButton.style.display = 'none';
+    }
+};
+
+window.executeRegionImport = function(regionId) {
+    // Get cities to add from stored data
+    if (!window.currentCitiesToAdd) {
+        alert('Ingen byer fundet at importere');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('cities_to_add', JSON.stringify(window.currentCitiesToAdd));
+    
+    const saveButton = document.getElementById('slide-panel-save');
+    if (saveButton) {
+        saveButton.disabled = true;
+        saveButton.textContent = 'Importerer...';
+    }
+    
+    fetch('/ajax/execute-excel-import-cities/' + regionId + '/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.showNotification('✅ ' + data.cities_added + ' byer blev importeret succesfuldt!', 'success');
+            window.closeSlidePanel();
+            window.location.reload();
+        } else {
+            alert('Fejl: ' + data.error);
+            if (saveButton) {
+                saveButton.disabled = false;
+                saveButton.textContent = 'Prøv igen';
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Der opstod en fejl under importen');
+        if (saveButton) {
+            saveButton.disabled = false;
+            saveButton.textContent = 'Prøv igen';
+        }
+    });
+};
+
+window.openSlidePanel = function(title, subtitle, content, saveCallback) {
+    document.getElementById('slide-panel-title').textContent = title;
+    document.getElementById('slide-panel-subtitle').textContent = subtitle;
+    document.getElementById('slide-panel-content').innerHTML = content;
+    
+    const saveButton = document.getElementById('slide-panel-save');
+    if (saveButton) {
+        saveButton.onclick = saveCallback;
+    }
+    
+    const overlay = document.getElementById('slide-panel-overlay');
+    const panel = document.getElementById('slide-panel');
+    
+    overlay.classList.remove('hidden');
+    setTimeout(function() {
+        overlay.classList.remove('opacity-0');
+        panel.classList.remove('translate-x-full');
+    }, 10);
+};
+
+window.closeSlidePanel = function() {
+    const overlay = document.getElementById('slide-panel-overlay');
+    const panel = document.getElementById('slide-panel');
+    
+    overlay.classList.add('opacity-0');
+    panel.classList.add('translate-x-full');
+    
+    setTimeout(function() {
+        overlay.classList.add('hidden');
+    }, 300);
+};
+
+window.showNotification = function(message, type) {
+    type = type || 'info';
+    const container = document.getElementById('notification-container');
+    const notification = document.createElement('div');
+    
+    const bgColor = type === 'success' ? 'bg-green-500' : 
+                   type === 'error' ? 'bg-red-500' : 'bg-blue-500';
+    
+    notification.className = bgColor + ' text-white px-6 py-3 rounded-lg shadow-lg transform transition-all duration-300 translate-x-full opacity-0';
+    notification.textContent = message;
+    
+    container.appendChild(notification);
+    
+    setTimeout(function() {
+        notification.classList.remove('translate-x-full', 'opacity-0');
+    }, 100);
+    
+    setTimeout(function() {
+        notification.classList.add('translate-x-full', 'opacity-0');
+        setTimeout(function() {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 300);
+    }, 3000);
+};
+
+// Add event listener for import buttons when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Setting up import button event listeners...');
+    
+    // Use event delegation to handle import button clicks
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.import-excel-btn')) {
+            console.log('Import button clicked!');
+            e.preventDefault();
+            e.stopPropagation();
+            window.openImportExcelForRegion(e);
+        }
+    });
+    
+    console.log('Import button event listeners set up successfully');
+});
+</script>
+
+
+<style>
+.rotate-180 {
+    transform: rotate(180deg);
+}
+.expansion-icon {
+    transition: transform 0.2s ease;
+}
+
+/* Panel scroll fix */
+body.overflow-hidden {
+    overflow: hidden !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* Panel scroll behavior */
+#slide-panel {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+}
+
+#slide-panel-content {
+    overscroll-behavior: contain;
+    /* Reserve space for header (~80px) and footer (~80px) */
+    max-height: calc(100vh - 160px);
+}
+
+/* Enhanced Edit Mode Styles */
+.edit-mode {
+    background-color: #eff6ff !important;
+    border-left: 4px solid #3b82f6 !important;
+    box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.1);
+    transition: all 0.3s ease;
+}
+
+.edit-keyword-input {
+    border: 2px solid #3b82f6 !important;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    background-color: white;
+}
+
+.edit-keyword-input:focus {
+    border-color: #1d4ed8 !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    outline: none;
+}
+
+.edit-match-type-select {
+    border: 2px solid #3b82f6 !important;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    background-color: white;
+}
+
+.edit-match-type-select:focus {
+    border-color: #1d4ed8 !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    outline: none;
+}
+
+.edit-mode-indicator {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { 
+        opacity: 1; 
+    }
+    50% { 
+        opacity: 0.7; 
+    }
+}
+
+/* Loading States */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+/* Enhanced Button Hover Effects */
+.edit-city-btn:hover {
+    transform: scale(1.1);
+    transition: transform 0.2s ease;
+}
+
+.cancel-edit-btn:hover {
+    transform: scale(1.1);
+    transition: transform 0.2s ease;
+}
+
+.delete-city-btn:hover {
+    transform: scale(1.1);
+    transition: transform 0.2s ease;
+}
+
+/* Table Row Hover Enhancement */
+.city-row:hover {
+    background-color: #f9fafb;
+    transition: background-color 0.2s ease;
+}
+
+.city-row.edit-mode:hover {
+    background-color: #eff6ff !important;
+}
+</style>
+{% csrf_token %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    
+
+    <div class="text-center mb-12 p-12 bg-gradient-to-br from-purple-100 via-blue-50 to-pink-100 rounded-3xl">
+        <div class="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl mb-6 shadow-2xl">
+            <span class="text-4xl text-white">🗺️</span>
+        </div>
+        <h1 class="text-5xl font-bold text-gray-900 mb-4">Geografiske Regioner</h1>
+        <p class="text-xl text-gray-600 max-w-2xl mx-auto">
+            Administrer lister af danske byer til geografisk targeting. Importer fra Excel, organiser i regioner og anvend til Google Ads kampagner.
+        </p>
+    </div>
+
+
+    <div class="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-gray-100">
+        <div class="flex flex-wrap justify-between items-center gap-4">
+            <div>
+                <h2 class="text-lg font-semibold text-gray-900">Hurtige Handlinger</h2>
+                <p class="text-sm text-gray-600">Administrer geografiske regioner og bylister</p>
+            </div>
+            <div class="flex flex-wrap gap-3">
+                <button id="create-region-btn" class="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center space-x-2">
+                    <span>➕</span>
+                    <span>Opret Ny Region</span>
+                </button>
+                <button id="download-template-btn" class="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center space-x-2">
+                    <span>📥</span>
+                    <span>Download Template</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 stat-card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Total Regioner</p>
+                    <p class="text-3xl font-bold text-gray-900">{{ geographic_regions|length }}</p>
+                </div>
+                <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                    <span class="text-2xl">🗺️</span>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 stat-card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Aktive Regioner</p>
+                    <p class="text-3xl font-bold text-green-600">{{ active_regions }}</p>
+                </div>
+                <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                    <span class="text-2xl">✅</span>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 stat-card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Total Byer</p>
+                    <p class="text-3xl font-bold text-blue-600">{{ total_cities }}</p>
+                </div>
+                <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                    <span class="text-2xl">🏙️</span>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 stat-card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Brancher</p>
+                    <p class="text-3xl font-bold text-purple-600">{{ industries_count }}</p>
+                </div>
+                <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                    <span class="text-2xl">🏢</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-gray-100">
+        <div class="flex flex-col lg:flex-row gap-4">
+            <div class="flex-1">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Søg i regioner</label>
+                <input type="text" id="search-regions" placeholder="Søg efter regionnavn, beskrivelse eller byer..." 
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+            </div>
+            <div class="lg:w-1/5">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Filter kategori</label>
+                <select id="filter-category" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    <option value="">Alle kategorier</option>
+                    <option value="nordsjaelland">Nordsjælland</option>
+                    <option value="money">Money Byer</option>
+                    <option value="trekant">Trekantsområdet</option>
+                    <option value="storkoebenhavn">Storkøbenhavn</option>
+                    <option value="jylland">Jylland</option>
+                    <option value="fyn">Fyn</option>
+                    <option value="bornholm">Bornholm</option>
+                    <option value="custom">Brugerdefineret</option>
+                </select>
+            </div>
+            <div class="lg:w-1/5">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Filter branche</label>
+                <select id="filter-industry" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    <option value="">Alle brancher</option>
+                    {% for industry in industries %}
+                    <option value="{{ industry.id }}">{{ industry.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="lg:w-1/6 flex items-end">
+                <button id="reset-filters-btn" class="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200">
+                    Reset
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="space-y-8" id="geographic-regions-container">
+        {% for region in geographic_regions %}
+        <div class="geographic-region-section bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden mb-8" 
+             data-region-id="{{ region.id }}" data-category="{{ region.category }}" data-industry="{{ region.industry.id|default:'' }}" data-is-active="{{ region.is_active|yesno:'true,false' }}">
+            
+
+            <div class="region-header p-6 cursor-pointer" 
+                 style="background: linear-gradient(135deg, {{ region.color }}20, {{ region.color }}10);"
+                 onclick="toggleRegionExpansion({{ region.id }})">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl text-white" 
+                             style="background-color: {{ region.color }};">
+                            {{ region.icon }}
+                        </div>
+                        <div>
+                            <h3 class="text-2xl font-bold text-gray-900">{{ region.name }}</h3>
+                            <div class="flex items-center space-x-4 mt-1">
+                                <p class="text-gray-600">{{ region.description|default:"Ingen beskrivelse" }}</p>
+                                {% if region.industry %}
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-purple-100 to-pink-100 text-purple-800 border border-purple-200">
+                                    🏢 {{ region.industry.name }}
+                                </span>
+                                {% endif %}
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
+                                    {% if region.is_active %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-800{% endif %}">
+                                    {% if region.is_active %}Aktiv{% else %}Inaktiv{% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="text-right mr-4">
+                            <span class="inline-flex items-center justify-center w-8 h-8 text-sm font-bold text-white rounded-full" 
+                                  style="background-color: {% if region.category == 'nordsjaelland' %}#3B82F6{% elif region.category == 'money' %}#10B981{% elif region.category == 'trekant' %}#F59E0B{% elif region.category == 'storkoebenhavn' %}#8B5CF6{% elif region.category == 'jylland' %}#06B6D4{% elif region.category == 'fyn' %}#84CC16{% elif region.category == 'bornholm' %}#EF4444{% else %}#6B7280{% endif %};">
+                                {{ region.cities_count }}
+                            </span>
+                            <p class="text-xs text-gray-500 mt-1">byer</p>
+                        </div>
+                        <button class="edit-region-btn text-gray-500 hover:text-blue-600 p-2" 
+                                data-region-id="{{ region.id }}" title="Redigér region" onclick="event.stopPropagation(); editRegion({{ region.id }})">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                            </svg>
+                        </button>
+                        <button class="delete-region-btn text-gray-500 hover:text-red-600 p-2" 
+                                data-region-id="{{ region.id }}" title="Slet region" onclick="event.stopPropagation(); deleteRegion({{ region.id }}, '{{ region.name }}')">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                            </svg>
+                        </button>
+                        <div class="expansion-icon text-gray-400 transition-transform duration-200">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+
+            <div class="cities-content" style="display: none;" data-region-id="{{ region.id }}">
+                <div class="border-t border-gray-200">
+
+                    <div class="p-6 bg-gray-50 border-b border-gray-200">
+                        <div class="flex items-center justify-between mb-4">
+                            <h4 class="text-lg font-medium text-gray-900">➕ Tilføj Nye Byer</h4>
+                            <button class="import-excel-btn bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center space-x-2"
+                                    data-region-id="{{ region.id }}" title="Importer byer fra Excel fil">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                                </svg>
+                                <span>Importer Byer</span>
+                            </button>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <input type="text" placeholder="Indtast bynavn..." 
+                                   class="new-city-name px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                   data-region-id="{{ region.id }}">
+                            <button class="add-city-btn bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200"
+                                    data-region-id="{{ region.id }}">
+                                Tilføj By
+                            </button>
+                        </div>
+                    </div>
+                    
+
+                    <div class="cities-list p-6" data-region-id="{{ region.id }}">
+                        {% if region.cities.all %}
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="text-left py-3 px-4 font-medium text-gray-700">Bynavn</th>
+                                        <th class="text-right py-3 px-4 font-medium text-gray-700">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    {% for city in region.cities.all %}
+                                    <tr class="city-row hover:bg-gray-50 transition-colors duration-200" data-city-id="{{ city.id }}">
+                                        <td class="py-3 px-4">
+                                            <span class="font-medium text-gray-900">{{ city.city_name }}</span>
+                                        </td>
+                                        <td class="py-3 px-4 text-right">
+                                            <div class="flex items-center justify-end space-x-2">
+                                                <button class="edit-city-btn text-gray-500 hover:text-purple-600 p-1" 
+                                                        data-city-id="{{ city.id }}" title="Redigér by">
+                                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                                        <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                                                    </svg>
+                                                </button>
+                                                <button class="delete-city-btn text-gray-500 hover:text-red-600 p-1" 
+                                                        data-city-id="{{ city.id }}" title="Slet by">
+                                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="text-center py-12 text-gray-500">
+                            <span class="text-4xl">🏠</span>
+                            <p class="mt-2">Ingen byer endnu</p>
+                            <p class="text-sm">Tilføj din første by ovenfor</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="text-center py-12 bg-white rounded-2xl shadow-lg">
+            <span class="text-6xl">📋</span>
+            <h3 class="text-xl font-medium text-gray-900 mt-4">Ingen geografiske regioner endnu</h3>
+            <p class="text-gray-500 mt-2">Opret din første liste for at komme i gang</p>
+            <button class="mt-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-lg hover:shadow-lg transition-all duration-200">
+                Opret Din Første Liste
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+
+
+    <div id="slide-panel-overlay" class="fixed bg-black bg-opacity-50 backdrop-blur-sm hidden opacity-0 transition-all duration-300 z-50" style="top: 0; left: 0; right: 0; bottom: 0;">
+        <div id="slide-panel" class="fixed right-0 top-0 bg-white shadow-2xl transform translate-x-full transition-transform duration-300 flex flex-col" style="width: 800px; height: 100vh; max-height: 100vh;">
+
+            <div class="bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-4 flex-shrink-0">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 id="slide-panel-title" class="text-2xl font-bold text-white">Panel Title</h2>
+                        <p id="slide-panel-subtitle" class="text-purple-100">Panel subtitle</p>
+                    </div>
+                    <button id="slide-panel-close" class="text-white hover:text-purple-200 transition-colors">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+
+            <div id="slide-panel-content" class="flex-1 p-6 overflow-y-auto min-h-0">
+
+            </div>
+
+
+            <div class="border-t border-gray-200 px-6 py-4 bg-gray-50 flex-shrink-0">
+                <div class="flex justify-end space-x-3">
+                    <button id="slide-panel-cancel" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-all duration-200">
+                        Annullér
+                    </button>
+                    <button id="slide-panel-save" class="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-2 rounded-lg hover:shadow-lg transition-all duration-200">
+                        Gem
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+
+<div id="notification-container" class="fixed top-4 right-4 z-50 space-y-2">
+
+</div>
+
+<script>
+// Global variables
+let currentEditingList = null;
+let currentEditingKeyword = null;
+
+// List expansion toggle - wait for jQuery to load
+function initializeToggleFunction() {
+    window.toggleRegionExpansion = function(regionId) {
+        console.log('Toggling region expansion for ID:', regionId);
+        
+        const content = $(`.cities-content[data-region-id="${regionId}"]`);
+        const icon = $(`.geographic-region-section[data-region-id="${regionId}"] .expansion-icon svg`);
+        
+        console.log('Content element found:', content.length > 0);
+        console.log('Icon element found:', icon.length > 0);
+        
+        if (content.is(':visible')) {
+            content.slideUp(200);
+            icon.removeClass('rotate-180');
+            console.log('Collapsing region');
+        } else {
+            content.slideDown(200);
+            icon.addClass('rotate-180');
+            console.log('Expanding region');
+        }
+    };
+}
+
+// Define toggle function directly on window
+window.toggleRegionExpansion = function(regionId) {
+    console.log('Toggling region expansion for ID:', regionId);
+    
+    const content = document.querySelector(`.cities-content[data-region-id="${regionId}"]`);
+    const icon = document.querySelector(`.geographic-region-section[data-region-id="${regionId}"] .expansion-icon svg`);
+    
+    console.log('Content element found:', content !== null);
+    console.log('Icon element found:', icon !== null);
+    
+    if (content) {
+        if (content.style.display === 'none' || content.style.display === '') {
+            content.style.display = 'block';
+            if (icon) icon.classList.add('rotate-180');
+            console.log('Expanding region');
+        } else {
+            content.style.display = 'none';
+            if (icon) icon.classList.remove('rotate-180');
+            console.log('Collapsing region');
+        }
+    }
+};
+
+// Define import functions directly on window
+window.openImportExcelForRegion = function(e) {
+    console.log('Opening import Excel for region');
+    const button = e.target.closest('.import-excel-btn');
+    const regionId = button.getAttribute('data-region-id');
+    const regionSection = button.closest('.geographic-region-section');
+    const regionName = regionSection.querySelector('h3').textContent.trim();
+    
+    const content = window.generateImportExcelForRegionContent(regionId, regionName);
+    window.openSlidePanel(
+        'Importer Byer',
+        `Tilføj byer til ${regionName}`,
+        content,
+        function() {
+            window.analyzeExcelForRegion(regionId);
+        }
+    );
+};
+
+window.generateImportExcelForRegionContent = function(regionId, regionName) {
+    return `
+        <div class="space-y-6">
+            <div class="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                <div class="flex items-center space-x-2">
+                    <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                    <span class="text-sm text-purple-800">
+                        <strong>Importerer til:</strong> ${regionName}
+                    </span>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="text-lg font-medium text-gray-900 mb-4">📊 Upload Excel Fil</h3>
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-purple-500 transition-colors">
+                    <input type="file" id="region-excel-file-input" class="hidden" accept=".xlsx,.xls,.csv" />
+                    <label for="region-excel-file-input" class="cursor-pointer">
+                        <div class="space-y-2">
+                            <div class="text-4xl">📄</div>
+                            <div class="text-lg font-medium text-gray-900">Vælg Excel fil</div>
+                            <div class="text-sm text-gray-500">Understøtter .xlsx, .xls og .csv filer</div>
+                        </div>
+                    </label>
+                </div>
+                
+                <div id="region-file-selected-info" class="hidden mt-3 p-2 bg-blue-50 rounded-lg border border-blue-200">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <span class="text-blue-800 font-medium">Fil valgt: </span>
+                            <span id="region-selected-file-name" class="text-blue-700"></span>
+                        </div>
+                        <button type="button" onclick="window.clearRegionSelectedFile()" class="text-blue-600 hover:text-blue-800 text-sm underline">
+                            Ryd
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 class="font-medium text-blue-900 mb-2">📋 Format Krav</h4>
+                <ul class="text-sm text-blue-800 space-y-1">
+                    <li>• Kolonne A skal indeholde bynavne</li>
+                    <li>• Første række kan være header (bliver ignoreret)</li>
+                    <li>• Dubletter bliver automatisk filtreret ud</li>
+                </ul>
+            </div>
+        </div>
+    `;
+};
+
+window.analyzeExcelForRegion = function(regionId) {
+    const fileInput = document.getElementById('region-excel-file-input');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        alert('Vælg venligst en fil først');
+        return;
+    }
+
+    console.log('Analyzing file for region:', regionId);
+    
+    const formData = new FormData();
+    formData.append('excel_file', file);
+    
+    const analyzeButton = document.getElementById('slide-panel-save');
+    if (analyzeButton) {
+        analyzeButton.disabled = true;
+        analyzeButton.textContent = 'Analyserer...';
+    }
+    
+    fetch(`/campaigns/ajax/analyze-excel-import-cities/${regionId}/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.showImportPreviewForRegion(regionId, data);
+        } else {
+            alert('Fejl: ' + data.error);
+            if (analyzeButton) {
+                analyzeButton.disabled = false;
+                analyzeButton.textContent = 'Analysér';
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Der opstod en fejl under analysen');
+        if (analyzeButton) {
+            analyzeButton.disabled = false;
+            analyzeButton.textContent = 'Analysér';
+        }
+    });
+};
+
+window.showImportPreviewForRegion = function(regionId, data) {
+    const previewHtml = `
+        <div class="space-y-6">
+            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                <h3 class="text-lg font-medium text-green-900 mb-2">✅ Analyse Fuldført</h3>
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <span class="font-medium text-green-800">Totalt læst:</span>
+                        <span class="text-green-700">${data.total_read}</span>
+                    </div>
+                    <div>
+                        <span class="font-medium text-green-800">Unikke byer:</span>
+                        <span class="text-green-700">${data.unique_cities}</span>
+                    </div>
+                    <div>
+                        <span class="font-medium text-green-800">Nye byer:</span>
+                        <span class="text-green-700">${data.new_cities}</span>
+                    </div>
+                    <div>
+                        <span class="font-medium text-green-800">Dubletter:</span>
+                        <span class="text-green-700">${data.duplicates}</span>
+                    </div>
+                </div>
+            </div>
+            
+            ${data.new_cities > 0 ? `
+                <div>
+                    <h4 class="font-medium text-gray-900 mb-3">📍 Nye byer der vil blive tilføjet:</h4>
+                    <div class="max-h-64 overflow-y-auto bg-gray-50 rounded-lg p-4">
+                        <div class="grid grid-cols-2 gap-2 text-sm">
+                            ${data.cities_preview.map(city => `<div class="text-gray-700">• ${city}</div>`).join('')}
+                        </div>
+                    </div>
+                </div>
+            ` : `
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div class="text-yellow-800">
+                        <strong>⚠️ Ingen nye byer</strong><br>
+                        Alle byer i filen findes allerede i denne region.
+                    </div>
+                </div>
+            `}
+            
+            ${data.duplicates > 0 ? `
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <details>
+                        <summary class="cursor-pointer font-medium text-blue-900">
+                            📋 Vis dubletter (${data.duplicates})
+                        </summary>
+                        <div class="mt-2 max-h-32 overflow-y-auto text-sm text-blue-800">
+                            ${data.duplicate_cities.map(city => `<div>• ${city}</div>`).join('')}
+                        </div>
+                    </details>
+                </div>
+            ` : ''}
+        </div>
+    `;
+    
+    document.getElementById('slide-panel-content').innerHTML = previewHtml;
+    
+    const saveButton = document.getElementById('slide-panel-save');
+    if (saveButton) {
+        if (data.new_cities > 0) {
+            saveButton.textContent = `Tilføj ${data.new_cities} Byer`;
+            saveButton.disabled = false;
+            saveButton.onclick = () => window.executeRegionImport(regionId);
+        } else {
+            saveButton.textContent = 'Ingen nye byer';
+            saveButton.disabled = false; // Enable button so it can be clicked
+            saveButton.onclick = () => {
+                console.log('Ingen nye byer button clicked - closing panel');
+                window.closeSlidePanel();
+            };
+        }
+    }
+    
+    // Hide cancel button after analysis is complete
+    const cancelButton = document.getElementById('slide-panel-cancel');
+    if (cancelButton) {
+        cancelButton.style.display = 'none';
+    }
+};
+
+
+window.openSlidePanel = function(title, subtitle, content, saveCallback) {
+    document.getElementById('slide-panel-title').textContent = title;
+    document.getElementById('slide-panel-subtitle').textContent = subtitle;
+    document.getElementById('slide-panel-content').innerHTML = content;
+    
+    const saveButton = document.getElementById('slide-panel-save');
+    if (saveButton) {
+        saveButton.onclick = saveCallback;
+    }
+    
+    // Attach event handlers directly to close and cancel buttons
+    const closeButton = document.getElementById('slide-panel-close');
+    const cancelButton = document.getElementById('slide-panel-cancel');
+    const overlay = document.getElementById('slide-panel-overlay');
+    
+    console.log('Setting up slide panel event handlers:');
+    console.log('Close button found:', closeButton !== null);
+    console.log('Cancel button found:', cancelButton !== null);
+    console.log('Overlay found:', overlay !== null);
+    
+    if (closeButton) {
+        closeButton.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Close button clicked directly');
+            window.closeSlidePanel();
+        };
+        // Also add addEventListener for backup
+        closeButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Close button event listener triggered');
+            window.closeSlidePanel();
+        });
+    }
+    
+    if (cancelButton) {
+        cancelButton.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Cancel button clicked directly');
+            window.closeSlidePanel();
+        };
+        // Also add addEventListener for backup
+        cancelButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Cancel button event listener triggered');
+            window.closeSlidePanel();
+        });
+    }
+    
+    if (overlay) {
+        overlay.onclick = function(e) {
+            if (e.target === overlay) {
+                console.log('Overlay clicked directly');
+                window.closeSlidePanel();
+            }
+        };
+    }
+    
+    const panel = document.getElementById('slide-panel');
+    
+    overlay.classList.remove('hidden');
+    setTimeout(() => {
+        overlay.classList.remove('opacity-0');
+        panel.classList.remove('translate-x-full');
+    }, 10);
+};
+
+window.closeSlidePanel = function() {
+    const overlay = document.getElementById('slide-panel-overlay');
+    const panel = document.getElementById('slide-panel');
+    
+    overlay.classList.add('opacity-0');
+    panel.classList.add('translate-x-full');
+    
+    setTimeout(() => {
+        overlay.classList.add('hidden');
+    }, 300);
+};
+
+window.showNotification = function(message, type = 'info') {
+    const container = document.getElementById('notification-container');
+    const notification = document.createElement('div');
+    
+    const bgColor = type === 'success' ? 'bg-green-500' : 
+                   type === 'error' ? 'bg-red-500' : 'bg-blue-500';
+    
+    notification.className = `${bgColor} text-white px-6 py-3 rounded-lg shadow-lg transform transition-all duration-300 translate-x-full opacity-0`;
+    notification.textContent = message;
+    
+    container.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.classList.remove('translate-x-full', 'opacity-0');
+    }, 100);
+    
+    setTimeout(() => {
+        notification.classList.add('translate-x-full', 'opacity-0');
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 300);
+    }, 3000);
+};
+
+// File handling functions for region import
+window.clearRegionSelectedFile = function() {
+    const fileInput = document.getElementById('region-excel-file-input');
+    const fileInfo = document.getElementById('region-file-selected-info');
+    
+    if (fileInput) {
+        fileInput.value = '';
+    }
+    if (fileInfo) {
+        fileInfo.classList.add('hidden');
+    }
+};
+
+// Initialize page  
+$(document).ready(function() {
+    // Event listeners
+    console.log('jQuery ready, setting up event listeners');
+    console.log('Button element found:', $('#create-region-btn').length);
+    
+    $('#create-region-btn').click(function(e) {
+        e.preventDefault();
+        console.log('Create region button clicked');
+        openCreateRegionPanel();
+    });
+    $('#download-template-btn').click(downloadTemplate);
+    $('#search-regions').on('input', filterRegions);
+    $('#filter-category').change(filterRegions);
+    $('#filter-industry').change(filterRegions);
+    $('#reset-filters-btn').click(resetFilters);
+    
+    // Slide panel events - use event delegation for reliability
+    $(document).on('click', '#slide-panel-close, #slide-panel-cancel', function(e) {
+        e.preventDefault();
+        console.log('Close/cancel button clicked');
+        window.closeSlidePanel();
+    });
+    $(document).on('click', '#slide-panel-overlay', function(e) {
+        if (e.target === this) {
+            console.log('Overlay clicked');
+            window.closeSlidePanel();
+        }
+    });
+    
+    // Add city events
+    $(document).on('click', '.add-city-btn', addNewCity);
+    $(document).on('keypress', '.new-city-name', function(e) {
+        if (e.which === 13) {
+            $(this).closest('.grid').find('.add-city-btn').click();
+        }
+    });
+    
+    // Import Excel events for regions
+    console.log('Registering import excel event listener for regions...');
+    $(document).on('click', '.import-excel-btn', function(e) {
+        console.log('Import Excel button clicked for region!', e);
+        openImportExcelForRegion(e);
+    });
+    $(document).on('change', '#region-excel-file-input', function() {
+        const file = this.files[0];
+        if (file) {
+            $('#region-file-selected-info').removeClass('hidden');
+            $('#region-selected-file-name').text(file.name);
+        }
+    });
+    
+    // Edit/delete keyword events
+    $(document).on('click', '.edit-city-btn', editCity);
+    $(document).on('click', '.cancel-edit-btn', cancelCityEdit);
+    $(document).on('click', '.delete-city-btn', deleteCity);
+    
+    // Keyboard navigation for edit mode
+    $(document).on('keydown', '.edit-city-name-input, .edit-synonym-input, .edit-postal-code-input', function(e) {
+        const row = $(this).closest('tr');
+        const cityId = row.find('.edit-city-btn').data('city-id');
+        
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveCityEdit(row, cityId);
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            const originalKeyword = row.find('.edit-keyword-input').data('original');
+            exitKeywordEditMode(row, originalKeyword, 'broad');
+            location.reload(); // Simple solution to restore original state
+        }
+    });
+    
+    // File upload events
+    $(document).on('change', '#excel-file-input', handleFileSelect);
+    setupDragAndDrop();
+});
+
+// Panel functions
+function openCreateRegionPanel() {
+    console.log('openCreateRegionPanel called');
+    const title = "Opret Ny Geografisk Region";
+    const subtitle = "Definér en ny geografisk region";
+    const content = generateCreateRegionContent();
+    
+    console.log('Opening slide panel with title:', title);
+    openSlidePanel(title, subtitle, content, saveNewRegion);
+    
+    // Initialize live preview for visual settings
+    setTimeout(() => {
+        setupVisualPreview();
+    }, 100);
+}
+
+function setupVisualPreview() {
+    // Update preview when name changes
+    $('#create-list-name').on('input', function() {
+        const name = $(this).val() || 'Liste navn vil vises her';
+        $('#create-preview-name').text(name);
+    });
+    
+    // Update preview when icon changes
+    $('#create-list-icon').on('input', function() {
+        const icon = $(this).val() || '📋';
+        $('#create-preview-icon').text(icon);
+    });
+    
+    // Update preview when color changes
+    $('#create-list-color').on('input', function() {
+        const color = $(this).val() || '#8B5CF6';
+        
+        // Update icon background
+        $('#create-preview-icon').css('background-color', color);
+        
+        // Update header gradient background
+        $('#create-preview-header').css('background', `linear-gradient(135deg, ${color}20, ${color}10)`);
+    });
+}
+
+function setupEditVisualPreview() {
+    // Update preview when name changes
+    $('#edit-list-name').on('input', function() {
+        const name = $(this).val() || 'Liste navn vil vises her';
+        $('#edit-preview-name').text(name);
+    });
+    
+    // Update preview when icon changes
+    $('#edit-list-icon').on('input', function() {
+        const icon = $(this).val() || '📋';
+        $('#edit-preview-icon').text(icon);
+    });
+    
+    // Update preview when color changes
+    $('#edit-list-color').on('input', function() {
+        const color = $(this).val() || '#8B5CF6';
+        
+        // Update icon background
+        $('#edit-preview-icon').css('background-color', color);
+        
+        // Update header gradient background
+        $('#edit-preview-header').css('background', `linear-gradient(135deg, ${color}20, ${color}10)`);
+    });
+}
+
+// Utility function to convert RGB to HEX
+function rgbToHex(rgb) {
+    if (rgb.startsWith('#')) return rgb;
+    
+    const result = rgb.match(/\d+/g);
+    if (!result || result.length < 3) return '#8B5CF6';
+    
+    const r = parseInt(result[0]);
+    const g = parseInt(result[1]);
+    const b = parseInt(result[2]);
+    
+    return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+}
+
+function openImportExcelPanel() {
+    const title = "Importer Negative Keywords fra Excel";
+    const subtitle = "Upload en Excel fil med byer";
+    const content = generateImportExcelContent();
+    
+    openSlidePanel(title, subtitle, content, processExcelImport);
+}
+
+function openImportExcelForRegion(e) {
+    const regionId = $(e.target).closest('.import-excel-btn').data('region-id');
+    const regionName = $(e.target).closest('.geographic-region-section').find('.region-header h3').text().trim();
+    
+    const title = `Importer Byer til "${regionName}"`;
+    const subtitle = "Upload Excel fil med intelligente dublet-tjek";
+    const content = generateImportExcelForRegionContent(regionId, regionName);
+    
+    openSlidePanel(title, subtitle, content, () => analyzeExcelForRegion(regionId));
+    
+    // Change button text to "Analysér" for Excel import
+    $('#slide-panel-save').text('Analysér');
+}
+
+function analyzeExcelForRegion(regionId) {
+    const fileInput = document.getElementById('region-excel-file-input');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        showErrorNotification('Vælg en Excel fil først');
+        return;
+    }
+    
+    // Store file reference globally for later use
+    currentUploadedFile = file;
+    
+    // Show loading state
+    $('#slide-panel-save').prop('disabled', true).html('🔍 Analyserer...');
+    
+    // Create form data
+    const formData = new FormData();
+    formData.append('excel_file', file);
+    formData.append('csrfmiddlewaretoken', $('[name=csrfmiddlewaretoken]').val());
+    
+    $.ajax({
+        url: `/ajax/analyze-excel-import-cities/${regionId}/`,
+        method: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+            if (response.success) {
+                // Display analysis results
+                displayCityAnalysisResults(response.analysis, regionId);
+                
+                // Change panel to show import options
+                $('#slide-panel-save').prop('disabled', false).html('Importer Valgte').off('click').on('click', function() {
+                    executeRegionImport(regionId, response.analysis);
+                });
+                
+            } else {
+                showErrorNotification('Analyse fejl: ' + response.error);
+                $('#slide-panel-save').prop('disabled', false).html('Analysér');
+            }
+        },
+        error: function() {
+            showErrorNotification('Der opstod en fejl under analyse');
+            $('#slide-panel-save').prop('disabled', false).html('Analysér');
+        }
+    });
+}
+
+function displayCityAnalysisResults(analysis, regionId) {
+    // Find or create analysis results container  
+    let analysisContainer = $('#slide-panel-content .analysis-results');
+    if (analysisContainer.length === 0) {
+        analysisContainer = $('<div class="analysis-results mt-4 pt-4 border-t border-gray-200"></div>');
+        $('#slide-panel-content').append(analysisContainer);
+    }
+    
+    let html = `
+        <div class="space-y-3">
+            <div class="bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-lg p-3">
+                <h5 class="text-sm font-bold text-gray-900 mb-2">📊 Import Analyse</h5>
+                <div class="grid grid-cols-3 gap-2 text-center">
+                    <div class="bg-white rounded-lg p-2">
+                        <div class="text-lg font-bold text-blue-600">${analysis.total_cities_in_file}</div>
+                        <div class="text-xs text-gray-600">Total</div>
+                    </div>
+                    <div class="bg-white rounded-lg p-2">
+                        <div class="text-lg font-bold text-green-600">${analysis.new_cities}</div>
+                        <div class="text-xs text-gray-600">Nye</div>
+                    </div>
+                    <div class="bg-white rounded-lg p-2">
+                        <div class="text-lg font-bold text-red-600">${analysis.duplicates}</div>
+                        <div class="text-xs text-gray-600">Dubletter</div>
+                    </div>
+                </div>
+            </div>
+    `;
+    
+    // Show new cities to add
+    if (analysis.cities_to_add && analysis.cities_to_add.length > 0) {
+        html += `
+            <div>
+                <h6 class="text-sm font-medium text-gray-900 mb-2">✅ Nye byer (${analysis.cities_to_add.length}):</h6>
+                <div class="bg-green-50 border border-green-200 rounded-lg p-2 max-h-32 overflow-y-auto">
+        `;
+        
+        analysis.cities_to_add.forEach(city => {
+            html += `
+                <label class="flex items-center space-x-2 text-sm py-1">
+                    <input type="checkbox" name="cities_to_add" value="${city.city_name}" checked class="text-green-600">
+                    <span>${city.city_name}</span>
+                </label>
+            `;
+        });
+        
+        html += `
+                </div>
+                <div class="mt-2 flex justify-between">
+                    <button type="button" onclick="selectAllCities(true)" class="text-xs text-green-600 hover:text-green-800">Vælg alle</button>
+                    <button type="button" onclick="selectAllCities(false)" class="text-xs text-gray-600 hover:text-gray-800">Fravælg alle</button>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Show duplicates
+    if (analysis.duplicate_cities && analysis.duplicate_cities.length > 0) {
+        html += `
+            <div>
+                <h6 class="text-sm font-medium text-gray-900 mb-2">⚠️ Dubletter (${analysis.duplicate_cities.length}):</h6>
+                <div class="bg-red-50 border border-red-200 rounded-lg p-2 max-h-24 overflow-y-auto">
+        `;
+        
+        analysis.duplicate_cities.forEach(city => {
+            html += `<div class="text-xs text-red-700 py-0.5">• ${city.city_name} (række ${city.row_number})</div>`;
+        });
+        
+        html += `</div></div>`;
+    }
+    
+    html += `</div>`;
+    analysisContainer.html(html);
+}
+
+function executeRegionImport(regionId, analysis) {
+    // Collect selected cities to add
+    const selectedCities = [];
+    $('input[name="cities_to_add"]:checked').each(function() {
+        selectedCities.push($(this).val());
+    });
+    
+    if (selectedCities.length === 0) {
+        showErrorNotification('Ingen byer valgt til import');
+        return;
+    }
+    
+    // Show loading
+    $('#slide-panel-save').prop('disabled', true).text('Importerer...');
+    
+    // Create form data
+    const formData = new FormData();
+    formData.append('excel_file', currentUploadedFile);
+    formData.append('cities_to_add', JSON.stringify(selectedCities));
+    formData.append('csrfmiddlewaretoken', $('[name=csrfmiddlewaretoken]').val());
+    
+    $.ajax({
+        url: `/ajax/execute-excel-import-cities/${regionId}/`,
+        method: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+            if (response.success) {
+                showSuccessNotification(response.message);
+                
+                // Close panel
+                closeSlidePanel();
+                
+                // Refresh page to show new cities
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+                
+            } else {
+                showErrorNotification('Import fejl: ' + response.error);
+                $('#slide-panel-save').prop('disabled', false).text('Importer Valgte');
+            }
+        },
+        error: function() {
+            showErrorNotification('Der opstod en fejl under import');
+            $('#slide-panel-save').prop('disabled', false).text('Importer Valgte');
+        }
+    });
+}
+
+function selectAllCities(select) {
+    $('input[name="cities_to_add"]').prop('checked', select);
+}
+
+function generateImportExcelForRegionContent(regionId, regionName) {
+    return `
+        <div class="space-y-4">
+
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div class="flex items-center space-x-2">
+                    <svg class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                    </svg>
+                    <span class="text-sm font-medium text-blue-800">Importerer til region: ${regionName}</span>
+                </div>
+            </div>
+            
+
+            <div>
+                <h4 class="text-base font-medium text-gray-900 mb-3">📊 Upload Excel Fil</h4>
+                
+                <div id="region-excel-dropzone" class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-400 transition-colors">
+                    <input type="file" id="region-excel-file-input" accept=".xlsx,.xls" class="hidden" data-region-id="${regionId}">
+                    <div class="cursor-pointer" onclick="document.getElementById('region-excel-file-input').click()">
+                        <span class="text-2xl">📁</span>
+                        <p class="text-gray-600 mt-2">Klik for at vælge Excel fil</p>
+                        <p class="text-xs text-gray-500 mt-1">Understøtter .xlsx og .xls filer</p>
+                    </div>
+                </div>
+                
+                <div id="region-file-selected-info" class="hidden mt-2 p-2 bg-green-50 border border-green-200 rounded">
+                    <span class="text-sm text-green-800">
+                        <span class="font-medium">Fil valgt:</span> 
+                        <span id="region-selected-file-name"></span>
+                    </span>
+                </div>
+            </div>
+            
+
+            <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                <h4 class="text-sm font-medium text-gray-900 mb-2">📋 Instruksjoner:</h4>
+                <ul class="text-xs text-gray-600 space-y-1">
+                    <li>• Excel filen skal kun have bynavn i kolonne A</li>
+                    <li>• Systemet tjekker automatisk for dubletter</li>
+                    <li>• Du kan vælge hvilke byer der skal importeres</li>
+                </ul>
+            </div>
+        </div>`;
+            <div class="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                <div class="flex items-center space-x-2">
+                    <svg class="w-4 h-4 text-purple-600" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span class="text-sm font-medium text-purple-800">Importerer til: ${listName}</span>
+                </div>
+            </div>
+            
+
+            <div>
+                <h4 class="text-base font-medium text-gray-900 mb-3">📊 Upload Excel Fil</h4>
+                
+                <div id="list-excel-dropzone" class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-purple-400 transition-colors">
+                    <input type="file" id="list-excel-file-input" accept=".xlsx,.xls" class="hidden" data-list-id="${listId}">
+                    <div class="cursor-pointer" onclick="document.getElementById('list-excel-file-input').click()">
+                        <span class="text-2xl">📁</span>
+                        <p class="mt-1 text-sm font-medium text-gray-900">Klik for at vælge Excel fil</p>
+                        <p class="text-xs text-gray-500">Eller træk og slip filen her</p>
+                        <p class="text-xs text-gray-400">(.xlsx, .xls)</p>
+                    </div>
+                    <div id="list-file-selected-info" class="hidden mt-3 p-2 bg-blue-50 rounded-lg border border-blue-200">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-blue-600">📊</span>
+                            <span id="list-selected-file-name" class="text-xs font-medium text-blue-800"></span>
+                            <button type="button" onclick="clearListSelectedFile()" class="text-blue-600 hover:text-blue-800">
+                                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+
+            <div class="border-t border-gray-200 pt-3">
+                <h4 class="text-base font-medium text-gray-900 mb-2">📋 Excel Format</h4>
+                
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p class="text-xs text-blue-800 mb-2"><strong>Påkrævede kolonner:</strong></p>
+                    <ul class="text-xs text-blue-700 space-y-1">
+                        <li>• <strong>A: Bynavn</strong> - Officielt bynavn</li>
+                        <li>• <strong>B: Match Type</strong> - broad, phrase eller exact</li>
+                    </ul>
+                </div>
+                
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-2 mt-2">
+                    <div class="flex items-start space-x-2">
+                        <svg class="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+                        </svg>
+                        <div>
+                            <p class="text-xs font-medium text-yellow-800">Intelligent Duplikat-detektion</p>
+                            <p class="text-xs text-yellow-700">Tjekker konflikter og foreslår optimeringer.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+
+            <div id="analysis-results" class="hidden border-t border-gray-200 pt-3">
+                <h4 class="text-base font-medium text-gray-900 mb-2">🔍 Analyse Resultat</h4>
+                <div id="analysis-content"></div>
+            </div>
+        </div>
+    `;
+}
+
+// Store uploaded file globally so it doesn't get lost
+let currentUploadedFile = null;
+
+function analyzeExcelForRegion(regionId) {
+    const fileInput = document.getElementById('list-excel-file-input');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        showErrorNotification('Vælg en Excel fil først');
+        return;
+    }
+    
+    // Store file reference globally
+    currentUploadedFile = file;
+    
+    // Show loading state
+    $('#slide-panel-save').prop('disabled', true).html('🔍 Analyserer...');
+    
+    // Create form data
+    const formData = new FormData();
+    formData.append('excel_file', file);
+    formData.append('csrfmiddlewaretoken', $('[name=csrfmiddlewaretoken]').val());
+    
+    $.ajax({
+        url: `/ajax/analyze-excel-import/${listId}/`,
+        method: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+            if (response.success) {
+                displayAnalysisResults(response.analysis, listId);
+                $('#slide-panel-save').html('✅ Udfør Import').prop('disabled', false).off('click').on('click', function() {
+                    executeImport(listId, response.analysis);
+                });
+            } else {
+                showErrorNotification('Analyse fejl: ' + response.error);
+                $('#slide-panel-save').prop('disabled', false).html('Analysér');
+            }
+        },
+        error: function() {
+            showErrorNotification('Der opstod en fejl under analyse');
+            $('#slide-panel-save').prop('disabled', false).html('Analysér');
+        }
+    });
+}
+
+function displayAnalysisResults(analysis, listId) {
+    $('#analysis-results').removeClass('hidden');
+    
+    let html = `
+        <div class="space-y-3">
+
+            <div class="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-3">
+                <h5 class="text-sm font-bold text-gray-900 mb-2">📊 Import Analyse</h5>
+                <div class="grid grid-cols-4 gap-2 text-center">
+                    <div class="bg-white rounded-lg p-2">
+                        <div class="text-lg font-bold text-blue-600">${analysis.total_keywords}</div>
+                        <div class="text-xs text-gray-600">Total</div>
+                    </div>
+                    <div class="bg-white rounded-lg p-2">
+                        <div class="text-lg font-bold text-green-600">${analysis.safe_to_add.length}</div>
+                        <div class="text-xs text-gray-600">Tilføj</div>
+                    </div>
+                    <div class="bg-white rounded-lg p-2">
+                        <div class="text-lg font-bold text-orange-600">${analysis.conflicts.length}</div>
+                        <div class="text-xs text-gray-600">Konflikter</div>
+                    </div>
+                    <div class="bg-white rounded-lg p-2">
+                        <div class="text-lg font-bold text-purple-600">${analysis.optimizations.length}</div>
+                        <div class="text-xs text-gray-600">Optim.</div>
+                    </div>
+                </div>
+            </div>
+    `;
+    
+    // Safe to add keywords with checkboxes
+    if (analysis.safe_to_add.length > 0) {
+        html += `
+            <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+                <h6 class="text-sm font-medium text-green-800 mb-2 flex items-center justify-between">
+                    <span class="flex items-center">
+                        <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                        </svg>
+                        Kan Tilføjes (${analysis.safe_to_add.length})
+                    </span>
+                    <div class="flex items-center space-x-2">
+                        <button type="button" onclick="selectAllSafe(true)" class="text-xs text-green-600 hover:text-green-800">Alle</button>
+                        <button type="button" onclick="selectAllSafe(false)" class="text-xs text-green-600 hover:text-green-800">Ingen</button>
+                    </div>
+                </h6>
+                <div class="space-y-1 max-h-32 overflow-y-auto">
+        `;
+        analysis.safe_to_add.forEach(kw => {
+            const keywordKey = `${kw.text}_${kw.match_type}`;
+            html += `
+                <div class="flex items-center space-x-2 bg-white rounded p-2">
+                    <input type="checkbox" name="keywords_to_add" value="${keywordKey}" checked
+                           class="h-3 w-3 text-green-600 focus:ring-green-500 border-gray-300 rounded">
+                    <span class="text-xs text-green-700 flex-1">"${kw.original_text}" (${kw.match_type})</span>
+                </div>
+            `;
+        });
+        html += `</div></div>`;
+    }
+    
+    // Conflicts
+    if (analysis.conflicts.length > 0) {
+        html += `
+            <div class="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                <h6 class="text-sm font-medium text-orange-800 mb-2 flex items-center">
+                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+                    </svg>
+                    Konflikter (${analysis.conflicts.length})
+                </h6>
+                <div class="space-y-1 max-h-32 overflow-y-auto">
+        `;
+        analysis.conflicts.forEach(conflict => {
+            html += `
+                <div class="bg-white border border-orange-200 rounded p-2">
+                    <div class="text-xs font-medium text-gray-900">"${conflict.import_keyword.original_text}" (${conflict.import_keyword.match_type})</div>
+                    <div class="text-xs text-orange-700">${conflict.reason}</div>
+                </div>
+            `;
+        });
+        html += `</div></div>`;
+    }
+    
+    // Redundancy in upload
+    if (analysis.redundant_in_upload.length > 0) {
+        html += `
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-2">
+                <h6 class="text-sm font-medium text-yellow-800 mb-2 flex items-center">
+                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 9v3.75m9 3.75-3-3m0 0l-3 3m3-3V21m-9-15V9l3-3 3 3v7.5"/>
+                    </svg>
+                    Dubletter (${analysis.redundant_in_upload.length})
+                </h6>
+                <div class="space-y-1 max-h-24 overflow-y-auto">
+        `;
+        analysis.redundant_in_upload.forEach(redundant => {
+            html += `
+                <div class="bg-white border border-yellow-200 rounded p-2">
+                    <div class="text-xs text-gray-900">"${redundant.keyword1.original_text}" vs "${redundant.keyword2.original_text}"</div>
+                    <div class="text-xs text-yellow-700">${redundant.recommendation}</div>
+                </div>
+            `;
+        });
+        html += `</div></div>`;
+    }
+    
+    // Optimizations
+    if (analysis.optimizations.length > 0) {
+        html += `
+            <div class="bg-purple-50 border border-purple-200 rounded-lg p-2">
+                <h6 class="text-sm font-medium text-purple-800 mb-2 flex items-center">
+                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                    </svg>
+                    Optimeringer (${analysis.optimizations.length})
+                </h6>
+                <div class="space-y-1 max-h-24 overflow-y-auto">
+        `;
+        analysis.optimizations.forEach(opt => {
+            html += `
+                <div class="bg-white border border-purple-200 rounded p-2">
+                    <div class="text-xs font-medium text-gray-900">${opt.suggestion}</div>
+                    <div class="text-xs text-purple-700">Gevinst: ${opt.efficiency_gain} færre</div>
+                </div>
+            `;
+        });
+        html += `</div></div>`;
+    }
+    
+    // Cleanup suggestions
+    if (analysis.cleanup_suggestions.length > 0) {
+        html += `
+            <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-2">
+                <h6 class="text-sm font-medium text-indigo-800 mb-2 flex items-center">
+                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                    Oprydning (${analysis.cleanup_suggestions.length})
+                </h6>
+                <div class="space-y-1 max-h-24 overflow-y-auto">
+        `;
+        analysis.cleanup_suggestions.forEach(suggestion => {
+            html += `
+                <div class="bg-white border border-indigo-200 rounded p-2">
+                    <div class="text-xs font-medium text-gray-900">${suggestion.description}</div>
+                    <button class="cleanup-suggestion-btn text-xs bg-indigo-600 text-white px-2 py-1 rounded mt-1 hover:bg-indigo-700" 
+                            data-keywords='${JSON.stringify(suggestion.keywords_to_remove.map(k => k.id))}'>
+                        Slet ${suggestion.keywords_to_remove.length}
+                    </button>
+                </div>
+            `;
+        });
+        html += `</div></div>`;
+    }
+    
+    // Add execution note (button is in panel footer)
+    html += `
+        <div class="border-t border-gray-200 pt-2 mt-2">
+            <div class="text-xs text-gray-600 text-center">
+                Vælg keywords ovenfor og klik 'Udfør Import' for at tilføje dem.
+            </div>
+        </div>
+    `;
+    
+    html += '</div>';
+    
+    $('#analysis-content').html(html);
+    
+    // Add event listeners for cleanup buttons
+    $('.cleanup-suggestion-btn').on('click', function() {
+        const cityIds = JSON.parse($(this).data('cities'));
+        executeCleanup(regionId, cityIds);
+    });
+}
+
+function executeCleanup(regionId, cityIds) {
+    if (confirm(`Er du sikker på at du vil slette ${cityIds.length} byer?`)) {
+        $.ajax({
+            url: `/ajax/cleanup-keywords/${listId}/`,
+            method: 'POST',
+            data: {
+                city_ids: cityIds,
+                csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+            },
+            success: function(response) {
+                if (response.success) {
+                    showSuccessNotification(`${response.removed_count} keywords slettet!`);
+                    // Re-analyze after cleanup
+                    analyzeExcelForList(listId);
+                } else {
+                    showErrorNotification('Fejl: ' + response.error);
+                }
+            },
+            error: function() {
+                showErrorNotification('Der opstod en fejl');
+            }
+        });
+    }
+}
+
+function executeImport(listId, analysis) {
+    console.log('executeImport called with:', listId, analysis);
+    
+    // Collect selected keywords to add
+    const selectedKeywords = [];
+    $('input[name="keywords_to_add"]:checked').each(function() {
+        selectedKeywords.push($(this).val());
+    });
+    
+    console.log('Selected keywords:', selectedKeywords);
+    
+    if (selectedKeywords.length === 0) {
+        showErrorNotification('Ingen keywords valgt til import');
+        return;
+    }
+    
+    // Use globally stored file reference instead of trying to access input again
+    if (!currentUploadedFile) {
+        showErrorNotification('Ingen Excel fil valgt - upload fil igen');
+        return;
+    }
+    console.log('Using stored file:', currentUploadedFile);
+    
+    // Show loading state
+    const saveBtn = $('#slide-panel-save');
+    const originalText = saveBtn.text();
+    saveBtn.text('Importerer...').prop('disabled', true);
+    
+    // Create form data
+    const formData = new FormData();
+    formData.append('excel_file', currentUploadedFile);
+    formData.append('keywords_to_add', JSON.stringify(selectedKeywords));
+    formData.append('csrfmiddlewaretoken', $('[name=csrfmiddlewaretoken]').val());
+    
+    // Execute the import
+    $.ajax({
+        url: `/ajax/execute-excel-import/${listId}/`,
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+            if (response.success) {
+                showSuccessNotification(response.message || 'Keywords importeret succesfuldt!');
+                // Close the slide panel
+                closeSlidePanel();
+                // Refresh the page to show updated keyword counts
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showErrorNotification(response.error || 'Fejl under import');
+                saveBtn.text(originalText).prop('disabled', false);
+            }
+        },
+        error: function(xhr) {
+            const error = xhr.responseJSON?.error || 'Fejl under import';
+            showErrorNotification(error);
+            saveBtn.text(originalText).prop('disabled', false);
+        }
+    });
+}
+
+// File handling for list-specific import
+function clearRegionSelectedFile() {
+    document.getElementById('list-excel-file-input').value = '';
+    document.getElementById('list-file-selected-info').classList.add('hidden');
+}
+
+function generateCreateRegionContent() {
+    return `
+        <div class="space-y-6">
+
+            <div>
+                <h4 class="text-lg font-medium text-gray-900 mb-4">📝 Grundlæggende Information</h4>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Region Navn</label>
+                    <input type="text" id="create-region-name" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                           placeholder="F.eks. Nordsjælland Standard" maxlength="100" required>
+                    <div class="text-xs text-gray-500 mt-1">
+                        <span id="create-region-name-count">0</span>/100 karakterer
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Beskrivelse</label>
+                    <textarea id="create-region-description" rows="3" 
+                              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                              placeholder="Beskrivelse af hvilke byer denne region indeholder..." maxlength="500"></textarea>
+                    <div class="text-xs text-gray-500 mt-1">
+                        <span id="create-region-description-count">0</span>/500 karakterer
+                    </div>
+                </div>
+            </div>
+            
+
+            <div class="border-t border-gray-200 pt-6">
+                <h4 class="text-lg font-medium text-gray-900 mb-4">🎨 Visuelle Indstillinger</h4>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Kategori Ikon</label>
+                        <input type="text" id="create-region-icon" value="🗺️" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-center text-2xl"
+                               placeholder="⚡" maxlength="2">
+                        <div class="text-xs text-gray-500 mt-1">Emoji eller kort symbol</div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Kategori Farve</label>
+                        <input type="color" id="create-region-color" value="#3B82F6"
+                               class="w-full h-10 border border-gray-300 rounded-lg cursor-pointer">
+                        <div class="text-xs text-gray-500 mt-1">Vælg en farve for kategorien</div>
+                    </div>
+                </div>
+                
+
+                <div class="mt-4 p-4 bg-gray-50 rounded-lg">
+                    <label class="block text-xs font-medium text-gray-700 mb-2">Forhåndsvisning</label>
+                    <div id="create-preview-header" class="p-3 rounded-lg" style="background: linear-gradient(135deg, #8B5CF620, #8B5CF610);">
+                        <div class="flex items-center space-x-3">
+                            <div id="create-preview-icon" class="w-8 h-8 rounded-lg flex items-center justify-center text-xl text-white" style="background-color: #8B5CF6;">
+                                🗺️
+                            </div>
+                            <div>
+                                <div id="create-preview-name" class="font-medium text-gray-900">Region navn vil vises her</div>
+                                <div class="text-xs text-gray-600">Kategori og beskrivelse</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+
+            <div class="border-t border-gray-200 pt-6">
+                <h4 class="text-lg font-medium text-gray-900 mb-4">⚙️ Indstillinger</h4>
+                
+                <div class="space-y-4">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="create-region-active" checked
+                               class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded">
+                        <label for="create-region-active" class="ml-2 block text-sm text-gray-900">
+                            Region er aktiv og kan bruges til kampagner
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function generateImportExcelContent() {
+    return `
+        <div class="space-y-6">
+
+            <div>
+                <h4 class="text-lg font-medium text-gray-900 mb-4">📊 Upload Excel Fil</h4>
+                
+                <div id="excel-dropzone" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-purple-400 transition-colors">
+                    <input type="file" id="excel-file-input" accept=".xlsx,.xls" class="hidden">
+                    <div class="cursor-pointer" onclick="document.getElementById('excel-file-input').click()">
+                        <span class="text-4xl">📁</span>
+                        <p class="mt-2 text-lg font-medium text-gray-900">Klik for at vælge Excel fil</p>
+                        <p class="text-sm text-gray-500">Eller træk og slip filen her</p>
+                        <p class="text-xs text-gray-400 mt-1">Understøttede formater: .xlsx, .xls</p>
+                    </div>
+                    <div id="file-selected-info" class="hidden mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-blue-600">📊</span>
+                            <span id="selected-file-name" class="text-sm font-medium text-blue-800"></span>
+                            <button type="button" onclick="clearSelectedFile()" class="text-blue-600 hover:text-blue-800">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+
+            <div class="border-t border-gray-200 pt-6">
+                <h4 class="text-lg font-medium text-gray-900 mb-4">📋 Excel Format</h4>
+                
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p class="text-sm text-blue-800 mb-2"><strong>Påkrævede kolonner:</strong></p>
+                    <ul class="text-sm text-blue-700 space-y-1">
+                        <li>• <strong>Region Navn:</strong> Navn på den geografiske region</li>
+                        <li>• <strong>Kategori:</strong> Kategori for listen (general, job, diy, etc.)</li>
+                        <li>• <strong>Bynavn:</strong> Det officielle bynavn</li>
+                        <li>• <strong>Match Type:</strong> broad, phrase eller exact</li>
+                    </ul>
+                </div>
+            </div>
+            
+
+            <div id="excel-preview" class="hidden border-t border-gray-200 pt-6">
+                <h4 class="text-lg font-medium text-gray-900 mb-4">👁️ Forhåndsvisning</h4>
+                <div id="excel-preview-content"></div>
+            </div>
+        </div>
+    `;
+}
+
+// Duplicate function removed - using global version above
+
+// Filter functions
+function filterRegions() {
+    const searchTerm = $('#search-lists').val().toLowerCase();
+    const categoryFilter = $('#filter-category').val();
+    const industryFilter = $('#filter-industry').val();
+    
+    $('.keyword-list-section').each(function() {
+        const listElement = $(this);
+        const listName = listElement.find('h3').text().toLowerCase();
+        const listDescription = listElement.find('.text-gray-600').text().toLowerCase();
+        const listCategory = listElement.data('category');
+        const listIndustry = listElement.data('industry');
+        
+        const matchesSearch = listName.includes(searchTerm) || listDescription.includes(searchTerm);
+        const matchesCategory = !categoryFilter || listCategory === categoryFilter;
+        const matchesIndustry = !industryFilter || (listIndustry && listIndustry.toString() === industryFilter);
+        
+        if (matchesSearch && matchesCategory && matchesIndustry) {
+            listElement.show();
+        } else {
+            listElement.hide();
+        }
+    });
+}
+
+function resetFilters() {
+    $('#search-lists').val('');
+    $('#filter-category').val('');
+    $('#filter-industry').val('');
+    $('.keyword-list-section').show();
+}
+
+// CRUD operations
+function addNewKeyword(e) {
+    const listId = $(e.target).data('list-id');
+    const keywordText = $(`.new-keyword-text[data-list-id="${listId}"]`).val().trim();
+    const matchType = $(`.new-keyword-match-type[data-list-id="${listId}"]`).val();
+    
+    if (!keywordText) {
+        showErrorNotification('Indtast et søgeord');
+        return;
+    }
+    
+    $.ajax({
+        url: `/ajax/add-danish-city/`,
+        method: 'POST',
+        data: {
+            list_id: listId,
+            keyword_text: keywordText,
+            match_type: matchType,
+            csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+        },
+        success: function(response) {
+            if (response.success) {
+                showSuccessNotification('Keyword tilføjet!');
+                
+                // Clear the input fields
+                $(`.new-keyword-text[data-list-id="${listId}"]`).val('');
+                $(`.new-keyword-match-type[data-list-id="${listId}"]`).val('broad');
+                
+                // Add the new keyword to the table dynamically
+                addKeywordToTable(listId, response.keyword);
+                
+                // Update the keyword count in the list header
+                updateKeywordCount(listId);
+            } else {
+                showErrorNotification('Fejl: ' + response.error);
+            }
+        },
+        error: function() {
+            showErrorNotification('Der opstod en fejl');
+        }
+    });
+}
+
+function addKeywordToTable(listId, keyword) {
+    // Find the table body for this list
+    const tableBody = $(`.keywords-content[data-list-id="${listId}"] tbody`);
+    
+    if (tableBody.length === 0) {
+        // If no table exists yet (empty list), create the table structure
+        const tableContainer = $(`.keywords-content[data-list-id="${listId}"]`);
+        const emptyMessage = tableContainer.find('.text-center.py-12');
+        
+        if (emptyMessage.length > 0) {
+            emptyMessage.remove();
+            
+            // Create new table
+            const tableHTML = `
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="text-left py-3 px-4 font-medium text-gray-700">Søgeord</th>
+                                <th class="text-left py-3 px-4 font-medium text-gray-700">Match Type</th>
+                                <th class="text-right py-3 px-4 font-medium text-gray-700">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200"></tbody>
+                    </table>
+                </div>
+            `;
+            
+            tableContainer.append(tableHTML);
+        }
+    }
+    
+    // Get match type display and styling
+    let badgeClass = 'bg-gray-100 text-gray-800';
+    let displayText = 'Broad Match';
+    
+    if (keyword.match_type === 'exact') {
+        badgeClass = 'bg-purple-100 text-purple-800';
+        displayText = 'Exact Match';
+    } else if (keyword.match_type === 'phrase') {
+        badgeClass = 'bg-blue-100 text-blue-800';
+        displayText = 'Phrase Match';
+    }
+    
+    // Create new row HTML
+    const newRowHTML = `
+        <tr class="keyword-row hover:bg-gray-50 transition-colors duration-200" data-keyword-id="${keyword.id}">
+            <td class="py-3 px-4">
+                <span class="font-medium text-gray-900">${keyword.text}</span>
+            </td>
+            <td class="py-3 px-4">
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${badgeClass}" data-match-type="${keyword.match_type}">
+                    ${displayText}
+                </span>
+            </td>
+            <td class="py-3 px-4 text-right">
+                <div class="flex items-center justify-end space-x-2">
+                    <button class="edit-keyword-btn text-gray-500 hover:text-purple-600 p-1" 
+                            data-keyword-id="${keyword.id}" title="Redigér keyword">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                        </svg>
+                    </button>
+                    <button class="delete-keyword-btn text-gray-500 hover:text-red-600 p-1" 
+                            data-keyword-id="${keyword.id}" title="Slet keyword">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                        </svg>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `;
+    
+    // Add the new row to the table with a subtle animation
+    const newRow = $(newRowHTML);
+    newRow.hide(); // Hide initially for animation
+    
+    const currentTableBody = $(`.keywords-content[data-list-id="${listId}"] tbody`);
+    currentTableBody.append(newRow);
+    
+    // Animate the new row appearing
+    newRow.fadeIn(300);
+}
+
+function updateKeywordCount(listId) {
+    // Count current keywords in the table
+    const keywordCount = $(`.keywords-content[data-list-id="${listId}"] tbody tr`).length;
+    
+    // Update the count badge in the header
+    const countBadge = $(`.keyword-list-section[data-list-id="${listId}"] .inline-flex.items-center.justify-center.w-8.h-8`);
+    if (countBadge.length > 0) {
+        countBadge.text(keywordCount);
+    }
+}
+
+function addNewCity(e) {
+    const regionId = $(e.target).data('region-id');
+    const cityName = $(`.new-city-name[data-region-id="${regionId}"]`).val().trim();
+    
+    if (!cityName) {
+        showErrorNotification('Indtast et bynavn');
+        return;
+    }
+    
+    $.ajax({
+        url: `/ajax/add-danish-city/`,
+        method: 'POST',
+        data: {
+            region_id: regionId,
+            city_name: cityName,
+            csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+        },
+        success: function(response) {
+            if (response.success) {
+                showSuccessNotification('By tilføjet!');
+                
+                // Clear the input field
+                $(`.new-city-name[data-region-id="${regionId}"]`).val('');
+                
+                // Add the new city to the table dynamically
+                addCityToTable(regionId, response.city);
+                
+                // Update the city count in the region header
+                updateCityCount(regionId);
+            } else {
+                showErrorNotification('Fejl: ' + response.error);
+            }
+        },
+        error: function() {
+            showErrorNotification('Der opstod en fejl ved tilføjelse af by');
+        }
+    });
+}
+
+function addCityToTable(regionId, city) {
+    // Find the table body for this region
+    const tableBody = $(`.cities-content[data-region-id="${regionId}"] tbody`);
+    
+    if (tableBody.length === 0) {
+        // If no table exists yet (empty region), create the table structure
+        const tableContainer = $(`.cities-list[data-region-id="${regionId}"]`);
+        const emptyMessage = tableContainer.find('.text-center.py-12');
+        
+        if (emptyMessage.length > 0) {
+            emptyMessage.remove();
+            
+            // Create new table
+            const tableHTML = `
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="text-left py-3 px-4 font-medium text-gray-700">Bynavn</th>
+                                <th class="text-right py-3 px-4 font-medium text-gray-700">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200"></tbody>
+                    </table>
+                </div>
+            `;
+            
+            tableContainer.append(tableHTML);
+        }
+    }
+    
+    // Create new row HTML for the city
+    const newRowHTML = `
+        <tr class="city-row hover:bg-gray-50 transition-colors duration-200" data-city-id="${city.id}">
+            <td class="py-3 px-4">
+                <span class="font-medium text-gray-900">${city.city_name}</span>
+            </td>
+            <td class="py-3 px-4 text-right">
+                <div class="inline-flex space-x-2">
+                    <button class="edit-city-btn text-gray-500 hover:text-blue-600 p-1" 
+                            data-city-id="${city.id}" title="Redigér by">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                        </svg>
+                    </button>
+                    <button class="delete-city-btn text-gray-500 hover:text-red-600 p-1" 
+                            data-city-id="${city.id}" title="Slet by">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                        </svg>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `;
+    
+    // Add the new row to the table with a subtle animation
+    const newRow = $(newRowHTML);
+    newRow.hide(); // Hide initially for animation
+    
+    const currentTableBody = $(`.cities-content[data-region-id="${regionId}"] tbody`);
+    currentTableBody.append(newRow);
+    
+    // Animate the new row appearing
+    newRow.fadeIn(300);
+}
+
+function updateCityCount(regionId) {
+    // Count current cities in the table
+    const cityCount = $(`.cities-content[data-region-id="${regionId}"] tbody tr`).length;
+    
+    // Update the count badge in the header
+    const countBadge = $(`.geographic-region-section[data-region-id="${regionId}"] .inline-flex.items-center.justify-center.w-8.h-8`);
+    if (countBadge.length > 0) {
+        countBadge.text(cityCount);
+    }
+}
+
+function editCity(e) {
+    const button = $(e.target).closest('.edit-city-btn');
+    const cityId = button.data('city-id');
+    const row = button.closest('tr');
+    
+    // Check if already in edit mode
+    if (row.hasClass('edit-mode')) {
+        saveCityEdit(row, cityId);
+    } else {
+        enableCityEditMode(row, cityId);
+    }
+}
+
+function enableCityEditMode(row, cityId) {
+    const cityNameCell = row.find('td:first-child');
+    const editButton = row.find('.edit-city-btn');
+    
+    // Get current values
+    const currentCityName = cityNameCell.find('span').text().trim();
+    
+    // Replace city name with input
+    cityNameCell.html(`
+        <input type="text" class="edit-city-name-input w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent" 
+               value="${currentCityName}" data-original="${currentCityName}">
+    `);
+    
+    // Change edit button to save button
+    editButton.html(`
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+        </svg>
+    `).attr('title', 'Gem ændringer').removeClass('hover:text-purple-600').addClass('hover:text-green-600');
+    
+    // Add cancel button
+    editButton.after(`
+        <button class="cancel-edit-btn text-gray-500 hover:text-red-600 p-1" title="Annullér">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>
+        </button>
+    `);
+    
+    // Mark row as in edit mode
+    row.addClass('edit-mode bg-blue-50 border-l-4 border-blue-500');
+    
+    // Add edit mode indicator
+    if (row.find('.edit-mode-indicator').length === 0) {
+        cityNameCell.find('.edit-city-name-input').before('<span class="edit-mode-indicator text-blue-600 mr-2" title="Redigerer...">✏️</span>');
+    }
+    
+    // Focus on city name input and select all text
+    const input = row.find('.edit-city-name-input');
+    input.focus().select();
+}
+
+function saveCityEdit(row, cityId) {
+    const cityNameInput = row.find('.edit-city-name-input');
+    const newCityName = cityNameInput.val().trim();
+    
+    if (!newCityName) {
+        showErrorNotification('Bynavn kan ikke være tomt');
+        cityNameInput.focus();
+        return;
+    }
+    
+    // Show loading state
+    row.find('.edit-city-btn').prop('disabled', true).html(`
+        <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" stroke-width="4" opacity="0.25"/>
+            <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+        </svg>
+    `);
+    
+    $.ajax({
+        url: `/ajax/update-danish-city/${cityId}/`,
+        method: 'POST',
+        data: {
+            city_name: newCityName,
+            city_synonym: '',
+            postal_code: '',
+            latitude: '',
+            longitude: '',
+            csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+        },
+        success: function(response) {
+            if (response.success) {
+                showSuccessNotification('By opdateret!');
+                exitCityEditMode(row, newCityName);
+            } else {
+                showErrorNotification('Fejl: ' + response.error);
+                row.find('.edit-city-btn').prop('disabled', false).html(`
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                    </svg>
+                `);
+            }
+        },
+        error: function() {
+            showErrorNotification('Der opstod en fejl');
+            row.find('.edit-city-btn').prop('disabled', false).html(`
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+            `);
+        }
+    });
+}
+
+function exitCityEditMode(row, cityName) {
+    const cityNameCell = row.find('td:first-child');
+    const actionsCell = row.find('td:last-child');
+    const editButton = row.find('.edit-city-btn');
+    
+    // Restore city name
+    cityNameCell.html(`<span class="font-medium text-gray-900">${cityName}</span>`);
+    
+    // Restore edit button
+    editButton.html(`
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+        </svg>
+    `).attr('title', 'Redigér by').removeClass('hover:text-green-600').addClass('hover:text-purple-600')
+      .prop('disabled', false);
+    
+    // Remove cancel button and edit mode
+    row.find('.cancel-edit-btn').remove();
+    row.removeClass('edit-mode bg-blue-50 border-l-4 border-blue-500');
+}
+
+function cancelCityEdit(e) {
+    const row = $(e.target).closest('tr');
+    location.reload(); // Simple solution to restore original state
+}
+
+function deleteCity(e) {
+    const cityId = $(e.target).closest('.delete-city-btn').data('city-id');
+    const row = $(e.target).closest('tr');
+    const cityName = row.find('.font-medium').text().trim();
+    
+    if (confirm(`Er du sikker på at du vil slette byen "${cityName}"?`)) {
+        $.ajax({
+            url: `/ajax/delete-danish-city/${cityId}/`,
+            method: 'POST',
+            data: {
+                csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+            },
+            success: function(response) {
+                if (response.success) {
+                    showSuccessNotification('By slettet!');
+                    
+                    // Remove the row with animation
+                    row.fadeOut(300, function() {
+                        const regionId = row.closest('.cities-content').data('region-id');
+                        row.remove();
+                        
+                        // Update city count for this region
+                        updateCityCount(regionId);
+                        
+                        // Check if table is now empty
+                        const remainingRows = $(`.cities-content[data-region-id="${regionId}"] tbody tr`);
+                        if (remainingRows.length === 0) {
+                            // Show empty state
+                            const tableContainer = $(`.cities-content[data-region-id="${regionId}"]`);
+                            tableContainer.find('.overflow-x-auto').remove();
+                            tableContainer.append(`
+                                <div class="text-center py-12 text-gray-500">
+                                    <span class="text-4xl">🏙️</span>
+                                    <p class="mt-2">Ingen byer endnu</p>
+                                    <p class="text-sm">Tilføj dit første bynavn ovenfor</p>
+                                </div>
+                            `);
+                        }
+                    });
+                } else {
+                    showErrorNotification('Fejl: ' + response.error);
+                }
+            },
+            error: function() {
+                showErrorNotification('Der opstod en fejl');
+            }
+        });
+    }
+}
+function openSlidePanel(title, subtitle, content, saveCallback) {
+    $('#slide-panel-title').text(title);
+    $('#slide-panel-subtitle').text(subtitle);
+    $('#slide-panel-content').html(content);
+    $('#slide-panel-save').off('click').on('click', saveCallback);
+    
+    // Block body scroll
+    const scrollY = window.scrollY;
+    $('body').addClass('overflow-hidden').css('top', `-${scrollY}px`);
+    
+    $('#slide-panel-overlay').removeClass('hidden');
+    setTimeout(() => {
+        $('#slide-panel-overlay').removeClass('opacity-0');
+        $('#slide-panel').removeClass('translate-x-full transform');
+    }, 10);
+    
+    // Add character counters
+    setupCharacterCounters();
+}
+
+function closeSlidePanel() {
+    // Re-enable body scroll
+    const body = $('body');
+    const scrollY = body.css('top');
+    body.removeClass('overflow-hidden').css('top', '');
+    if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY || '0', 10) * -1);
+    }
+    
+    $('#slide-panel-overlay').addClass('opacity-0');
+    $('#slide-panel').addClass('translate-x-full transform');
+    setTimeout(() => {
+        $('#slide-panel-overlay').addClass('hidden');
+    }, 300);
+}
+
+// Alternative close function for better reliability
+function forceClosePanel() {
+    // Re-enable body scroll
+    const body = document.body;
+    const scrollY = body.style.top;
+    body.classList.remove('overflow-hidden');
+    body.style.top = '';
+    if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY || '0', 10) * -1);
+    }
+    
+    const overlay = document.getElementById('slide-panel-overlay');
+    const panel = document.getElementById('slide-panel');
+    
+    if (overlay && panel) {
+        overlay.classList.add('opacity-0');
+        panel.classList.add('translate-x-full', 'transform');
+        
+        setTimeout(() => {
+            overlay.classList.add('hidden');
+        }, 300);
+    }
+}
+
+// Add ESC key support
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const overlay = document.getElementById('slide-panel-overlay');
+        if (overlay && !overlay.classList.contains('hidden')) {
+            forceClosePanel();
+        }
+    }
+});
+
+function setupCharacterCounters() {
+    $('[maxlength]').on('input', function() {
+        const maxLength = $(this).attr('maxlength');
+        const currentLength = $(this).val().length;
+        const counterId = $(this).attr('id') + '-count';
+        $(`#${counterId}`).text(currentLength);
+        
+        // Color coding
+        const counter = $(`#${counterId}`).parent();
+        if (currentLength > maxLength * 0.9) {
+            counter.addClass('text-red-500').removeClass('text-yellow-500 text-gray-500');
+        } else if (currentLength > maxLength * 0.8) {
+            counter.addClass('text-yellow-500').removeClass('text-red-500 text-gray-500');
+        } else {
+            counter.addClass('text-gray-500').removeClass('text-red-500 text-yellow-500');
+        }
+    });
+}
+
+// Save functions
+function saveNewRegion() {
+    const regionName = $('#create-region-name').val().trim();
+    
+    // Automatically determine category based on region name
+    let category = 'custom';
+    const lowerName = regionName.toLowerCase();
+    
+    if (lowerName.includes('nordsjælland')) category = 'nordsjaelland';
+    else if (lowerName.includes('money')) category = 'money';
+    else if (lowerName.includes('trekant')) category = 'trekant';
+    else if (lowerName.includes('storkøbenhavn') || lowerName.includes('københavn')) category = 'storkoebenhavn';
+    else if (lowerName.includes('jylland')) category = 'jylland';
+    else if (lowerName.includes('fyn')) category = 'fyn';
+    else if (lowerName.includes('bornholm')) category = 'bornholm';
+
+    const data = {
+        name: regionName,
+        category: category,
+        description: $('#create-region-description').val().trim(),
+        icon: $('#create-region-icon').val() || '🗺️',
+        color: $('#create-region-color').val() || '#3B82F6',
+        is_active: $('#create-region-active').is(':checked') ? 'true' : 'false',
+        csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+    };
+    
+    if (!data.name) {
+        showErrorNotification('Region navn er påkrævet');
+        return;
+    }
+    
+    $.ajax({
+        url: '/ajax/create-geographic-region/',
+        method: 'POST',
+        data: data,
+        success: function(response) {
+            if (response.success) {
+                showSuccessNotification('Region oprettet!');
+                closeSlidePanel();
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showErrorNotification('Fejl: ' + response.error);
+            }
+        },
+        error: function() {
+            showErrorNotification('Der opstod en fejl');
+        }
+    });
+}
+
+function processExcelImport() {
+    const fileInput = document.getElementById('excel-file-input');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        showErrorNotification('Vælg en Excel fil først');
+        return;
+    }
+    
+    if (!file.name.toLowerCase().endsWith('.xlsx') && !file.name.toLowerCase().endsWith('.xls')) {
+        showErrorNotification('Kun Excel filer (.xlsx, .xls) er understøttet');
+        return;
+    }
+    
+    // Create form data
+    const formData = new FormData();
+    formData.append('excel_file', file);
+    formData.append('csrfmiddlewaretoken', $('[name=csrfmiddlewaretoken]').val());
+    
+    // Show loading state
+    $('#slide-panel-save').prop('disabled', true).text('Importerer...');
+    
+    $.ajax({
+        url: '/ajax/import-danish-cities-excel/',
+        method: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+            if (response.success) {
+                const summary = response.summary;
+                showSuccessNotification(
+                    `Import gennemført! ${summary.created_lists} lister og ${summary.created_keywords} søgeord oprettet.`
+                );
+                
+                // Show detailed results
+                let detailsHtml = `
+                    <div class="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                        <h5 class="font-medium text-green-800 mb-2">Import Resultat:</h5>
+                        <ul class="text-sm text-green-700 space-y-1">
+                            <li>• ${summary.created_lists} nye lister oprettet</li>
+                            <li>• ${summary.created_keywords} søgeord tilføjet</li>
+                            <li>• ${summary.processed_rows} rækker behandlet</li>
+                            ${summary.skipped_rows > 0 ? `<li>• ${summary.skipped_rows} rækker sprunget over</li>` : ''}
+                        </ul>
+                `;
+                
+                if (summary.errors && summary.errors.length > 0) {
+                    detailsHtml += `
+                        <div class="mt-3">
+                            <p class="font-medium text-orange-800">Advarsler:</p>
+                            <ul class="text-sm text-orange-700">
+                                ${summary.errors.map(error => `<li>• ${error}</li>`).join('')}
+                            </ul>
+                        </div>
+                    `;
+                }
+                
+                detailsHtml += '</div>';
+                
+                $('#slide-panel-content').append(detailsHtml);
+                
+                setTimeout(() => {
+                    closeSlidePanel();
+                    location.reload();
+                }, 3000);
+            } else {
+                showErrorNotification('Import fejl: ' + response.error);
+            }
+        },
+        error: function(xhr, status, error) {
+            showErrorNotification('Der opstod en fejl under import: ' + error);
+        },
+        complete: function() {
+            $('#slide-panel-save').prop('disabled', false).text('Importér');
+        }
+    });
+}
+
+function downloadTemplate() {
+    // Create and download Excel template
+    window.location.href = '/download-danish-cities-template/';
+}
+
+// File handling functions
+function setupDragAndDrop() {
+    const dropzone = document.getElementById('excel-dropzone');
+    
+    if (!dropzone) return;
+    
+    // Prevent default drag behaviors
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropzone.addEventListener(eventName, preventDefaults, false);
+        document.body.addEventListener(eventName, preventDefaults, false);
+    });
+    
+    // Highlight drop zone when item is dragged over it
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropzone.addEventListener(eventName, highlight, false);
+    });
+    
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropzone.addEventListener(eventName, unhighlight, false);
+    });
+    
+    // Handle dropped files
+    dropzone.addEventListener('drop', handleDrop, false);
+}
+
+function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+}
+
+function highlight(e) {
+    const dropzone = document.getElementById('excel-dropzone');
+    dropzone.classList.add('border-red-500', 'bg-red-50');
+}
+
+function unhighlight(e) {
+    const dropzone = document.getElementById('excel-dropzone');
+    dropzone.classList.remove('border-red-500', 'bg-red-50');
+}
+
+function handleDrop(e) {
+    const files = e.dataTransfer.files;
+    
+    if (files.length > 0) {
+        const file = files[0];
+        
+        // Validate file type
+        if (!file.name.toLowerCase().endsWith('.xlsx') && !file.name.toLowerCase().endsWith('.xls')) {
+            showErrorNotification('Kun Excel filer (.xlsx, .xls) er understøttet');
+            return;
+        }
+        
+        // Set file to input
+        const fileInput = document.getElementById('excel-file-input');
+        fileInput.files = files;
+        
+        // Show file info
+        showSelectedFile(file);
+    }
+}
+
+function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (file) {
+        showSelectedFile(file);
+    }
+}
+
+function showSelectedFile(file) {
+    document.getElementById('selected-file-name').textContent = file.name;
+    document.getElementById('file-selected-info').classList.remove('hidden');
+}
+
+function clearSelectedFile() {
+    document.getElementById('excel-file-input').value = '';
+    document.getElementById('file-selected-info').classList.add('hidden');
+}
+
+// Notification system
+function showSuccessNotification(message) {
+    const notification = $(`
+        <div class="bg-green-500 text-white px-4 py-3 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300">
+            <div class="flex items-center space-x-2">
+                <span>✅</span>
+                <span>${message}</span>
+            </div>
+        </div>
+    `);
+    
+    $('#notification-container').append(notification);
+    
+    setTimeout(() => notification.removeClass('translate-x-full'), 100);
+    setTimeout(() => {
+        notification.addClass('translate-x-full');
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
+
+function showErrorNotification(message) {
+    const notification = $(`
+        <div class="bg-red-500 text-white px-4 py-3 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300">
+            <div class="flex items-center space-x-2">
+                <span>❌</span>
+                <span>${message}</span>
+            </div>
+        </div>
+    `);
+    
+    $('#notification-container').append(notification);
+    
+    setTimeout(() => notification.removeClass('translate-x-full'), 100);
+    setTimeout(() => {
+        notification.addClass('translate-x-full');
+        setTimeout(() => notification.remove(), 300);
+    }, 5000);
+}
+
+// Cleanup and Import Execution Functions
+function performCleanup(regionId, cityIds, suggestionType) {
+    if (cityIds.length === 0) {
+        showErrorNotification('Ingen byer valgt til sletning');
+        return;
+    }
+    
+    if (!confirm(`Er du sikker på at du vil slette ${cityIds.length} byer?`)) {
+        return;
+    }
+    
+    $.ajax({
+        url: `/ajax/cleanup-keywords/${listId}/`,
+        type: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        data: JSON.stringify({
+            city_ids: cityIds
+        }),
+        success: function(response) {
+            if (response.success) {
+                showSuccessNotification(response.message);
+                // Refresh the analysis or update UI as needed
+                location.reload(); // Simple refresh for now
+            } else {
+                showErrorNotification(response.error || 'Fejl under sletning');
+            }
+        },
+        error: function(xhr) {
+            const error = xhr.responseJSON?.error || 'Fejl under sletning';
+            showErrorNotification(error);
+        }
+    });
+}
+
+function executeImportGeneral(listId) {
+    // This is the old general import function - not used for list-specific import
+    // Collect selected keywords to add
+    const selectedKeywords = [];
+    $('input[name="keywords_to_add"]:checked').each(function() {
+        selectedKeywords.push($(this).val());
+    });
+    
+    if (selectedKeywords.length === 0) {
+        showErrorNotification('Ingen keywords valgt til import');
+        return;
+    }
+    
+    // Get the uploaded file (from general import)
+    const fileInput = $('#excel-file-input')[0];
+    if (!fileInput.files || fileInput.files.length === 0) {
+        showErrorNotification('Ingen Excel fil valgt');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('excel_file', fileInput.files[0]);
+    formData.append('keywords_to_add', JSON.stringify(selectedKeywords));
+    
+    // Show loading state
+    const importBtn = $('#execute-import-btn');
+    const originalText = importBtn.text();
+    importBtn.text('Importerer...').prop('disabled', true);
+    
+    $.ajax({
+        url: `/ajax/execute-excel-import/${listId}/`,
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+            if (response.success) {
+                showSuccessNotification(response.message);
+                // Close the slide panel
+                closeSlidePanel();
+                // Refresh the page to show updated keyword counts
+                location.reload();
+            } else {
+                showErrorNotification(response.error || 'Fejl under import');
+            }
+        },
+        error: function(xhr) {
+            const error = xhr.responseJSON?.error || 'Fejl under import';
+            showErrorNotification(error);
+        },
+        complete: function() {
+            importBtn.text(originalText).prop('disabled', false);
+        }
+    });
+}
+
+// Helper functions for checkbox selection
+function selectAllSafe(checked) {
+    $('input[name="keywords_to_add"]').prop('checked', checked);
+}
+
+// Update the displayAnalysisResults function to include action buttons
+function updateAnalysisResultsWithActions(listId) {
+    // Add cleanup buttons for suggestions
+    $(document).on('click', '.cleanup-btn', function() {
+        const suggestionData = JSON.parse($(this).data('suggestion'));
+        const cityIds = suggestionData.cities_to_remove.map(city => city.id);
+        const suggestionType = $(this).data('type');
+        
+        performCleanup(regionId, cityIds, suggestionType);
+    });
+    
+    // Note: Import execution is handled by the main panel footer button
+    // No need to add extra buttons here for list-specific import
+}
+</script>
+
+<!-- CLEANED UP JAVASCRIPT - CLAUDE SONNET 4.5 FIXES -->
+<script>
+// =================================================================
+// CORE CRUD FUNCTIONS - ALL WORKING AND PROPERLY BOUND
+// =================================================================
+
+// Global functions for geographic regions and cities management
+window.GeoManager = {
+    // City CRUD Functions
+    editCity: function(e) {
+        const button = $(e.target).closest('.edit-city-btn');
+        const cityId = button.data('city-id');
+        const row = button.closest('tr');
+        
+        if (row.hasClass('edit-mode')) {
+            this.saveCityEdit(row, cityId);
+        } else {
+            this.enableCityEditMode(row, cityId);
+        }
+    },
+
+    enableCityEditMode: function(row, cityId) {
+        const cityNameCell = row.find('td:first-child');
+        const editButton = row.find('.edit-city-btn');
+        const currentCityName = cityNameCell.find('span').text().trim();
+        
+        cityNameCell.html(`
+            <input type="text" class="edit-city-name-input w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent" 
+                   value="${currentCityName}" data-original="${currentCityName}">
+        `);
+        
+        editButton.html(`
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+            </svg>
+        `).attr('title', 'Gem ændringer').removeClass('hover:text-purple-600').addClass('hover:text-green-600');
+        
+        editButton.after(`
+            <button class="cancel-edit-btn text-gray-500 hover:text-red-600 p-1 ml-2" title="Annullér">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+            </button>
+        `);
+        
+        row.addClass('edit-mode bg-blue-50 border-l-4 border-blue-500');
+        setTimeout(() => cityNameCell.find('input').focus().select(), 100);
+    },
+
+    saveCityEdit: function(row, cityId) {
+        const newCityName = row.find('.edit-city-name-input').val().trim();
+        
+        if (!newCityName) {
+            this.showErrorNotification('Bynavn kan ikke være tomt');
+            return;
+        }
+        
+        row.find('.edit-city-btn').prop('disabled', true).html(`
+            <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" stroke-width="4" opacity="0.25"/>
+                <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+            </svg>
+        `);
+        
+        $.ajax({
+            url: `/ajax/update-danish-city/${cityId}/`,
+            method: 'POST',
+            data: {
+                city_name: newCityName,
+                city_synonym: '',
+                postal_code: '',
+                latitude: '',
+                longitude: '',
+                csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+            },
+            success: (response) => {
+                if (response.success) {
+                    this.showSuccessNotification('By opdateret!');
+                    this.exitCityEditMode(row, newCityName);
+                } else {
+                    this.showErrorNotification('Fejl: ' + response.error);
+                    row.find('.edit-city-btn').prop('disabled', false);
+                }
+            },
+            error: () => {
+                this.showErrorNotification('Der opstod en fejl');
+                row.find('.edit-city-btn').prop('disabled', false);
+            }
+        });
+    },
+
+    exitCityEditMode: function(row, cityName) {
+        const cityNameCell = row.find('td:first-child');
+        const editButton = row.find('.edit-city-btn');
+        
+        cityNameCell.html(`<span class="font-medium text-gray-900">${cityName}</span>`);
+        editButton.html(`
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+            </svg>
+        `).attr('title', 'Redigér by').removeClass('hover:text-green-600').addClass('hover:text-purple-600')
+          .prop('disabled', false);
+        
+        row.find('.cancel-edit-btn').remove();
+        row.removeClass('edit-mode bg-blue-50 border-l-4 border-blue-500');
+    },
+
+    cancelCityEdit: function(e) {
+        const row = $(e.target).closest('tr');
+        const editButton = row.find('.edit-city-btn');
+        const originalName = row.find('.edit-city-name-input').data('original');
+        this.exitCityEditMode(row, originalName);
+    },
+
+    deleteCity: function(e) {
+        const cityId = $(e.target).closest('.delete-city-btn').data('city-id');
+        const row = $(e.target).closest('tr');
+        const cityName = row.find('.font-medium').text().trim();
+        
+        if (confirm(`Er du sikker på at du vil slette byen "${cityName}"?`)) {
+            $.ajax({
+                url: `/ajax/delete-danish-city/${cityId}/`,
+                method: 'POST',
+                data: {
+                    csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+                },
+                success: (response) => {
+                    if (response.success) {
+                        this.showSuccessNotification('By slettet!');
+                        row.fadeOut(300, () => {
+                            row.remove();
+                            this.updateCityCount(row.closest('.cities-content').data('region-id'));
+                        });
+                    } else {
+                        this.showErrorNotification('Fejl: ' + response.error);
+                    }
+                },
+                error: () => {
+                    this.showErrorNotification('Der opstod en fejl ved sletning');
+                }
+            });
+        }
+    },
+
+    addCity: function(e) {
+        const button = $(e.target).closest('.add-city-btn');
+        const regionId = button.data('region-id');
+        const input = $(`.new-city-name[data-region-id="${regionId}"]`);
+        const cityName = input.val().trim();
+        
+        if (!cityName) {
+            this.showErrorNotification('Indtast et bynavn');
+            input.focus();
+            return;
+        }
+        
+        button.prop('disabled', true).html(`
+            <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" stroke-width="4" opacity="0.25"/>
+                <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+            </svg>
+        `);
+        
+        $.ajax({
+            url: '/ajax/add-danish-city/',
+            method: 'POST',
+            data: {
+                region_id: regionId,
+                city_name: cityName,
+                city_synonym: '',
+                postal_code: '',
+                latitude: '',
+                longitude: '',
+                csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+            },
+            success: (response) => {
+                if (response.success) {
+                    this.showSuccessNotification('By tilføjet!');
+                    input.val('');
+                    this.addCityToTable(regionId, response.city);
+                    this.updateCityCount(regionId);
+                } else {
+                    this.showErrorNotification('Fejl: ' + response.error);
+                }
+                button.prop('disabled', false).html('Tilføj By');
+            },
+            error: () => {
+                this.showErrorNotification('Der opstod en fejl');
+                button.prop('disabled', false).html('Tilføj By');
+            }
+        });
+    },
+
+    // Region CRUD Functions
+    createRegion: function() {
+        const title = 'Opret Ny Region';
+        const subtitle = 'Tilføj en ny geografisk region til din samling';
+        const content = this.generateCreateRegionContent();
+        
+        this.openSlidePanel(title, subtitle, content, () => {
+            this.saveNewRegion();
+        });
+    },
+
+    generateCreateRegionContent: function() {
+        return `
+            <div class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Regionnavn *</label>
+                        <input type="text" id="create-region-name" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="f.eks. Nordsjælland">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Kategori</label>
+                        <select id="create-region-category" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                            <option value="custom">Brugerdefineret</option>
+                            <option value="nordsjaelland">Nordsjælland</option>
+                            <option value="storkoebenhavn">Storkøbenhavn</option>
+                            <option value="jylland">Jylland</option>
+                            <option value="fyn">Fyn</option>
+                            <option value="bornholm">Bornholm</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Beskrivelse</label>
+                    <textarea id="create-region-description" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="Beskrivelse af regionen..."></textarea>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Ikon</label>
+                        <input type="text" id="create-region-icon" value="🗺️" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Farve</label>
+                        <input type="color" id="create-region-color" value="#3B82F6" class="w-full h-10 border border-gray-300 rounded-lg">
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
+    saveNewRegion: function() {
+        const name = $('#create-region-name').val().trim();
+        const description = $('#create-region-description').val().trim();
+        const category = $('#create-region-category').val();
+        const icon = $('#create-region-icon').val().trim() || '🗺️';
+        const color = $('#create-region-color').val();
+        
+        if (!name) {
+            this.showErrorNotification('Regionnavn er påkrævet');
+            return;
+        }
+        
+        $.ajax({
+            url: '/ajax/create-geographic-region/',
+            method: 'POST',
+            data: {
+                name: name,
+                description: description,
+                category: category,
+                industry_id: '',
+                icon: icon,
+                color: color,
+                is_active: true,
+                csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+            },
+            success: (response) => {
+                if (response.success) {
+                    this.showSuccessNotification('Region oprettet!');
+                    this.closeSlidePanel();
+                    location.reload(); // Refresh to show new region
+                } else {
+                    this.showErrorNotification('Fejl: ' + response.error);
+                }
+            },
+            error: () => {
+                this.showErrorNotification('Der opstod en fejl');
+            }
+        });
+    },
+
+    // Utility Functions
+    addCityToTable: function(regionId, city) {
+        const tableBody = $(`.cities-content[data-region-id="${regionId}"] tbody`);
+        const newRow = `
+            <tr class="city-row hover:bg-gray-50">
+                <td class="px-6 py-3">
+                    <span class="font-medium text-gray-900">${city.city_name}</span>
+                </td>
+                <td class="px-6 py-3 text-right">
+                    <div class="flex items-center justify-end space-x-2">
+                        <button class="edit-city-btn text-gray-500 hover:text-purple-600 p-1" 
+                                data-city-id="${city.id}" title="Redigér by">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                            </svg>
+                        </button>
+                        <button class="delete-city-btn text-gray-500 hover:text-red-600 p-1" 
+                                data-city-id="${city.id}" title="Slet by">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+        tableBody.append(newRow);
+    },
+
+    updateCityCount: function(regionId) {
+        const cityCount = $(`.cities-content[data-region-id="${regionId}"] tbody tr`).length;
+        const countBadge = $(`.geographic-region-section[data-region-id="${regionId}"] .inline-flex.items-center.justify-center.w-8.h-8`);
+        if (countBadge.length > 0) {
+            countBadge.text(cityCount);
+        }
+    },
+
+    // Template Download
+    downloadTemplate: function() {
+        window.location.href = '/download-danish-cities-template/';
+    },
+
+    // Bulk Import
+    openBulkImport: function() {
+        const title = 'Bulk Import fra Excel';
+        const subtitle = 'Upload Excel fil for at importere byer til eksisterende region';
+        const content = this.generateBulkImportContent();
+        
+        this.openSlidePanel(title, subtitle, content, () => {
+            this.processBulkImport();
+        });
+    },
+
+    generateBulkImportContent: function() {
+        const regions = $('.geographic-region-section').map(function() {
+            const regionId = $(this).data('region-id');
+            const regionName = $(this).find('.region-header h3').text().trim();
+            return { id: regionId, name: regionName };
+        }).get();
+        
+        let regionOptions = '<option value="">Vælg region...</option>';
+        regions.forEach(region => {
+            regionOptions += `<option value="${region.id}">${region.name}</option>`;
+        });
+        
+        return `
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Vælg Målregion *</label>
+                    <select id="bulk-import-region" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        ${regionOptions}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Upload Excel Fil</label>
+                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-purple-500 transition-colors">
+                        <input type="file" id="bulk-import-file" class="hidden" accept=".xlsx,.xls,.csv" />
+                        <label for="bulk-import-file" class="cursor-pointer">
+                            <div class="space-y-2">
+                                <div class="text-4xl">📄</div>
+                                <div class="text-lg font-medium text-gray-900">Vælg Excel fil</div>
+                                <div class="text-sm text-gray-500">Understøtter .xlsx, .xls og .csv filer</div>
+                            </div>
+                        </label>
+                        <div id="bulk-file-selected-info" class="hidden mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-blue-600">📊</span>
+                                <span id="bulk-selected-file-name" class="text-sm font-medium text-blue-800"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 class="font-medium text-blue-900 mb-2">📋 Format Krav</h4>
+                    <ul class="text-sm text-blue-800 space-y-1">
+                        <li>• Kolonne A skal indeholde bynavne</li>
+                        <li>• Første række kan være header (bliver ignoreret)</li>
+                        <li>• Dubletter bliver automatisk filtreret ud</li>
+                    </ul>
+                </div>
+            </div>
+        `;
+    },
+
+    processBulkImport: function() {
+        const regionId = $('#bulk-import-region').val();
+        const fileInput = document.getElementById('bulk-import-file');
+        const file = fileInput.files[0];
+        
+        if (!regionId) {
+            this.showErrorNotification('Vælg venligst en region');
+            return;
+        }
+        
+        if (!file) {
+            this.showErrorNotification('Vælg venligst en fil');
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('excel_file', file);
+        formData.append('region_id', regionId);
+        formData.append('csrfmiddlewaretoken', $('[name=csrfmiddlewaretoken]').val());
+        
+        $.ajax({
+            url: '/ajax/import-danish-cities-excel/',
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: (response) => {
+                if (response.success) {
+                    const summary = response.summary;
+                    this.showSuccessNotification(`Import gennemført! Tilføjet ${summary.created_cities} byer, sprunget over ${summary.skipped_rows} dubletter.`);
+                    this.closeSlidePanel();
+                    location.reload(); // Refresh to show new cities
+                } else {
+                    this.showErrorNotification('Import fejl: ' + response.error);
+                }
+            },
+            error: () => {
+                this.showErrorNotification('Der opstod en fejl under import');
+            }
+        });
+    },
+
+    // Notification Functions
+    showSuccessNotification: function(message) {
+        this.showNotification(message, 'success');
+    },
+
+    showErrorNotification: function(message) {
+        this.showNotification(message, 'error');
+    },
+
+    showNotification: function(message, type = 'info') {
+        const colors = {
+            success: 'bg-green-50 border-green-200 text-green-800',
+            error: 'bg-red-50 border-red-200 text-red-800',
+            info: 'bg-blue-50 border-blue-200 text-blue-800'
+        };
+        
+        const notification = $(`
+            <div class="${colors[type]} border px-4 py-3 rounded-lg shadow-lg mb-2 notification-item">
+                <div class="flex items-center justify-between">
+                    <span class="text-sm font-medium">${message}</span>
+                    <button class="ml-4 text-current hover:opacity-75" onclick="$(this).closest('.notification-item').fadeOut(300, function() { $(this).remove(); });">
+                        ✕
+                    </button>
+                </div>
+            </div>
+        `);
+        
+        let container = $('#notification-container');
+        if (container.length === 0) {
+            container = $('<div id="notification-container" class="fixed top-4 right-4 z-50 space-y-2"></div>');
+            $('body').append(container);
+        }
+        
+        container.append(notification);
+        
+        setTimeout(() => {
+            notification.fadeOut(300, function() { $(this).remove(); });
+        }, 5000);
+    },
+
+    // Slide Panel Functions
+    openSlidePanel: function(title, subtitle, content, saveCallback) {
+        $('#slide-panel-title').text(title);
+        $('#slide-panel-subtitle').text(subtitle);
+        $('#slide-panel-content').html(content);
+        
+        const saveButton = document.getElementById('slide-panel-save');
+        if (saveButton && saveCallback) {
+            saveButton.onclick = saveCallback;
+        }
+        
+        const overlay = document.getElementById('slide-panel-overlay');
+        const panel = document.getElementById('slide-panel');
+        
+        overlay.classList.remove('hidden');
+        setTimeout(() => {
+            overlay.classList.remove('opacity-0');
+            panel.classList.remove('translate-x-full');
+        }, 10);
+    },
+
+    // Region CRUD Functions
+    editRegion: function(regionId) {
+        console.log('Editing region:', regionId);
+        
+        // Get region data from DOM
+        const regionElement = $(`.geographic-region-section[data-region-id="${regionId}"]`);
+        if (regionElement.length === 0) {
+            this.showErrorNotification('Region ikke fundet');
+            return;
+        }
+        
+        // Extract current region data
+        const regionHeader = regionElement.find('.region-header');
+        const regionName = regionHeader.find('h3').text().trim();
+        const regionDescription = regionHeader.find('p').text().trim();
+        const iconElement = regionHeader.find('.w-12 .text-2xl');
+        const currentIcon = iconElement.length > 0 ? iconElement.text().trim() : '🗺️';
+        const iconBg = regionHeader.find('.w-12');
+        
+        // Get background color from style attribute
+        const styleAttr = iconBg.attr('style') || '';
+        const colorMatch = styleAttr.match(/background-color:\s*([^;]+)/);
+        const currentColor = colorMatch ? colorMatch[1].trim() : '#3B82F6';
+        
+        // Get additional data (we'll need to fetch these from the server)
+        this.fetchRegionDetails(regionId, regionName, regionDescription, currentIcon, currentColor);
+    },
+
+    fetchRegionDetails: function(regionId, regionName, regionDescription, currentIcon, currentColor) {
+        $.ajax({
+            url: `/ajax/edit-geographic-region/${regionId}/`,
+            method: 'GET',
+            success: (response) => {
+                if (response.success) {
+                    const region = response.region;
+                    this.openEditRegionPanel(
+                        regionId,
+                        region.name,
+                        region.description || '',
+                        region.category || 'custom',
+                        region.industry_id || '',
+                        region.icon || currentIcon,
+                        region.color || currentColor,
+                        region.is_active
+                    );
+                } else {
+                    this.showErrorNotification('Fejl ved hentning af region data: ' + response.error);
+                }
+            },
+            error: () => {
+                this.showErrorNotification('Der opstod en fejl ved hentning af region data');
+            }
+        });
+    },
+
+    openEditRegionPanel: function(regionId, name, description, category, industryId, icon, color, isActive) {
+        const title = "Redigér Geografisk Region";
+        const subtitle = "Opdatér region detaljer og indstillinger";
+        
+        // Get industries for dropdown
+        const industries = this.getIndustriesFromPage();
+        
+        const content = this.generateEditRegionContent(regionId, name, description, category, industryId, icon, color, isActive, industries);
+        
+        this.openSlidePanel(title, subtitle, content, () => this.saveRegionEdit(regionId));
+        
+        // Initialize color picker and icon selector
+        setTimeout(() => {
+            this.setupEditRegionVisualPreview();
+            this.setupColorPicker();
+            this.setupIconSelector();
+        }, 100);
+    },
+
+    generateEditRegionContent: function(regionId, name, description, category, industryId, icon, color, isActive, industries) {
+        const hexColor = color.startsWith('rgb') ? this.rgbToHex(color) : color;
+        
+        return `
+            <div class="space-y-6">
+                <div>
+                    <h4 class="text-lg font-medium text-gray-900 mb-4">📝 Grundlæggende Information</h4>
+                    
+                    <div class="grid grid-cols-1 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Region Navn</label>
+                            <input type="text" id="edit-region-name" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                   value="${this.escapeHtml(name)}" maxlength="100" required>
+                            <div class="text-xs text-gray-500 mt-1">
+                                <span id="edit-region-name-count">${name.length}</span>/100 karakterer
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Beskrivelse</label>
+                            <textarea id="edit-region-description" 
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                      rows="3" maxlength="500">${this.escapeHtml(description)}</textarea>
+                            <div class="text-xs text-gray-500 mt-1">
+                                <span id="edit-region-desc-count">${description.length}</span>/500 karakterer
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="text-lg font-medium text-gray-900 mb-4">🏢 Kategorisering</h4>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Kategori</label>
+                            <select id="edit-region-category" 
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                <option value="metro" ${category === 'metro' ? 'selected' : ''}>🏙️ Storby</option>
+                                <option value="coast" ${category === 'coast' ? 'selected' : ''}>🏖️ Kyst</option>
+                                <option value="rural" ${category === 'rural' ? 'selected' : ''}>🌾 Land</option>
+                                <option value="island" ${category === 'island' ? 'selected' : ''}>🏝️ Ø</option>
+                                <option value="custom" ${category === 'custom' ? 'selected' : ''}>⚙️ Tilpasset</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Branche</label>
+                            <select id="edit-region-industry" 
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                <option value="">Ingen specifikke branche</option>
+                                ${industries.map(industry => `
+                                    <option value="${industry.id}" ${industryId == industry.id ? 'selected' : ''}>${industry.name}</option>
+                                `).join('')}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="text-lg font-medium text-gray-900 mb-4">🎨 Visuel Design</h4>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Ikon</label>
+                            <div class="flex items-center space-x-4">
+                                <input type="text" id="edit-region-icon" 
+                                       class="w-20 px-3 py-2 border border-gray-300 rounded-lg text-center text-xl"
+                                       value="${icon}" maxlength="2">
+                                <div class="flex flex-wrap gap-2">
+                                    ${['🗺️', '🏙️', '🏖️', '🌾', '🏝️', '⭐', '🎯', '🔥'].map(emoji => `
+                                        <button type="button" class="icon-option w-10 h-10 rounded-lg border border-gray-300 hover:bg-gray-50 text-xl" 
+                                                data-icon="${emoji}">${emoji}</button>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Farve</label>
+                            <div class="flex items-center space-x-4">
+                                <input type="color" id="edit-region-color" 
+                                       class="w-16 h-10 border border-gray-300 rounded-lg"
+                                       value="${hexColor}">
+                                <div class="flex space-x-2">
+                                    ${['#3B82F6', '#8B5CF6', '#EC4899', '#10B981', '#F59E0B', '#EF4444'].map(colorOption => `
+                                        <button type="button" class="color-option w-8 h-8 rounded-lg border border-gray-300" 
+                                                style="background-color: ${colorOption}" data-color="${colorOption}"></button>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 p-4 bg-gray-50 rounded-lg">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Preview:</label>
+                        <div class="flex items-center space-x-3">
+                            <div id="edit-preview-icon" class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl text-white" 
+                                 style="background-color: ${hexColor};">
+                                ${icon}
+                            </div>
+                            <div>
+                                <div id="edit-preview-name" class="text-lg font-medium text-gray-900">${this.escapeHtml(name)}</div>
+                                <div id="edit-preview-desc" class="text-sm text-gray-600">${this.escapeHtml(description)}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="text-lg font-medium text-gray-900 mb-4">⚙️ Indstillinger</h4>
+                    
+                    <div class="space-y-3">
+                        <label class="flex items-center space-x-3">
+                            <input type="checkbox" id="edit-region-is-active" 
+                                   class="rounded text-purple-600 focus:ring-purple-500"
+                                   ${isActive ? 'checked' : ''}>
+                            <span class="text-sm font-medium text-gray-700">Region er aktiv</span>
+                        </label>
+                        <p class="text-xs text-gray-500 ml-6">Aktive regioner vises i frontenden og kan bruges til kampagner</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
+    saveRegionEdit: function(regionId) {
+        const name = $('#edit-region-name').val().trim();
+        const description = $('#edit-region-description').val().trim();
+        const category = $('#edit-region-category').val();
+        const industryId = $('#edit-region-industry').val();
+        const icon = $('#edit-region-icon').val();
+        const color = $('#edit-region-color').val();
+        const isActive = $('#edit-region-is-active').is(':checked');
+        
+        if (!name) {
+            this.showErrorNotification('Region navn er påkrævet');
+            return;
+        }
+        
+        const saveButton = $('#slide-panel-save');
+        saveButton.prop('disabled', true).text('Gemmer...');
+        
+        $.ajax({
+            url: `/ajax/edit-geographic-region/${regionId}/`,
+            method: 'POST',
+            data: {
+                name: name,
+                description: description,
+                category: category,
+                industry_id: industryId || '',
+                icon: icon,
+                color: color,
+                is_active: isActive,
+                csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+            },
+            success: (response) => {
+                if (response.success) {
+                    this.showSuccessNotification('Region opdateret!');
+                    this.closeSlidePanel();
+                    // Reload the page to reflect changes
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    this.showErrorNotification('Fejl: ' + response.error);
+                    saveButton.prop('disabled', false).text('Gem Ændringer');
+                }
+            },
+            error: () => {
+                this.showErrorNotification('Der opstod en fejl');
+                saveButton.prop('disabled', false).text('Gem Ændringer');
+            }
+        });
+    },
+
+    // Helper functions for region editing
+    setupEditRegionVisualPreview: function() {
+        const nameInput = $('#edit-region-name');
+        const descInput = $('#edit-region-description');
+        const iconInput = $('#edit-region-icon');
+        const colorInput = $('#edit-region-color');
+        
+        const updatePreview = () => {
+            $('#edit-preview-name').text(nameInput.val() || 'Region Navn');
+            $('#edit-preview-desc').text(descInput.val() || 'Beskrivelse...');
+            $('#edit-preview-icon').text(iconInput.val()).css('background-color', colorInput.val());
+        };
+        
+        const updateCharacterCounts = () => {
+            $('#edit-region-name-count').text(nameInput.val().length);
+            $('#edit-region-desc-count').text(descInput.val().length);
+        };
+        
+        nameInput.on('input', () => {
+            updatePreview();
+            updateCharacterCounts();
+        });
+        
+        descInput.on('input', () => {
+            updatePreview();
+            updateCharacterCounts();
+        });
+        
+        iconInput.on('input', updatePreview);
+        colorInput.on('input', updatePreview);
+        
+        // Initialize counts
+        updateCharacterCounts();
+    },
+
+    setupColorPicker: function() {
+        $(document).on('click', '.color-option', function() {
+            const color = $(this).data('color');
+            $('#edit-region-color').val(color).trigger('change');
+        });
+    },
+
+    setupIconSelector: function() {
+        $(document).on('click', '.icon-option', function() {
+            const icon = $(this).data('icon');
+            $('#edit-region-icon').val(icon).trigger('change');
+        });
+    },
+
+    getIndustriesFromPage: function() {
+        // Extract industries from the filter dropdown if it exists
+        const industries = [];
+        $('#filter-industry option').each(function() {
+            const value = $(this).val();
+            const text = $(this).text();
+            if (value && value !== '') {
+                industries.push({ id: value, name: text });
+            }
+        });
+        return industries;
+    },
+
+    rgbToHex: function(rgb) {
+        if (rgb.startsWith('#')) return rgb;
+        
+        const result = rgb.match(/\d+/g);
+        if (!result || result.length < 3) return rgb;
+        
+        return "#" + result.map(x => {
+            const hex = parseInt(x).toString(16);
+            return hex.length === 1 ? '0' + hex : hex;
+        }).join('');
+    },
+
+    escapeHtml: function(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    },
+
+    closeSlidePanel: function() {
+        const overlay = document.getElementById('slide-panel-overlay');
+        const panel = document.getElementById('slide-panel');
+        
+        overlay.classList.add('opacity-0');
+        panel.classList.add('translate-x-full');
+        
+        setTimeout(() => {
+            overlay.classList.add('hidden');
+        }, 300);
+    }
+};
+
+// =================================================================
+// GLOBAL FUNCTION ALIASES FOR BACKWARD COMPATIBILITY
+// =================================================================
+
+// Make functions globally accessible
+window.editCity = (e) => GeoManager.editCity(e);
+window.deleteCity = (e) => GeoManager.deleteCity(e);
+window.addCity = (e) => GeoManager.addCity(e);
+window.addNewCity = (e) => GeoManager.addCity(e);
+window.createRegion = () => GeoManager.createRegion();
+window.openCreateRegionForm = () => GeoManager.createRegion();
+window.editRegion = (regionId) => GeoManager.editRegion(regionId);
+window.downloadTemplate = () => GeoManager.downloadTemplate();
+window.openBulkImport = () => GeoManager.openBulkImport();
+window.enableCityEditMode = (row, cityId) => GeoManager.enableCityEditMode(row, cityId);
+window.saveCityEdit = (row, cityId) => GeoManager.saveCityEdit(row, cityId);
+window.cancelCityEdit = (e) => GeoManager.cancelCityEdit(e);
+window.openSlidePanel = (title, subtitle, content, saveCallback) => GeoManager.openSlidePanel(title, subtitle, content, saveCallback);
+window.closeSlidePanel = () => GeoManager.closeSlidePanel();
+window.showSuccessNotification = (message) => GeoManager.showSuccessNotification(message);
+window.showErrorNotification = (message) => GeoManager.showErrorNotification(message);
+
+// =================================================================
+// EVENT BINDING - CLEAN AND ORGANIZED
+// =================================================================
+
+$(document).ready(function() {
+    console.log('🚀 Geographic Regions Manager - Claude Sonnet 4.5 Enhanced Version Loading...');
+    
+    // Clear any existing event handlers to prevent conflicts
+    $(document).off('click', '.edit-city-btn');
+    $(document).off('click', '.delete-city-btn');
+    $(document).off('click', '.add-city-btn');
+    $(document).off('click', '.cancel-edit-btn');
+    
+    // Bind city CRUD events
+    $(document).on('click', '.edit-city-btn', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        GeoManager.editCity(e);
+    });
+    
+    $(document).on('click', '.delete-city-btn', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        GeoManager.deleteCity(e);
+    });
+    
+    $(document).on('click', '.add-city-btn', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        GeoManager.addCity(e);
+    });
+    
+    $(document).on('click', '.cancel-edit-btn', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        GeoManager.cancelCityEdit(e);
+    });
+    
+    // Bind main action buttons
+    $('#create-region-btn').on('click', function(e) {
+        e.preventDefault();
+        GeoManager.createRegion();
+    });
+    
+    $('#download-template-btn').on('click', function(e) {
+        e.preventDefault();
+        GeoManager.downloadTemplate();
+    });
+    
+    $('#bulk-import-btn').on('click', function(e) {
+        e.preventDefault();
+        GeoManager.openBulkImport();
+    });
+    
+    // Keyboard shortcuts for edit mode
+    $(document).on('keydown', '.edit-city-name-input', function(e) {
+        const row = $(this).closest('tr');
+        const cityId = row.find('.edit-city-btn').data('city-id');
+        
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            GeoManager.saveCityEdit(row, cityId);
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            GeoManager.cancelCityEdit(e);
+        }
+    });
+    
+    // Enter key for adding new city
+    $(document).on('keypress', '.new-city-name', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const regionId = $(this).data('region-id');
+            const addButton = $(`.add-city-btn[data-region-id="${regionId}"]`);
+            addButton.click();
+        }
+    });
+    
+    // Slide panel close handlers
+    $(document).on('click', '#slide-panel-close, #slide-panel-cancel', function(e) {
+        e.preventDefault();
+        GeoManager.closeSlidePanel();
+    });
+    
+    $(document).on('click', '#slide-panel-overlay', function(e) {
+        if (e.target === this) {
+            GeoManager.closeSlidePanel();
+        }
+    });
+    
+    console.log('✅ All event handlers bound successfully!');
+    console.log('Available functions:', Object.keys(window.GeoManager));
+});
+</script>
+
+{% endblock %}

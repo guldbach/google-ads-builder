@@ -610,15 +610,35 @@ class NegativeKeywordList(models.Model):
         help_text="Beskrivelse af hvad denne liste indeholder"
     )
     
+    # Visual settings
+    icon = models.CharField(
+        max_length=10,
+        default='📋',
+        help_text="Emoji eller kort symbol for listen"
+    )
+    color = models.CharField(
+        max_length=7,
+        default='#8B5CF6',
+        help_text="Hex farve kode for listen (f.eks. #8B5CF6)"
+    )
+    
     # Settings
     is_active = models.BooleanField(
         default=True, 
         help_text="Skal denne liste bruges automatisk i nye kampagner?"
     )
+    # Industry relations
+    industry = models.ForeignKey(
+        Industry, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        help_text="Primær branche denne liste er tilknyttet"
+    )
     auto_apply_to_industries = models.JSONField(
         default=list,
         blank=True,
-        help_text="Industrier som denne liste automatisk skal anvendes på"
+        help_text="Yderligere industrier som denne liste automatisk skal anvendes på"
     )
     
     # Metadata
@@ -761,6 +781,196 @@ class NegativeKeywordUpload(models.Model):
     
     def __str__(self):
         return f"{self.original_filename} → {self.keyword_list.name}"
+    
+    class Meta:
+        ordering = ['-uploaded_at']
+
+
+# Geographic Regions System (parallel to Negative Keywords System)
+class GeographicRegion(models.Model):
+    """Geografiske område lister til danske byer"""
+    
+    REGION_CATEGORIES = [
+        ('nordsjælland', 'Nordsjælland'),
+        ('money', 'Money Byer'),
+        ('trekant', 'Trekantsområdet'),
+        ('storkøbenhavn', 'Storkøbenhavn'),
+        ('jylland', 'Jylland'),
+        ('fyn', 'Fyn'),
+        ('bornholm', 'Bornholm'),
+        ('custom', 'Brugerdefineret'),
+    ]
+    
+    name = models.CharField(
+        max_length=100, 
+        help_text="Navn på området, f.eks. 'Nordsjælland Standard'"
+    )
+    category = models.CharField(
+        max_length=20, 
+        choices=REGION_CATEGORIES, 
+        default='custom'
+    )
+    description = models.TextField(
+        blank=True, 
+        help_text="Beskrivelse af hvilke byer denne region indeholder"
+    )
+    
+    # Visual settings (identisk med NegativeKeywordList)
+    icon = models.CharField(
+        max_length=10,
+        default='🗺️',
+        help_text="Emoji eller kort symbol for regionen"
+    )
+    color = models.CharField(
+        max_length=7,
+        default='#3B82F6',
+        help_text="Hex farve kode for regionen (f.eks. #3B82F6)"
+    )
+    
+    # Settings
+    is_active = models.BooleanField(
+        default=True, 
+        help_text="Skal denne region bruges til kampagner?"
+    )
+    # Industry relations
+    industry = models.ForeignKey(
+        Industry, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        help_text="Primær branche denne region er tilknyttet"
+    )
+    
+    # Metadata
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    cities_count = models.IntegerField(default=0)
+    
+    def __str__(self):
+        return f"{self.name} ({self.cities_count} byer)"
+    
+    def update_cities_count(self):
+        """Opdater antallet af byer i regionen"""
+        self.cities_count = self.cities.count()
+        self.save(update_fields=['cities_count'])
+    
+    class Meta:
+        verbose_name = "Geografisk Region"
+        verbose_name_plural = "Geografiske Regioner"
+        ordering = ['-created_at']
+
+
+class DanishCity(models.Model):
+    """Individuelle danske byer med metadata"""
+    
+    region = models.ForeignKey(
+        GeographicRegion, 
+        on_delete=models.CASCADE, 
+        related_name='cities'
+    )
+    city_name = models.CharField(
+        max_length=200, 
+        help_text="Officielt bynavn"
+    )
+    city_synonym = models.CharField(
+        max_length=200, 
+        blank=True,
+        help_text="Synonym eller kendt som (f.eks. 'Nørrebro' for 'København N')"
+    )
+    postal_code = models.CharField(
+        max_length=10, 
+        help_text="Postnummer (f.eks. '2880')"
+    )
+    latitude = models.DecimalField(
+        max_digits=10, 
+        decimal_places=7, 
+        null=True, 
+        blank=True,
+        help_text="Breddegrad (latitude) for Google Ads targeting"
+    )
+    longitude = models.DecimalField(
+        max_digits=10, 
+        decimal_places=7, 
+        null=True, 
+        blank=True,
+        help_text="Længdegrad (longitude) for Google Ads targeting"
+    )
+    
+    # Metadata
+    added_at = models.DateTimeField(auto_now_add=True)
+    source_file_line = models.IntegerField(
+        null=True, 
+        blank=True,
+        help_text="Linje nummer fra upload fil"
+    )
+    notes = models.CharField(
+        max_length=255, 
+        blank=True,
+        help_text="Noter om denne by"
+    )
+    
+    def __str__(self):
+        if self.city_synonym:
+            return f"{self.city_name} ({self.city_synonym}) - {self.postal_code}"
+        return f"{self.city_name} - {self.postal_code}"
+    
+    def clean(self):
+        # Trim whitespace
+        if self.city_name:
+            self.city_name = self.city_name.strip()
+        if self.city_synonym:
+            self.city_synonym = self.city_synonym.strip()
+        if self.postal_code:
+            self.postal_code = self.postal_code.strip()
+    
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
+        # Opdater count på parent region
+        self.region.update_cities_count()
+    
+    def delete(self, *args, **kwargs):
+        region = self.region
+        super().delete(*args, **kwargs)
+        region.update_cities_count()
+    
+    class Meta:
+        unique_together = ['region', 'city_name', 'postal_code']
+        ordering = ['city_name']
+
+
+class GeographicRegionUpload(models.Model):
+    """Track uploads af geografiske region filer"""
+    
+    UPLOAD_STATUS_CHOICES = [
+        ('processing', 'Behandler'),
+        ('completed', 'Færdig'),
+        ('failed', 'Fejlet'),
+    ]
+    
+    region = models.ForeignKey(GeographicRegion, on_delete=models.CASCADE)
+    original_filename = models.CharField(max_length=255)
+    file_size_kb = models.IntegerField()
+    
+    # Processing results
+    total_lines = models.IntegerField(default=0)
+    cities_added = models.IntegerField(default=0)
+    cities_skipped = models.IntegerField(default=0)
+    cities_errors = models.IntegerField(default=0)
+    
+    # Status
+    status = models.CharField(max_length=20, choices=UPLOAD_STATUS_CHOICES, default='processing')
+    error_details = models.TextField(blank=True)
+    processing_notes = models.TextField(blank=True)
+    
+    # Metadata
+    uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    
+    def __str__(self):
+        return f"{self.original_filename} → {self.region.name}"
     
     class Meta:
         ordering = ['-uploaded_at']

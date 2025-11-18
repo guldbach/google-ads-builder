@@ -8,7 +8,16 @@ from django.core.files.base import ContentFile
 from .models import (
     Industry, Client, Campaign, AdGroup, Ad, Keyword, PerformanceDataImport, 
     HistoricalCampaignPerformance, HistoricalKeywordPerformance,
-    NegativeKeywordList, NegativeKeyword, CampaignNegativeKeywordList, NegativeKeywordUpload
+    NegativeKeywordList, NegativeKeyword, CampaignNegativeKeywordList, NegativeKeywordUpload,
+    GeographicRegion, DanishCity, GeographicRegionUpload
+)
+
+# Import geographic regions views
+from .geographic_views import (
+    geographic_regions_manager, create_geographic_region_ajax, add_danish_city_ajax,
+    delete_danish_city_ajax, update_danish_city_ajax, delete_geographic_region_ajax,
+    edit_geographic_region_ajax, download_danish_cities_template, import_danish_cities_excel,
+    analyze_excel_import_cities, execute_excel_import_cities
 )
 from usps.models import USPTemplate, ClientUSP, USPMainCategory
 from crawler.tasks import crawl_client_website
@@ -1508,6 +1517,8 @@ def create_negative_keyword_list_ajax(request):
             description = request.POST.get('description', '').strip()
             is_active = request.POST.get('is_active') == 'true'
             industry_id = request.POST.get('industry', '').strip()
+            icon = request.POST.get('icon', '📋').strip()
+            color = request.POST.get('color', '#8B5CF6').strip()
             
             if not name:
                 return JsonResponse({'success': False, 'error': 'Liste navn er påkrævet'})
@@ -1532,6 +1543,8 @@ def create_negative_keyword_list_ajax(request):
                 category=category,
                 description=description,
                 industry=industry,
+                icon=icon,
+                color=color,
                 is_active=is_active,
                 created_by=request.user,
                 auto_apply_to_industries=[]
@@ -1803,7 +1816,9 @@ def edit_negative_keyword_list_ajax(request, list_id):
             keyword_list.name = request.POST.get('name', keyword_list.name).strip()
             keyword_list.category = request.POST.get('category', keyword_list.category)
             keyword_list.description = request.POST.get('description', keyword_list.description).strip()
-            keyword_list.is_active = request.POST.get('is_active') == 'true'
+            keyword_list.is_active = request.POST.get('is_active', 'false') == 'true'
+            keyword_list.icon = request.POST.get('icon', keyword_list.icon).strip()
+            keyword_list.color = request.POST.get('color', keyword_list.color).strip()
             
             # Update industry if provided
             industry_id = request.POST.get('industry')
@@ -1818,6 +1833,9 @@ def edit_negative_keyword_list_ajax(request, list_id):
                 keyword_list.industry = None
             
             keyword_list.save()
+            
+            # Force refresh from database to verify save
+            keyword_list.refresh_from_db()
             
             return JsonResponse({
                 'success': True,
