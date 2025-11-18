@@ -129,14 +129,14 @@ def add_danish_city_ajax(request):
         except GeographicRegion.DoesNotExist:
             return JsonResponse({'success': False, 'error': 'Region ikke fundet'})
         
-        # Check if city already exists in this region
+        # Check if city already exists in this region (case-insensitive)
         if postal_code:
             # If postal code provided, check both name and postal code
-            if DanishCity.objects.filter(region=region, city_name=city_name, postal_code=postal_code).exists():
+            if DanishCity.objects.filter(region=region, city_name__iexact=city_name, postal_code=postal_code).exists():
                 return JsonResponse({'success': False, 'error': f'By "{city_name}" med postnummer {postal_code} eksisterer allerede i denne region'})
         else:
-            # If no postal code, just check city name
-            if DanishCity.objects.filter(region=region, city_name=city_name).exists():
+            # If no postal code, just check city name (case-insensitive)
+            if DanishCity.objects.filter(region=region, city_name__iexact=city_name).exists():
                 return JsonResponse({'success': False, 'error': f'By "{city_name}" eksisterer allerede i denne region'})
         
         # Convert coordinates to Decimal if provided

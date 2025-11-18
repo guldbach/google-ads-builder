@@ -916,11 +916,11 @@ class DanishCity(models.Model):
         return f"{self.city_name} - {self.postal_code}"
     
     def clean(self):
-        # Trim whitespace
+        # Trim whitespace and normalize case
         if self.city_name:
-            self.city_name = self.city_name.strip()
+            self.city_name = self.city_name.strip().title()  # Normalize to Title Case
         if self.city_synonym:
-            self.city_synonym = self.city_synonym.strip()
+            self.city_synonym = self.city_synonym.strip().title()
         if self.postal_code:
             self.postal_code = self.postal_code.strip()
     
