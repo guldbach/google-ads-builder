@@ -21,43 +21,264 @@ Google Ads Builder er et intelligent Django-baseret værktøj til at bygge Googl
 - Skriv unit tests for nye models og views
 - Verificér at eksisterende funktionalitet ikke brydes
 
-## 🎨 Design System Guidelines
+## 🎨 Modern Design System Guidelines
 
-### Farvepalette (Asana-inspireret)
-- **Blue Palette**: Fra blue-0 (#cbefff) til blue-1000 (#222875) - Primary brand colors
-- **Coral Palette**: Fra coral-0 (#ffeaec) til coral-1000 (#690031) - Alerts og warnings
-- **Green Palette**: Fra green-0 (#c9fcdb) til green-1000 (#004232) - Success states
-- **Purple Palette**: Fra purple-0 (#ffdcff) til purple-1000 (#6a0085) - Special features
-- **Grayscale**: Fra gray-20 (#fafafa) til gray-1000 (#0d0d0d) - Text og backgrounds
+### 🌈 Color Palette (Moderne Gradient System)
+- **Primary Gradient**: `from-purple-600 to-pink-600` - Hovedhandlinger og vigtige elementer
+- **Secondary Gradient**: `from-blue-600 to-purple-600` - Sekundære handlinger
+- **Category Colors**: Dynamiske farver per kategori (purple-500, blue-500, green-500, etc.)
+- **Text Colors**: `text-gray-900` (headings), `text-gray-600` (body), `text-gray-500` (meta)
+- **Background Tints**: `bg-{color}-100` til `bg-{color}-50` for category headers
 
-### Layout Patterns (Asana System)
-- **Card-based design**: Brug hvide cards med `shadow-asana` eller `shadow-asana-lg`
-- **Responsive**: Custom breakpoints (xs:480px, sm:768px, md:960px, lg:1120px)
-- **Spacing**: Asana spacing system (1-40 med 4px incrementer)
-- **Border Radius**: Konsistent 3px (`rounded-asana`)
+### 🏗️ Layout & Card Patterns
+- **Hero Sections**: Gradient background `from-purple-100 via-blue-50 to-pink-100`, centered content
+- **Primary Cards**: `bg-white rounded-2xl shadow-lg border border-gray-100`
+- **Category Cards**: Color-coded headers med `linear-gradient(135deg, {color}20, {color}10)`
+- **Item Cards**: `bg-gray-50 rounded-xl hover:bg-gray-100 transition-all duration-200`
+- **Spacing**: Standard Tailwind spacing (space-y-3, space-y-6, space-y-8)
+- **Border Radius**: `rounded-lg` (8px), `rounded-2xl` (16px), `rounded-3xl` (24px)
 
-### Typography (Exact Asana System - Via Playwright Analysis)
-- **Font Stack**: "TWK Lausanne", "Helvetica Neue", Helvetica, sans-serif
-- **Heading Font**: Ghost, "Helvetica Neue", Helvetica, sans-serif  
-- **Body Text**: 16px, line-height: 28px, color: rgb(100, 111, 121)
-- **H1 Specifications**: 72px, line-height: 72px, letter-spacing: -0.5px, font-weight: 500, color: rgb(105, 0, 49)
-- **Button Text**: 14px, font-weight: 500, "TWK Lausanne" font family
+### 📝 Typography System
+- **Hero Titles**: `text-5xl font-bold text-gray-900` + 24x24 icon container
+- **Page Titles**: `text-2xl font-bold text-gray-900 mb-4`
+- **Section Headers**: `text-lg font-medium text-gray-900` (h4)
+- **Category Titles**: `text-2xl font-bold text-gray-900` (h3)
+- **Body Text**: `text-gray-600` standard line-height
+- **Meta Text**: `text-sm text-gray-500`
 
-### Interactive Elements (Exact Asana System)
-- **Buttons**: Font: "TWK Lausanne", 14px, font-weight: 500, padding: 0px 12px, border-radius: 3px
-- **Input Fields**: Font: "TWK Lausanne", 12.8px, padding: 6px 35px 6px 15px, border-radius: 50px
-- **Navigation**: Height: 56px, transparent background
-- **Sections**: Transparent backgrounds, padding patterns: 120px 0px 80px (normal), 0px 0px 40px (small), 160px 0px 0px (large)
-- **Icons**: Kun Lucide icons med Asana-sizing
-- **Progress**: `.progress-bar` med `.step-indicator` (states: .step-active, .step-complete, .step-inactive)
-- **Cards**: `.card`, `.card-elevated`, `.card-interactive` med hover effects
-- **Alerts**: `.alert-info`, `.alert-success`, `.alert-warning`, `.alert-error`
-- **Badges**: `.badge-blue`, `.badge-green`, `.badge-coral`, `.badge-gray`
+### 🔘 Button Hierarchy & Interactive Elements
+- **Primary Buttons**: `bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200`
+- **Secondary Buttons**: `bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200`
+- **Icon Buttons**: `text-gray-500 hover:text-{color}-600 p-2` (edit, delete, duplicate)
+- **Toggle Elements**: Expandable content med smooth animations
+- **Hover States**: Consistent `hover:shadow-lg` og color transitions
+- **Transition Duration**: Standard 200ms for alle interactions
 
-### Form Design
-- **Multi-step**: Brug progress bar med step indicators
-- **Validation**: Live validation med tydelige fejlbeskeder
-- **Loading states**: Implementer loading spinners for async operations
+### 🖼️ Icon Strategy
+- **SVG Icons**: Primær icon strategi med 16x16 eller 20x20 sizing
+- **Emoji Icons**: Selektiv brug til hurtig genkendelse (➕, ⭐, 🏢)
+- **Category Icons**: Bruger-definerede emojis i circular containers
+- **Priority Badges**: Circular, color-coded numbers med white text
+
+### 📱 Responsive Design Patterns
+- **Container**: `max-w-7xl mx-auto` med responsive padding
+- **Grid Systems**: Flex-wrap patterns med gap-3 til gap-8
+- **Button Groups**: `flex flex-wrap gap-3` for responsive button layout
+- **Mobile**: Single column layout, stacked elements
+- **Tablet**: 2-3 column grids, wrapped flex containers
+
+### 📋 Slide-in Panel System
+- **Panel Size**: 1000px width, right-side overlay
+- **Overlay**: `fixed inset-0 bg-black bg-opacity-50` med backdrop blur
+- **Animation**: `translate-x-full` → `translate-x-0` med 300ms timing
+- **Content Sections**: Border-separated med `border-t border-gray-200 pt-6`
+- **Form Layout**: Consistent input styling med `rounded-lg` borders
+
+### 🏷️ Badge & Status Systems
+- **Priority Badges**: `w-8 h-8 text-sm font-bold text-white rounded-full` med kategorifarve
+- **Industry Tags**: `px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded`
+- **Status Indicators**: Color-coded badges (green for active, gray for inactive)
+- **Headlines Preview**: `bg-yellow-100 text-yellow-800` for example content
+
+### ⚡ State Management & Feedback
+- **Loading States**: Smooth transitions med opacity changes
+- **Success Feedback**: Toast notifications med green accents
+- **Error States**: Red color variations med clear messaging
+- **Progressive Disclosure**: Hidden details expandable med toggle icons
+- **Copy Feedback**: Temporary button text change + color animation
+
+## 🎯 UX Patterns & Interaction Guidelines
+
+### 📋 Quick Actions Pattern
+- **Placement**: Prominent bar under hero section
+- **Structure**: `flex justify-between items-center` med title + actions
+- **Buttons**: Gradient styling med icon + text for clarity
+- **Responsive**: Flex-wrap på smaller screens
+
+### 🏷️ Category Management Pattern
+- **Header Design**: Color-coded gradient backgrounds matching category theme
+- **Icon Strategy**: Circular containers med category-specific emoji
+- **Actions**: Edit + Add USP buttons i header for quick access
+- **Visual Hierarchy**: Large category name + meta information underneath
+
+### 📝 Item Management Pattern
+- **Priority Display**: Circular badge med category color + white text
+- **Expandable Details**: Click on title to toggle detailed view
+- **Action Buttons**: Minimal icon-only buttons (edit, duplicate, delete)
+- **Hover States**: Subtle background color change + smooth transitions
+
+### 📱 Slide-in Panel Workflow
+- **Trigger**: Primary buttons open slide-in instead af modal popups
+- **Overlay**: Semi-transparent backdrop blocks main content
+- **Animation**: Smooth slide-in from right med 300ms timing
+- **Sections**: Visually separated content areas med border dividers
+- **Form Strategy**: Multi-section forms med clear visual grouping
+
+### 🔄 Interactive Feedback Systems
+- **Hover Preview**: Consistent color changes + shadow elevation
+- **Click Feedback**: Smooth transitions for all interactive elements
+- **Copy to Clipboard**: Visual confirmation med temporary text change
+- **Form Submission**: Toast notifications for success/error states
+- **Loading Indicators**: Spinner or progress feedback for async operations
+
+### 📐 Information Architecture Principles
+- **Progressive Disclosure**: Hide complexity, reveal on demand
+- **Categorization**: Group related items under clear category headers
+- **Scannable Content**: Use priority numbers, color coding, clear typography
+- **Action Hierarchy**: Primary (gradient), Secondary (outlined), Tertiary (icon-only)
+- **Context Switching**: Slide-in panels maintain context vs full page navigation
+
+### 💡 Best Practices
+- **Consistent Spacing**: Use Tailwind's spacing scale (4, 6, 8, 12px etc.)
+- **Color Semantic**: Match colors to meaning (green=success, red=danger, blue=info)
+- **Touch Targets**: Minimum 44px for all clickable elements
+- **Focus States**: Clear keyboard navigation support
+- **Responsive**: Mobile-first design med progressive enhancement
+
+## 📝 Modern Form Design Guidelines
+
+### 🎨 Input Field Styling
+- **Standard Inputs**: `w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent`
+- **Textarea Fields**: Same styling som inputs med `rows` attribute for height
+- **Select Fields**: Consistent styling med input fields for unified appearance
+- **Input Groups**: Grid layouts med `grid-cols-2 gap-4` for related fields
+
+### 🏷️ Label & Helper Text
+- **Labels**: `block text-sm font-medium text-gray-700 mb-2`
+- **Helper Text**: `text-xs text-gray-500 mt-1` underneath inputs
+- **Character Counters**: Real-time feedback med color coding (green/yellow/red)
+- **Placeholders**: Clear, helpful examples i placeholder attributes
+
+### 📊 Multi-Section Forms
+- **Section Headers**: `text-lg font-medium text-gray-900 mb-4` med emoji icons
+- **Section Dividers**: `border-t border-gray-200 pt-6` mellem sections
+- **Visual Grouping**: Related fields grupperet med consistent spacing
+- **Progress Indication**: Clear section progress for long forms
+
+### 🔘 Interactive Form Elements
+- **Button Placement**: Primary save button i bottom-right, cancel til venstre
+- **Dynamic Content**: Add/remove functionality med smooth animations
+- **Copy Features**: Click-to-copy buttons med visual feedback
+- **Validation**: Live validation med immediate feedback
+
+### ⚡ Form Behavior Patterns
+- **Auto-save**: Background save functionality for long forms
+- **Character Limits**: Visual countdown for text constraints
+- **Placeholder System**: Standardized placeholder reference (ikke manual input)
+- **Industry Selection**: Checkbox grids med search functionality
+- **AJAX Submissions**: Form submission uden page refresh
+
+## 💻 Code Patterns & Examples
+
+### 🎨 Essential CSS Classes
+```css
+/* Primary Card Pattern */
+.primary-card { @apply bg-white rounded-2xl shadow-lg border border-gray-100; }
+
+/* Primary Button Pattern */  
+.btn-primary { @apply bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200; }
+
+/* Secondary Button Pattern */
+.btn-secondary { @apply bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200; }
+
+/* Icon Button Pattern */
+.btn-icon { @apply text-gray-500 hover:text-blue-600 p-2 transition-colors duration-200; }
+
+/* Form Input Pattern */
+.form-input { @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent; }
+```
+
+### 🏗️ HTML Structure Patterns
+```html
+<!-- Hero Section Pattern -->
+<div class="text-center mb-12 p-12 bg-gradient-to-br from-purple-100 via-blue-50 to-pink-100 rounded-3xl">
+    <div class="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl mb-6 shadow-2xl">
+        <!-- Icon or Emoji -->
+    </div>
+    <h1 class="text-5xl font-bold text-gray-900 mb-4">Page Title</h1>
+    <p class="text-xl text-gray-600 max-w-2xl mx-auto">Description</p>
+</div>
+
+<!-- Quick Actions Pattern -->
+<div class="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-gray-100">
+    <div class="flex flex-wrap justify-between items-center gap-4">
+        <h2 class="text-lg font-semibold text-gray-900">Quick Actions</h2>
+        <div class="flex flex-wrap gap-3">
+            <button class="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200">
+                Primary Action
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Category Card Pattern -->
+<div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+    <div class="p-6" style="background: linear-gradient(135deg, #8B5CF620, #8B5CF610);">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+                <div class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl text-white" style="background-color: #8B5CF6;">
+                    🎯
+                </div>
+                <div>
+                    <h3 class="text-2xl font-bold text-gray-900">Category Name</h3>
+                    <p class="text-gray-600">Category description</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+                <!-- Action buttons -->
+            </div>
+        </div>
+    </div>
+</div>
+```
+
+### ⚡ JavaScript Interaction Patterns
+```javascript
+// Slide-in Panel Pattern
+function openSlidePanel(title, subtitle, content, saveCallback) {
+    $('#slide-panel-title').text(title);
+    $('#slide-panel-subtitle').text(subtitle);
+    $('#slide-panel-content').html(content);
+    $('#slide-panel-save').off('click').on('click', saveCallback);
+    
+    $('#slide-panel-overlay').removeClass('hidden');
+    setTimeout(() => {
+        $('#slide-panel-overlay').removeClass('opacity-0');
+        $('#slide-panel').removeClass('translate-x-full');
+    }, 10);
+}
+
+// Copy to Clipboard Pattern
+$(document).on('click', '.copy-placeholder', function() {
+    const text = $(this).data('text');
+    navigator.clipboard.writeText(text).then(() => {
+        const button = $(this);
+        const originalText = button.text();
+        button.text('Copied!').addClass('bg-green-200 text-green-800');
+        setTimeout(() => {
+            button.text(originalText).removeClass('bg-green-200 text-green-800');
+        }, 1000);
+    });
+});
+
+// Character Counter Pattern
+function updateCharacterCount(inputId, counterId, maxLength) {
+    const input = document.getElementById(inputId);
+    const counter = document.getElementById(counterId);
+    if (input && counter) {
+        const length = input.value.length;
+        counter.textContent = `${length}/${maxLength}`;
+        
+        if (length > maxLength) {
+            counter.parentElement.classList.add('text-red-500');
+        } else if (length > maxLength * 0.8) {
+            counter.parentElement.classList.add('text-yellow-500');
+        } else {
+            counter.parentElement.classList.remove('text-red-500', 'text-yellow-500');
+        }
+    }
+}
+```
 
 ## 🏗️ Current System Architecture & Workflow
 

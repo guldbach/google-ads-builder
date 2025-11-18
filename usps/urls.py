@@ -12,6 +12,7 @@ urlpatterns = [
     path('ajax/create-usp/', views.create_usp_ajax, name='create_usp_ajax'),
     path('ajax/duplicate-usp/<int:usp_id>/', views.duplicate_usp_ajax, name='duplicate_usp_ajax'),
     path('ajax/edit-category/<int:category_id>/', views.edit_category_ajax, name='edit_category_ajax'),
+    path('ajax/delete-category/<int:category_id>/', views.delete_category_ajax, name='delete_category_ajax'),
     path('ajax/edit-usp/<int:usp_id>/', views.edit_usp_ajax, name='edit_usp_ajax'),
     path('ajax/get-usp/<int:usp_id>/', views.get_usp_ajax, name='get_usp_ajax'),
     path('ajax/get-category/<int:category_id>/', views.get_category_ajax, name='get_category_ajax'),

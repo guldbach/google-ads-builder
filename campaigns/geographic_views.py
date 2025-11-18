@@ -13,7 +13,7 @@ import pandas as pd
 import io
 from decimal import Decimal
 
-from .models import GeographicRegion, DanishCity, Industry, GeographicRegionUpload
+from .models import GeographicRegion, DanishCity, GeographicRegionUpload
 
 
 def geographic_regions_manager(request):
@@ -21,25 +21,20 @@ def geographic_regions_manager(request):
     if request.user.is_authenticated:
         geographic_regions = GeographicRegion.objects.filter(
             created_by=request.user
-        ).prefetch_related('cities').select_related('industry').order_by('-created_at')
+        ).prefetch_related('cities').order_by('-created_at')
     else:
         # For demo purposes, show all regions when not authenticated
-        geographic_regions = GeographicRegion.objects.all().prefetch_related('cities').select_related('industry').order_by('-created_at')
+        geographic_regions = GeographicRegion.objects.all().prefetch_related('cities').order_by('-created_at')
     
     # Get all industries for filter dropdown
-    industries = Industry.objects.all().order_by('name')
-    
     # Calculate statistics
     categories_used = set(gr.category for gr in geographic_regions)
-    industries_used = set(gr.industry for gr in geographic_regions if gr.industry)
     
     context = {
         'geographic_regions': geographic_regions,
-        'industries': industries,
         'total_cities': sum(gr.cities_count for gr in geographic_regions),
         'active_regions': geographic_regions.filter(is_active=True).count(),
         'categories_count': len(categories_used),
-        'industries_count': len(industries_used),
     }
     
     return render(request, 'campaigns/geographic_regions_manager.html', context)
@@ -56,7 +51,6 @@ def create_geographic_region_ajax(request):
         name = request.POST.get('name', '').strip()
         description = request.POST.get('description', '').strip()
         category = request.POST.get('category', 'custom').strip()
-        industry_id = request.POST.get('industry_id', '').strip()
         icon = request.POST.get('icon', '🗺️').strip()
         color = request.POST.get('color', '#3B82F6').strip()
         is_active = request.POST.get('is_active') == 'true'
@@ -65,13 +59,6 @@ def create_geographic_region_ajax(request):
         if not name:
             return JsonResponse({'success': False, 'error': 'Navn er påkrævet'})
         
-        # Get industry if specified
-        industry = None
-        if industry_id and industry_id != '':
-            try:
-                industry = Industry.objects.get(id=industry_id)
-            except Industry.DoesNotExist:
-                return JsonResponse({'success': False, 'error': 'Ugyldig branche'})
         
         # For demo purposes, create a dummy user if none exists
         from django.contrib.auth.models import User
@@ -88,7 +75,6 @@ def create_geographic_region_ajax(request):
             name=name,
             description=description,
             category=category,
-            industry=industry,
             icon=icon,
             color=color,
             is_active=is_active,
@@ -306,7 +292,6 @@ def edit_geographic_region_ajax(request, region_id):
                     'name': region.name,
                     'description': region.description or '',
                     'category': region.category,
-                    'industry_id': region.industry.id if region.industry else '',
                     'icon': region.icon,
                     'color': region.color,
                     'is_active': region.is_active
@@ -323,7 +308,6 @@ def edit_geographic_region_ajax(request, region_id):
             name = request.POST.get('name', '').strip()
             description = request.POST.get('description', '').strip()
             category = request.POST.get('category', 'custom').strip()
-            industry_id = request.POST.get('industry_id', '').strip()
             icon = request.POST.get('icon', '🗺️').strip()
             color = request.POST.get('color', '#3B82F6').strip()
             is_active = request.POST.get('is_active') == 'true'
@@ -332,19 +316,11 @@ def edit_geographic_region_ajax(request, region_id):
             if not name:
                 return JsonResponse({'success': False, 'error': 'Navn er påkrævet'})
             
-            # Get industry if specified
-            industry = None
-            if industry_id and industry_id != '':
-                try:
-                    industry = Industry.objects.get(id=industry_id)
-                except Industry.DoesNotExist:
-                    return JsonResponse({'success': False, 'error': 'Ugyldig branche'})
             
             # Update the region
             region.name = name
             region.description = description
             region.category = category
-            region.industry = industry
             region.icon = icon
             region.color = color
             region.is_active = is_active

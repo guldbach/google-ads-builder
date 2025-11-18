@@ -243,19 +243,18 @@ body.overflow-hidden {
     <!-- Negative Keyword Lists -->
     <div class="space-y-8" id="keyword-lists-container">
         {% for list in keyword_lists %}
-        <div class="keyword-list-section bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden" 
-             data-list-id="{{ list.id }}" data-category="{{ list.category }}" data-industry="{{ list.industry.id|default:'' }}">
+        <div class="keyword-list-section bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden mb-8" 
+             data-list-id="{{ list.id }}" data-category="{{ list.category }}" data-industry="{{ list.industry.id|default:'' }}" data-is-active="{{ list.is_active|yesno:'true,false' }}">
             
             <!-- List Header -->
             <div class="list-header p-6 cursor-pointer" 
-                 style="background: linear-gradient(135deg, 
-                     {% if list.category == 'general' %}#EF444420, #EF444410{% elif list.category == 'job' %}#3B82F620, #3B82F610{% elif list.category == 'diy' %}#10B98120, #10B98110{% elif list.category == 'competitor' %}#8B5CF620, #8B5CF610{% elif list.category == 'location' %}#F59E0B20, #F59E0B10{% elif list.category == 'service_specific' %}#06B6D420, #06B6D410{% elif list.category == 'quality' %}#84CC1620, #84CC1610{% else %}#6B728020, #6B728010{% endif %});"
+                 style="background: linear-gradient(135deg, {{ list.color }}20, {{ list.color }}10);"
                  onclick="toggleListExpansion({{ list.id }})">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center space-x-4">
                         <div class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl text-white" 
-                             style="background-color: {% if list.category == 'general' %}#EF4444{% elif list.category == 'job' %}#3B82F6{% elif list.category == 'diy' %}#10B981{% elif list.category == 'competitor' %}#8B5CF6{% elif list.category == 'location' %}#F59E0B{% elif list.category == 'service_specific' %}#06B6D4{% elif list.category == 'quality' %}#84CC16{% else %}#6B7280{% endif %};">
-                            {% if list.category == 'general' %}🚫{% elif list.category == 'job' %}💼{% elif list.category == 'diy' %}🔨{% elif list.category == 'competitor' %}🏢{% elif list.category == 'location' %}📍{% elif list.category == 'service_specific' %}⚙️{% elif list.category == 'quality' %}💰{% else %}📝{% endif %}
+                             style="background-color: {{ list.color }};">
+                            {{ list.icon }}
                         </div>
                         <div>
                             <h3 class="text-2xl font-bold text-gray-900">{{ list.name }}</h3>
@@ -553,6 +552,75 @@ function openCreateListPanel() {
     const content = generateCreateListContent();
     
     openSlidePanel(title, subtitle, content, saveNewList);
+    
+    // Initialize live preview for visual settings
+    setTimeout(() => {
+        setupVisualPreview();
+    }, 100);
+}
+
+function setupVisualPreview() {
+    // Update preview when name changes
+    $('#create-list-name').on('input', function() {
+        const name = $(this).val() || 'Liste navn vil vises her';
+        $('#create-preview-name').text(name);
+    });
+    
+    // Update preview when icon changes
+    $('#create-list-icon').on('input', function() {
+        const icon = $(this).val() || '📋';
+        $('#create-preview-icon').text(icon);
+    });
+    
+    // Update preview when color changes
+    $('#create-list-color').on('input', function() {
+        const color = $(this).val() || '#8B5CF6';
+        
+        // Update icon background
+        $('#create-preview-icon').css('background-color', color);
+        
+        // Update header gradient background
+        $('#create-preview-header').css('background', `linear-gradient(135deg, ${color}20, ${color}10)`);
+    });
+}
+
+function setupEditVisualPreview() {
+    // Update preview when name changes
+    $('#edit-list-name').on('input', function() {
+        const name = $(this).val() || 'Liste navn vil vises her';
+        $('#edit-preview-name').text(name);
+    });
+    
+    // Update preview when icon changes
+    $('#edit-list-icon').on('input', function() {
+        const icon = $(this).val() || '📋';
+        $('#edit-preview-icon').text(icon);
+    });
+    
+    // Update preview when color changes
+    $('#edit-list-color').on('input', function() {
+        const color = $(this).val() || '#8B5CF6';
+        
+        // Update icon background
+        $('#edit-preview-icon').css('background-color', color);
+        
+        // Update header gradient background
+        $('#edit-preview-header').css('background', `linear-gradient(135deg, ${color}20, ${color}10)`);
+    });
+}
+
+// Utility function to convert RGB to HEX
+function rgbToHex(rgb) {
+    if (rgb.startsWith('#')) return rgb;
+    
+    const result = rgb.match(/\d+/g);
+    if (!result || result.length < 3) return '#8B5CF6';
+    
+    const r = parseInt(result[0]);
+    const g = parseInt(result[1]);
+    const b = parseInt(result[2]);
+    
+    return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
 }
 
 function openImportExcelPanel() {
@@ -1019,6 +1087,44 @@ function generateCreateListContent() {
                               placeholder="Beskrivelse af hvad denne liste indeholder..." maxlength="500"></textarea>
                     <div class="text-xs text-gray-500 mt-1">
                         <span id="create-list-description-count">0</span>/500 karakterer
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Visual Settings -->
+            <div class="border-t border-gray-200 pt-6">
+                <h4 class="text-lg font-medium text-gray-900 mb-4">🎨 Visuelle Indstillinger</h4>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Kategori Ikon</label>
+                        <input type="text" id="create-list-icon" value="📋" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-center text-2xl"
+                               placeholder="⚡" maxlength="2">
+                        <div class="text-xs text-gray-500 mt-1">Emoji eller kort symbol</div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Kategori Farve</label>
+                        <input type="color" id="create-list-color" value="#8B5CF6"
+                               class="w-full h-10 border border-gray-300 rounded-lg cursor-pointer">
+                        <div class="text-xs text-gray-500 mt-1">Vælg en farve for kategorien</div>
+                    </div>
+                </div>
+                
+                <!-- Preview -->
+                <div class="mt-4 p-4 bg-gray-50 rounded-lg">
+                    <label class="block text-xs font-medium text-gray-700 mb-2">Forhåndsvisning</label>
+                    <div id="create-preview-header" class="p-3 rounded-lg" style="background: linear-gradient(135deg, #8B5CF620, #8B5CF610);">
+                        <div class="flex items-center space-x-3">
+                            <div id="create-preview-icon" class="w-8 h-8 rounded-lg flex items-center justify-center text-xl text-white" style="background-color: #8B5CF6;">
+                                📋
+                            </div>
+                            <div>
+                                <div id="create-preview-name" class="font-medium text-gray-900">Liste navn vil vises her</div>
+                                <div class="text-xs text-gray-600">Kategori og beskrivelse</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1491,15 +1597,29 @@ function editList(listId) {
     const listDescription = listElement.find('.text-gray-600').text().trim();
     const listCategory = listElement.data('category') || 'general';
     const listIndustry = listElement.data('industry') || '';
+    const listIsActive = listElement.data('is-active') === 'true' || listElement.data('is-active') === true;
+    
+    // Get visual settings from the header
+    const iconElement = listElement.find('.w-12.h-12 span');
+    const currentIcon = iconElement.length > 0 ? iconElement.text().trim() : '📋';
+    const iconBg = listElement.find('.w-12.h-12');
+    const currentColor = iconBg.length > 0 ? iconBg.css('background-color') : '#8B5CF6';
     
     const title = "Redigér Negative Keyword Liste";
     const subtitle = "Opdatér listedetaljer og indstillinger";
-    const content = generateEditListContent(listId, listName, listDescription, listCategory, listIndustry);
+    const content = generateEditListContent(listId, listName, listDescription, listCategory, listIndustry, currentIcon, currentColor, listIsActive);
     
     openSlidePanel(title, subtitle, content, () => saveListEdit(listId));
+    
+    // Initialize live preview for visual settings
+    setTimeout(() => {
+        setupEditVisualPreview();
+    }, 100);
 }
 
-function generateEditListContent(listId, currentName, currentDescription, currentCategory, currentIndustry) {
+function generateEditListContent(listId, currentName, currentDescription, currentCategory, currentIndustry, currentIcon, currentColor, currentIsActive) {
+    // Convert RGB color to hex if needed
+    const hexColor = currentColor.startsWith('rgb') ? rgbToHex(currentColor) : currentColor;
     return `
         <div class="space-y-6">
             <!-- Basic Information -->
@@ -1558,13 +1678,51 @@ function generateEditListContent(listId, currentName, currentDescription, curren
                 </div>
             </div>
             
+            <!-- Visual Settings -->
+            <div class="border-t border-gray-200 pt-6">
+                <h4 class="text-lg font-medium text-gray-900 mb-4">🎨 Visuelle Indstillinger</h4>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Kategori Ikon</label>
+                        <input type="text" id="edit-list-icon" value="${currentIcon}" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-center text-2xl"
+                               placeholder="⚡" maxlength="2">
+                        <div class="text-xs text-gray-500 mt-1">Emoji eller kort symbol</div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Kategori Farve</label>
+                        <input type="color" id="edit-list-color" value="${hexColor}"
+                               class="w-full h-10 border border-gray-300 rounded-lg cursor-pointer">
+                        <div class="text-xs text-gray-500 mt-1">Vælg en farve for kategorien</div>
+                    </div>
+                </div>
+                
+                <!-- Preview -->
+                <div class="mt-4 p-4 bg-gray-50 rounded-lg">
+                    <label class="block text-xs font-medium text-gray-700 mb-2">Forhåndsvisning</label>
+                    <div id="edit-preview-header" class="p-3 rounded-lg" style="background: linear-gradient(135deg, ${hexColor}20, ${hexColor}10);">
+                        <div class="flex items-center space-x-3">
+                            <div id="edit-preview-icon" class="w-8 h-8 rounded-lg flex items-center justify-center text-xl text-white" style="background-color: ${hexColor};">
+                                ${currentIcon}
+                            </div>
+                            <div>
+                                <div id="edit-preview-name" class="font-medium text-gray-900">${currentName}</div>
+                                <div class="text-xs text-gray-600">Kategori og beskrivelse</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
             <!-- Settings -->
             <div class="border-t border-gray-200 pt-6">
                 <h4 class="text-lg font-medium text-gray-900 mb-4">⚙️ Indstillinger</h4>
                 
                 <div class="space-y-4">
                     <div class="flex items-center">
-                        <input type="checkbox" id="edit-list-active" checked
+                        <input type="checkbox" id="edit-list-active" ${currentIsActive ? 'checked' : ''}
                                class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded">
                         <label for="edit-list-active" class="ml-2 block text-sm text-gray-900">
                             Liste er aktiv og kan bruges til kampagner
@@ -1582,7 +1740,9 @@ function saveListEdit(listId) {
         category: $('#edit-list-category').val(),
         description: $('#edit-list-description').val().trim(),
         industry: $('#edit-list-industry').val(),
-        is_active: $('#edit-list-active').is(':checked'),
+        icon: $('#edit-list-icon').val() || '📋',
+        color: $('#edit-list-color').val() || '#8B5CF6',
+        is_active: $('#edit-list-active').is(':checked') ? 'true' : 'false',
         csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
     };
     
@@ -1736,7 +1896,9 @@ function saveNewList() {
         category: $('#create-list-category').val(),
         description: $('#create-list-description').val().trim(),
         industry: $('#create-list-industry').val(),
-        is_active: $('#create-list-active').is(':checked'),
+        icon: $('#create-list-icon').val() || '📋',
+        color: $('#create-list-color').val() || '#8B5CF6',
+        is_active: $('#create-list-active').is(':checked') ? 'true' : 'false',
         csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
     };
     

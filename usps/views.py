@@ -73,7 +73,6 @@ def create_usp_ajax(request):
             
             # Parse comma-separated fields
             example_headlines = [hl.strip() for hl in data.get('example_headlines', '').split(',') if hl.strip()]
-            placeholders_used = [ph.strip() for ph in data.get('placeholders_used', '').split(',') if ph.strip()]
             
             category = USPMainCategory.objects.get(id=data.get('main_category'))
             
@@ -83,7 +82,7 @@ def create_usp_ajax(request):
                 priority_rank=data.get('priority_rank', 1),
                 explanation=data.get('explanation', ''),
                 example_headlines=example_headlines,
-                placeholders_used=placeholders_used,
+                placeholders_used=[],  # Always empty - placeholders are now standard/reference only
                 effectiveness_score=float(data.get('effectiveness_score', 0.8))
             )
             
@@ -101,7 +100,6 @@ def create_usp_ajax(request):
                     'priority_rank': usp.priority_rank,
                     'explanation': usp.explanation,
                     'example_headlines': usp.example_headlines,
-                    'placeholders_used': usp.placeholders_used,
                     'effectiveness_score': usp.effectiveness_score
                 }
             })
@@ -133,7 +131,7 @@ def duplicate_usp_ajax(request, usp_id):
                 priority_rank=max_priority + 1,
                 explanation=original_usp.explanation,
                 example_headlines=original_usp.example_headlines.copy() if original_usp.example_headlines else [],
-                placeholders_used=original_usp.placeholders_used.copy() if original_usp.placeholders_used else [],
+                placeholders_used=[],  # Always empty - placeholders are now standard/reference only
                 effectiveness_score=original_usp.effectiveness_score,
                 urgency_level=original_usp.urgency_level,
                 keywords=original_usp.keywords,
@@ -201,13 +199,12 @@ def edit_usp_ajax(request, usp_id):
             
             # Parse comma-separated fields
             example_headlines = [hl.strip() for hl in data.get('example_headlines', '').split(',') if hl.strip()]
-            placeholders_used = [ph.strip() for ph in data.get('placeholders_used', '').split(',') if ph.strip()]
             
             usp.text = data.get('text', usp.text)
             usp.priority_rank = data.get('priority_rank', usp.priority_rank)
             usp.explanation = data.get('explanation', usp.explanation)
             usp.example_headlines = example_headlines
-            usp.placeholders_used = placeholders_used
+            usp.placeholders_used = []  # Always empty - placeholders are now standard/reference only
             usp.effectiveness_score = float(data.get('effectiveness_score', usp.effectiveness_score))
             
             # Update main category if changed
@@ -233,7 +230,6 @@ def edit_usp_ajax(request, usp_id):
                     'priority_rank': usp.priority_rank,
                     'explanation': usp.explanation,
                     'example_headlines': usp.example_headlines,
-                    'placeholders_used': usp.placeholders_used,
                     'effectiveness_score': usp.effectiveness_score
                 }
             })
@@ -259,7 +255,6 @@ def get_usp_ajax(request, usp_id):
                 'effectiveness_score': usp.effectiveness_score,
                 'explanation': usp.explanation or '',
                 'example_headlines': ', '.join(usp.example_headlines) if usp.example_headlines else '',
-                'placeholders_used': ', '.join(usp.placeholders_used) if usp.placeholders_used else '',
                 'ideal_for_industries': [industry.id for industry in usp.ideal_for_industries.all()]
             }
         })
@@ -350,6 +345,35 @@ def create_industry_ajax(request):
                     'id': industry.id,
                     'name': industry.name
                 }
+            })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid method'})
+
+
+@csrf_exempt
+def delete_category_ajax(request, category_id):
+    """AJAX endpoint til at slette kategori"""
+    if request.method == 'POST':
+        try:
+            category = get_object_or_404(USPMainCategory, id=category_id)
+            
+            # Count USPs in this category
+            usp_count = USPTemplate.objects.filter(main_category=category).count()
+            
+            # Delete all USPs in this category first
+            USPTemplate.objects.filter(main_category=category).delete()
+            
+            # Then delete the category
+            category_name = category.name
+            category.delete()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Kategorien "{category_name}" og {usp_count} USPs er blevet slettet.',
+                'deleted_usps': usp_count
             })
             
         except Exception as e:

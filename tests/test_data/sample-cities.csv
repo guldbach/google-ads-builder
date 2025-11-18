@@ -1,0 +1,21 @@
+by_navn,postnummer,kommune,parent_by,latitude,longitude,population,notes
+København K,1000,København,,55.6761,12.5683,30000,Københavns centrum
+Nørrebro,2200,København,København N,55.6993,12.5538,75000,Populært kvarter
+Østerbro,2100,København,København Ø,55.7026,12.5797,45000,Trendy område
+Vesterbro,1620,København,København V,55.6659,12.5514,35000,Hip kvarter
+Frederiksberg C,2000,Frederiksberg,,55.6773,12.5342,25000,Eksklusivt område
+Bagsværd,2880,Gladsaxe,,55.7620,12.4508,12000,Nordsjælland forstad
+Glostrup,2600,Glostrup,,55.6677,12.4034,23000,Vestegnen by
+Ejby,2600,Glostrup,Glostrup,55.6590,12.3870,3000,Del af Glostrup Kommune
+Avedøre,2650,Hvidovre,Hvidovre,55.6259,12.4516,8000,Del af Hvidovre Kommune
+Husum,2700,Brønshøj,København NV,55.7164,12.4907,15000,Del af Brønshøj
+Rødovre,2610,Rødovre,,55.6802,12.4538,37000,Vestegns kommune
+Valby,2500,København,København SW,55.6538,12.5154,48000,Sydvestlig bydel
+Amager,2300,København,København S,55.6581,12.6173,55000,Øen syd for centrum
+Sydhavnen,2450,København,København SV,55.6392,12.5609,18000,Industriområde i forandring
+Nørreport,1370,København,København K,55.6836,12.5716,5000,Central transport hub
+Kongens Nytorv,1017,København,København K,55.6795,12.5854,3000,Historisk torv
+Rådhuspladsen,1550,København,København V,55.6761,12.5700,1000,Byens politiske centrum
+Christianshavn,1401,København,København K,55.6734,12.5942,10000,Kanalbydel
+Refshaleøen,1432,København,København K,55.7008,12.6139,2000,Ny udvikling på Amager
+Islands Brygge,2300,København,København S,55.6635,12.5828,12000,Moderne havnefront

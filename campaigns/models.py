@@ -832,14 +832,6 @@ class GeographicRegion(models.Model):
         default=True, 
         help_text="Skal denne region bruges til kampagner?"
     )
-    # Industry relations
-    industry = models.ForeignKey(
-        Industry, 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True,
-        help_text="Primær branche denne region er tilknyttet"
-    )
     
     # Metadata
     created_by = models.ForeignKey(User, on_delete=models.CASCADE)

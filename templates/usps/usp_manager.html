@@ -53,9 +53,6 @@
                 <button id="add-usp-btn" class="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200">
                     ⭐ Ny USP
                 </button>
-                <button id="bulk-import-btn" class="bg-gradient-to-r from-green-600 to-blue-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200">
-                    📊 Bulk Import
-                </button>
             </div>
         </div>
     </div>
@@ -63,7 +60,7 @@
     <!-- Categories Overview -->
     <div id="categories-container" class="space-y-8">
         {% for category in usp_categories %}
-        <div class="category-section bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden" 
+        <div class="category-section bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden mb-8" 
              data-category-id="{{ category.id }}">
             <!-- Category Header -->
             <div class="category-header p-6" style="background: linear-gradient(135deg, {{ category.color }}20, {{ category.color }}10);">
@@ -91,15 +88,21 @@
                     </div>
                     <div class="flex items-center space-x-2">
                         <button class="edit-category-btn text-gray-500 hover:text-blue-600 p-2" 
-                                data-category-id="{{ category.id }}">
+                                data-category-id="{{ category.id }}" title="Rediger kategori">
                             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
                             </svg>
                         </button>
                         <button class="add-usp-to-category-btn text-green-600 hover:text-green-700 p-2" 
-                                data-category-id="{{ category.id }}">
+                                data-category-id="{{ category.id }}" title="Tilføj USP til kategori">
                             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                            </svg>
+                        </button>
+                        <button class="delete-category-btn text-gray-500 hover:text-red-600 p-2" 
+                                data-category-id="{{ category.id }}" title="Slet kategori">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                             </svg>
                         </button>
                     </div>
@@ -254,201 +257,7 @@
     </div>
 </div>
 
-<!-- Modal for Category Creation/Edit -->
-<div id="category-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
-    <div class="bg-white rounded-2xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <h3 id="category-modal-title" class="text-2xl font-bold text-gray-900 mb-6">Ny Kategori</h3>
-        <form id="category-form">
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Navn *</label>
-                    <input type="text" id="category-name" name="name" required 
-                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Beskrivelse *</label>
-                    <textarea id="category-description" name="description" rows="3" required
-                              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"></textarea>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Ikon</label>
-                        <input type="text" id="category-icon" name="icon" placeholder="⚡" 
-                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Farve</label>
-                        <input type="color" id="category-color" name="color" value="#8B5CF6"
-                               class="w-full h-12 border border-gray-300 rounded-lg">
-                    </div>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Sortering</label>
-                        <input type="number" id="category-sort-order" name="sort_order" value="1" min="1" 
-                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Max USPs per kampagne</label>
-                        <input type="number" id="category-max-selections" name="max_selections" value="1" min="1" 
-                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                    </div>
-                </div>
-                
-                <div class="flex items-center space-x-2">
-                    <input type="checkbox" id="category-recommended" name="is_recommended_per_campaign" checked
-                           class="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
-                    <label for="category-recommended" class="text-sm font-medium text-gray-700">
-                        Anbefal denne kategori per kampagne
-                    </label>
-                </div>
-            </div>
-            
-            <div class="flex justify-end space-x-3 mt-8">
-                <button type="button" id="cancel-category" class="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
-                    Annuller
-                </button>
-                <button type="submit" class="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:shadow-lg">
-                    Gem Kategori
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
 
-<!-- Modal for USP Creation/Edit -->
-<div id="usp-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
-    <div class="bg-white rounded-2xl p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <h3 id="usp-modal-title" class="text-2xl font-bold text-gray-900 mb-6">Ny USP</h3>
-        <form id="usp-form">
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <!-- Left Column -->
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">USP Tekst *</label>
-                        <input type="text" id="usp-text" name="text" required maxlength="200"
-                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Kategori *</label>
-                        <select id="usp-main-category" name="main_category" required 
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                            {% for category in usp_categories %}
-                            <option value="{{ category.id }}">{{ category.icon }} {{ category.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Prioritet (1 = højest)</label>
-                        <input type="number" id="usp-priority" name="priority_rank" value="1" min="1" 
-                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Effectiveness Score</label>
-                        <input type="number" id="usp-effectiveness" name="effectiveness_score" value="0.8" min="0" max="1" step="0.1"
-                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                    </div>
-                </div>
-                
-                <!-- Right Column -->
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Forklaring</label>
-                        <textarea id="usp-explanation" name="explanation" rows="4"
-                                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                  placeholder="Forklar hvornår denne USP skal bruges..."></textarea>
-                    </div>
-                    
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Eksempel Headlines (kommasepareret)</label>
-                        <textarea id="usp-headlines" name="example_headlines" rows="2"
-                                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                  placeholder="Ring nu - få pris på 2 min, {SERVICE} priser i telefon"></textarea>
-                        
-                        <!-- Headlines Preview -->
-                        <div id="main-headlines-preview" class="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3" style="display: none;">
-                            <div class="text-sm font-medium text-blue-900 mb-2">📱 Preview:</div>
-                            <div id="main-headlines-list" class="space-y-1">
-                                <!-- Will be populated by JavaScript -->
-                            </div>
-                        </div>
-                    </div>
-                    
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">🔗 Placeholders</label>
-                        <div class="space-y-3">
-                            <!-- Tag Input Container -->
-                            <div id="placeholders-container" class="min-h-[100px] w-full px-4 py-3 border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-purple-500 focus-within:border-transparent bg-white">
-                                <div id="placeholders-tags" class="flex flex-wrap gap-2 mb-2"></div>
-                                <input type="text" id="placeholder-input" 
-                                       class="w-full border-0 outline-none text-sm placeholder-gray-400"
-                                       placeholder="Tilføj placeholder (f.eks. {SERVICE}, {BYNAVN})...">
-                            </div>
-                            
-                            <!-- Hidden input for form submission -->
-                            <input type="hidden" id="usp-placeholders" name="placeholders_used">
-                            
-                            <!-- Common Placeholders -->
-                            <div class="flex flex-wrap gap-2">
-                                <span class="text-xs text-gray-500 mr-2">Ofte brugte:</span>
-                                <button type="button" class="common-placeholder text-xs px-2 py-1 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-full border" data-placeholder="{SERVICE}">
-                                    {SERVICE}
-                                </button>
-                                <button type="button" class="common-placeholder text-xs px-2 py-1 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-full border" data-placeholder="{BYNAVN}">
-                                    {BYNAVN}
-                                </button>
-                                <button type="button" class="common-placeholder text-xs px-2 py-1 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-full border" data-placeholder="{PRIS}">
-                                    {PRIS}
-                                </button>
-                                <button type="button" class="common-placeholder text-xs px-2 py-1 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-full border" data-placeholder="{OMRÅDE}">
-                                    {OMRÅDE}
-                                </button>
-                                <button type="button" class="common-placeholder text-xs px-2 py-1 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-full border" data-placeholder="{BEDØMMELSE}">
-                                    {BEDØMMELSE}
-                                </button>
-                                <button type="button" class="common-placeholder text-xs px-2 py-1 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-full border" data-placeholder="{BEDØMMELSESPLATFORM}">
-                                    {BEDØMMELSESPLATFORM}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="mt-6">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Ideel for Industrier</label>
-                <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {% for industry in industries %}
-                    <label class="flex items-center space-x-2">
-                        <input type="checkbox" name="ideal_for_industries" value="{{ industry.id }}" 
-                               class="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
-                        <span class="text-sm text-gray-700">{{ industry.name }}</span>
-                    </label>
-                    {% endfor %}
-                </div>
-            </div>
-            
-            <div class="flex justify-end space-x-3 mt-8">
-                <button type="button" id="cancel-usp" class="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
-                    Annuller
-                </button>
-                <button type="submit" class="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:shadow-lg">
-                    Gem USP
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
@@ -593,176 +402,27 @@ $(document).ready(function() {
         $(`#${modalId} form`)[0].reset();
     }
     
-    // Category Modal Events
+    // Category Slide-in Events
     $('#add-category-btn, #create-first-category').click(function() {
-        $('#category-modal-title').text('Ny Kategori');
-        openModal('category-modal');
+        openCreateCategorySlidePanel();
     });
     
-    $('#cancel-category').click(function() {
-        $('#category-form').removeData('edit-id');  // Clear edit mode
-        closeModal('category-modal');
-    });
     
-    // USP Modal Events  
+    // USP Creation Events  
     $('#add-usp-btn').click(function() {
-        $('#usp-modal-title').text('Ny USP');
-        $('#usp-form')[0].reset();
-        $('input[name="ideal_for_industries"]').prop('checked', false);
-        $('#usp-form').removeData('edit-id'); // Clear edit mode
-        $('#main-headlines-preview').hide(); // Hide preview when opening new form
-        openModal('usp-modal');
+        openCreateUSPSlidePanel();
     });
     
-    // Main form headlines preview functionality
-    function updateMainHeadlinesPreview() {
-        const headlinesText = $('#usp-headlines').val().trim();
-        const headlines = headlinesText.split(',').map(h => h.trim()).filter(h => h);
-        
-        if (headlines.length === 0) {
-            $('#main-headlines-preview').hide();
-            return;
-        }
-        
-        let previewHTML = '';
-        
-        headlines.forEach(headline => {
-            const charCount = headline.length;
-            let colorClass, icon;
-            
-            if (charCount <= 30) {
-                colorClass = 'text-green-700 bg-green-100';
-                icon = '✓';
-            } else if (charCount <= 90) {
-                colorClass = 'text-blue-700 bg-blue-100';
-                icon = '📝';
-            } else {
-                colorClass = 'text-red-700 bg-red-100';
-                icon = '⚠️';
-            }
-            
-            previewHTML += `
-                <div class="flex items-center justify-between ${colorClass} px-2 py-1 rounded text-xs">
-                    <span>${icon} ${headline}</span>
-                    <span class="font-mono">${charCount} chars</span>
-                </div>
-            `;
-        });
-        
-        $('#main-headlines-list').html(previewHTML);
-        $('#main-headlines-preview').show();
-    }
-    
-    // Setup main headlines input listener
-    $('#usp-headlines').on('input', updateMainHeadlinesPreview);
     
     $('.add-usp-to-category-btn').click(function() {
         const categoryId = $(this).data('category-id');
-        $('#usp-modal-title').text('Ny USP');
-        $('#usp-form')[0].reset();
-        $('#usp-main-category').val(categoryId);
-        $('input[name="ideal_for_industries"]').prop('checked', false);
-        $('#usp-form').removeData('edit-id'); // Clear edit mode
-        $('#main-headlines-preview').hide(); // Hide preview when opening new form
-        openModal('usp-modal');
+        openCreateUSPSlidePanel(categoryId);
     });
     
-    $('#cancel-usp').click(function() {
-        $('#usp-form').removeData('edit-id');  // Clear edit mode
-        $('#main-headlines-preview').hide(); // Hide preview when closing modal
-        closeModal('usp-modal');
-    });
     
-    // Bulk Import functionality
-    $('#bulk-import-btn').click(function() {
-        alert('Bulk Import funktionalitet kommer snart! Du kan i mellemtiden bruge "Ny USP" knappen til at tilføje USPs én ad gangen.');
-    });
     
-    // Close modals when clicking outside
-    $('.fixed').click(function(e) {
-        if (e.target === this) {
-            closeModal('category-modal');
-            closeModal('usp-modal');
-        }
-    });
     
-    // Category Form Submission
-    $('#category-form').submit(function(e) {
-        e.preventDefault();
-        
-        const formData = {
-            name: $('#category-name').val(),
-            description: $('#category-description').val(),
-            icon: $('#category-icon').val() || '⚡',
-            color: $('#category-color').val(),
-            sort_order: parseInt($('#category-sort-order').val()),
-            max_selections: parseInt($('#category-max-selections').val()),
-            is_recommended_per_campaign: $('#category-recommended').is(':checked')
-        };
-        
-        const editId = $(this).data('edit-id');
-        const url = editId ? `/usps/ajax/edit-category/${editId}/` : '{% url "usps:create_category_ajax" %}';
-        
-        $.ajax({
-            url: url,
-            method: 'POST',
-            data: JSON.stringify(formData),
-            contentType: 'application/json',
-            success: function(response) {
-                if (response.success) {
-                    showSuccessNotification('Kategori gemt succesfuldt!');
-                    setTimeout(() => location.reload(), 1000); // Give time to show notification
-                } else {
-                    showErrorNotification('Fejl: ' + response.error);
-                }
-            },
-            error: function() {
-                showErrorNotification('Der opstod en fejl ved behandling af kategorien');
-            }
-        });
-    });
     
-    // USP Form Submission
-    $('#usp-form').submit(function(e) {
-        e.preventDefault();
-        
-        const selectedIndustries = [];
-        $('input[name="ideal_for_industries"]:checked').each(function() {
-            selectedIndustries.push(parseInt($(this).val()));
-        });
-        
-        const formData = {
-            text: $('#usp-text').val(),
-            main_category: $('#usp-main-category').val(),
-            priority_rank: parseInt($('#usp-priority').val()),
-            effectiveness_score: parseFloat($('#usp-effectiveness').val()),
-            explanation: $('#usp-explanation').val(),
-            example_headlines: $('#usp-headlines').val(),
-            placeholders_used: $('#usp-placeholders').val(),
-            ideal_for_industries: selectedIndustries
-        };
-        
-        const editId = $(this).data('edit-id');
-        const url = editId ? `/usps/ajax/edit-usp/${editId}/` : '{% url "usps:create_usp_ajax" %}';
-        
-        $.ajax({
-            url: url,
-            method: 'POST',
-            data: JSON.stringify(formData),
-            contentType: 'application/json',
-            success: function(response) {
-                if (response.success) {
-                    showSuccessNotification('USP gemt succesfuldt!');
-                    setTimeout(() => location.reload(), 1000);
-                } else {
-                    showErrorNotification('Fejl: ' + response.error);
-                }
-            },
-            error: function() {
-                showErrorNotification('Der opstod en fejl ved behandling af USPen');
-            }
-        });
-    });
     
     // Use event delegation for dynamically added elements
     $(document).on('click', '.duplicate-usp-btn', function(e) {
@@ -811,6 +471,81 @@ $(document).ready(function() {
         }
     });
     
+    // USP Create Slide-In Panel (identical to edit, but empty)
+    function generateUSPCreateContent(categoryId = null) {
+        // Create empty USP object with exact structure expected by generateUSPEditContent
+        const emptyUSP = {
+            id: '',
+            text: '',
+            priority_rank: 1,
+            effectiveness_score: 0.5,
+            explanation: '',
+            example_headlines: '',  // Empty string, not array
+            ideal_for_industries: []
+        };
+        
+        // Generate the exact same content as edit, just with empty values
+        return generateUSPEditContent(emptyUSP);
+    }
+    
+    // Open Create USP Slide-In Panel
+    function openCreateUSPSlidePanel(categoryId = null) {
+        const content = generateUSPCreateContent(categoryId);
+        
+        openSlidePanel(
+            'Ny USP',
+            categoryId ? `Tilføj til kategori` : 'Opret ny USP',
+            content,
+            saveNewUSP
+        );
+        
+        // Set category if provided
+        if (categoryId) {
+            currentPanelData = { categoryId: categoryId };
+        }
+        
+        // Setup character counter (using same ID as edit)
+        $('#edit-usp-text').on('input', function() {
+            $('#edit-usp-text-count').text(this.value.length);
+        });
+        
+        // Load and setup industries (reuse existing function)
+        loadIndustriesForUSP([]);
+    }
+    
+    // Save New USP Function
+    function saveNewUSP() {
+        // Collect selected industries (reuse existing logic from edit)
+        const formData = {
+            text: $('#edit-usp-text').val(),
+            main_category: currentPanelData?.categoryId || null,
+            priority_rank: parseInt($('#edit-usp-priority').val()),
+            effectiveness_score: parseFloat($('#edit-usp-score').val()),
+            explanation: $('#edit-usp-explanation').val(),
+            example_headlines: $('#edit-usp-example-headlines').val(),
+            ideal_for_industries: selectedIndustries
+        };
+        
+        $.ajax({
+            url: '{% url "usps:create_usp_ajax" %}',
+            method: 'POST',
+            data: JSON.stringify(formData),
+            contentType: 'application/json',
+            success: function(response) {
+                if (response.success) {
+                    showSuccessNotification('Ny USP oprettet succesfuldt!');
+                    closeSlidePanel();
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showErrorNotification('Fejl: ' + response.error);
+                }
+            },
+            error: function() {
+                showErrorNotification('Der opstod en fejl ved oprettelse af USP');
+            }
+        });
+    }
+
     // USP Edit Slide-In Panel
     function generateUSPEditContent(usp) {
         return `
@@ -923,47 +658,47 @@ $(document).ready(function() {
                     </div>
                 </div>
                 
-                <!-- Additional Fields -->
+                <!-- Placeholder Reference -->
                 <div class="border-t border-gray-200 pt-6">
-                    <h4 class="text-lg font-medium text-gray-900 mb-4">⚙️ Tekniske Detaljer</h4>
+                    <h4 class="text-lg font-medium text-gray-900 mb-4">🔗 Tilgængelige Placeholders</h4>
                     
                     <div class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">🔗 Placeholders</label>
-                            <div class="space-y-3">
-                                <!-- Tag Input Container -->
-                                <div id="edit-placeholders-container" class="min-h-[100px] w-full px-3 py-2 border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-purple-500 focus-within:border-transparent bg-white">
-                                    <div id="edit-placeholders-tags" class="flex flex-wrap gap-2 mb-2"></div>
-                                    <input type="text" id="edit-placeholder-input" 
-                                           class="w-full border-0 outline-none text-sm placeholder-gray-400"
-                                           placeholder="Tilføj placeholder...">
-                                </div>
-                                
-                                <!-- Hidden input for form submission -->
-                                <input type="hidden" id="edit-usp-placeholders" value="${usp.placeholders_used}">
-                                
-                                <!-- Common Placeholders -->
-                                <div class="flex flex-wrap gap-2">
-                                    <span class="text-xs text-gray-500 mr-2">Ofte brugte:</span>
-                                    <button type="button" class="edit-common-placeholder text-xs px-2 py-1 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-full border" data-placeholder="{SERVICE}">
-                                        {SERVICE}
-                                    </button>
-                                    <button type="button" class="edit-common-placeholder text-xs px-2 py-1 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-full border" data-placeholder="{BYNAVN}">
-                                        {BYNAVN}
-                                    </button>
-                                    <button type="button" class="edit-common-placeholder text-xs px-2 py-1 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-full border" data-placeholder="{PRIS}">
-                                        {PRIS}
-                                    </button>
-                                    <button type="button" class="edit-common-placeholder text-xs px-2 py-1 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-full border" data-placeholder="{OMRÅDE}">
-                                        {OMRÅDE}
-                                    </button>
-                                    <button type="button" class="edit-common-placeholder text-xs px-2 py-1 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-full border" data-placeholder="{BEDØMMELSE}">
-                                        {BEDØMMELSE}
-                                    </button>
-                                    <button type="button" class="edit-common-placeholder text-xs px-2 py-1 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-full border" data-placeholder="{BEDØMMELSESPLATFORM}">
-                                        {BEDØMMELSESPLATFORM}
-                                    </button>
-                                </div>
+                            <p class="text-sm text-gray-600 mb-3">Brug disse placeholders i dine USP tekster og headlines:</p>
+                            
+                            <!-- Available Placeholders -->
+                            <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                <button type="button" class="copy-placeholder text-xs px-3 py-2 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-lg border transition-colors" data-placeholder="{SERVICE}">
+                                    {SERVICE}
+                                </button>
+                                <button type="button" class="copy-placeholder text-xs px-3 py-2 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-lg border transition-colors" data-placeholder="{BYNAVN}">
+                                    {BYNAVN}
+                                </button>
+                                <button type="button" class="copy-placeholder text-xs px-3 py-2 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-lg border transition-colors" data-placeholder="{PRIS}">
+                                    {PRIS}
+                                </button>
+                                <button type="button" class="copy-placeholder text-xs px-3 py-2 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-lg border transition-colors" data-placeholder="{OMRÅDE}">
+                                    {OMRÅDE}
+                                </button>
+                                <button type="button" class="copy-placeholder text-xs px-3 py-2 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-lg border transition-colors" data-placeholder="{BEDØMMELSE}">
+                                    {BEDØMMELSE}
+                                </button>
+                                <button type="button" class="copy-placeholder text-xs px-3 py-2 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-lg border transition-colors" data-placeholder="{BEDØMMELSESPLATFORM}">
+                                    {BEDØMMELSESPLATFORM}
+                                </button>
+                                <button type="button" class="copy-placeholder text-xs px-3 py-2 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-lg border transition-colors" data-placeholder="{VIRKSOMHED}">
+                                    {VIRKSOMHED}
+                                </button>
+                                <button type="button" class="copy-placeholder text-xs px-3 py-2 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-lg border transition-colors" data-placeholder="{TELEFON}">
+                                    {TELEFON}
+                                </button>
+                                <button type="button" class="copy-placeholder text-xs px-3 py-2 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-lg border transition-colors" data-placeholder="{ÅBNINGSTID}">
+                                    {ÅBNINGSTID}
+                                </button>
+                            </div>
+                            
+                            <div class="text-xs text-gray-500 mt-3">
+                                💡 Tip: Klik på en placeholder for at kopiere den til udklipsholder
                             </div>
                         </div>
                     </div>
@@ -1025,7 +760,6 @@ $(document).ready(function() {
             effectiveness_score: parseFloat($('#edit-usp-score').val()),
             explanation: $('#edit-usp-explanation').val(),
             example_headlines: $('#edit-usp-example-headlines').val(),
-            placeholders_used: $('#edit-usp-placeholders').val(),
             ideal_for_industries: selectedIndustries
         };
         
@@ -1178,47 +912,37 @@ $(document).ready(function() {
     
     $(document).on('click', '.edit-category-btn', function() {
         const categoryId = $(this).data('category-id');
+        openEditCategorySlidePanel(categoryId);
+    });
+    
+    // Delete Category with confirmation
+    $(document).on('click', '.delete-category-btn', function(e) {
+        e.preventDefault();
+        const categoryId = $(this).data('category-id');
+        const categoryName = $(this).closest('.category-section').find('h3').text().trim();
         
-        // Load category data
-        $.ajax({
-            url: `/usps/ajax/get-category/${categoryId}/`,
-            method: 'GET',
-            success: function(response) {
-                if (response.success) {
-                    const category = response.category;
-                    
-                    // Populate form
-                    $('#category-modal-title').text('Rediger Kategori');
-                    $('#category-name').val(category.name);
-                    $('#category-description').val(category.description);
-                    $('#category-icon').val(category.icon);
-                    $('#category-color').val(category.color);
-                    $('#category-sort-order').val(category.sort_order);
-                    $('#category-max-selections').val(category.max_selections);
-                    $('#category-recommended').prop('checked', category.is_recommended_per_campaign);
-                    
-                    // Store edit mode
-                    $('#category-form').data('edit-id', categoryId);
-                    
-                    openModal('category-modal');
-                } else {
-                    alert('Fejl ved indlæsning af kategori: ' + response.error);
+        if (confirm(`Er du sikker på at du vil slette kategorien "${categoryName}"?\n\nAlle USPs i denne kategori vil også blive slettet.`)) {
+            $.ajax({
+                url: `/usps/ajax/delete-category/${categoryId}/`,
+                method: 'POST',
+                success: function(response) {
+                    if (response.success) {
+                        showSuccessNotification('Kategori slettet succesfuldt!');
+                        setTimeout(() => location.reload(), 1000);
+                    } else {
+                        showErrorNotification('Fejl: ' + response.error);
+                    }
+                },
+                error: function() {
+                    showErrorNotification('Der opstod en fejl ved sletning af kategorien');
                 }
-            },
-            error: function() {
-                alert('Der opstod en fejl ved indlæsning af kategori');
-            }
-        });
+            });
+        }
     });
     
     $(document).on('click', '.add-usp-to-category-btn', function() {
         const categoryId = $(this).data('category-id');
-        $('#usp-modal-title').text('Ny USP');
-        $('#usp-form')[0].reset();
-        $('#usp-main-category').val(categoryId);
-        $('input[name="ideal_for_industries"]').prop('checked', false);
-        $('#usp-form').removeData('edit-id'); // Clear edit mode
-        openModal('usp-modal');
+        openCreateUSPSlidePanel(categoryId);
     });
     
     $(document).on('click', '.toggle-details', function() {
@@ -1235,6 +959,260 @@ $(document).ready(function() {
             });
             icon.removeClass('rotate-180');
         }
+    });
+    
+    // ===== CATEGORY SLIDE-IN SYSTEM =====
+    
+    // Generate Category Create/Edit Content
+    function generateCategoryContent(category = null) {
+        const isEdit = category !== null;
+        const categoryData = category || {
+            name: '',
+            description: '',
+            icon: '⚡',
+            color: '#8B5CF6'
+        };
+        
+        return `
+            <div class="space-y-6">
+                <!-- Basic Category Info -->
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Kategori Navn</label>
+                        <input type="text" id="edit-category-name" value="${categoryData.name}" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                               placeholder="F.eks. Hurtig Service" maxlength="100" required>
+                        <div class="text-xs text-gray-500 mt-1">
+                            <span id="edit-category-name-count">${categoryData.name.length}</span>/100 karakterer
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Beskrivelse</label>
+                        <textarea id="edit-category-description" rows="3" 
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                  placeholder="Beskrivelse af hvad denne kategori indeholder..." maxlength="200">${categoryData.description}</textarea>
+                        <div class="text-xs text-gray-500 mt-1">
+                            <span id="edit-category-description-count">${categoryData.description.length}</span>/200 karakterer
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Visual Settings -->
+                <div class="border-t border-gray-200 pt-6">
+                    <h4 class="text-lg font-medium text-gray-900 mb-4">🎨 Visuelle Indstillinger</h4>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Kategori Ikon</label>
+                            <input type="text" id="edit-category-icon" value="${categoryData.icon}" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-center text-2xl"
+                                   placeholder="⚡" maxlength="2">
+                            <div class="text-xs text-gray-500 mt-1">Emoji eller kort symbol</div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Kategori Farve</label>
+                            <input type="color" id="edit-category-color" value="${categoryData.color}"
+                                   class="w-full h-10 border border-gray-300 rounded-lg cursor-pointer">
+                            <div class="text-xs text-gray-500 mt-1">Vælg en farve for kategorien</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Preview -->
+                    <div class="mt-4 p-4 bg-gray-50 rounded-lg">
+                        <div class="text-sm font-medium text-gray-700 mb-2">Preview:</div>
+                        <div class="flex items-center space-x-3" id="category-preview">
+                            <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white text-lg" 
+                                 style="background-color: ${categoryData.color};" id="preview-icon-container">
+                                <span id="preview-icon">${categoryData.icon}</span>
+                            </div>
+                            <div>
+                                <div class="font-semibold text-gray-900" id="preview-name">${categoryData.name || 'Kategori Navn'}</div>
+                                <div class="text-gray-600 text-sm" id="preview-description">${categoryData.description || 'Kategori beskrivelse'}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Open Create Category Slide-In Panel
+    function openCreateCategorySlidePanel() {
+        const content = generateCategoryContent();
+        
+        openSlidePanel(
+            'Ny Kategori',
+            'Opret ny USP kategori',
+            content,
+            saveNewCategory
+        );
+        
+        setupCategoryFormHandlers();
+    }
+    
+    // Open Edit Category Slide-In Panel
+    function openEditCategorySlidePanel(categoryId) {
+        // Fetch category data first
+        $.ajax({
+            url: `/usps/ajax/get-category/${categoryId}/`,
+            method: 'GET',
+            success: function(response) {
+                if (response.success) {
+                    const category = response.category;
+                    currentPanelData = { categoryId: categoryId, category: category };
+                    
+                    const content = generateCategoryContent(category);
+                    
+                    openSlidePanel(
+                        'Rediger Kategori',
+                        `${category.name}`,
+                        content,
+                        saveCategoryEdit
+                    );
+                    
+                    setupCategoryFormHandlers();
+                } else {
+                    showErrorNotification('Fejl ved indlæsning af kategori: ' + response.error);
+                }
+            },
+            error: function() {
+                showErrorNotification('Der opstod en fejl ved indlæsning af kategorien');
+            }
+        });
+    }
+    
+    // Setup Category Form Handlers
+    function setupCategoryFormHandlers() {
+        // Character counters
+        $('#edit-category-name').on('input', function() {
+            const count = this.value.length;
+            $('#edit-category-name-count').text(count);
+            $('#preview-name').text(this.value || 'Kategori Navn');
+        });
+        
+        $('#edit-category-description').on('input', function() {
+            const count = this.value.length;
+            $('#edit-category-description-count').text(count);
+            $('#preview-description').text(this.value || 'Kategori beskrivelse');
+        });
+        
+        // Icon preview
+        $('#edit-category-icon').on('input', function() {
+            $('#preview-icon').text(this.value || '⚡');
+        });
+        
+        // Color preview
+        $('#edit-category-color').on('input', function() {
+            $('#preview-icon-container').css('background-color', this.value);
+        });
+    }
+    
+    // Save New Category
+    function saveNewCategory() {
+        const formData = {
+            name: $('#edit-category-name').val(),
+            description: $('#edit-category-description').val(),
+            icon: $('#edit-category-icon').val() || '⚡',
+            color: $('#edit-category-color').val(),
+            sort_order: 1,
+            max_selections: 1,
+            is_recommended_per_campaign: true
+        };
+        
+        $.ajax({
+            url: '{% url "usps:create_category_ajax" %}',
+            method: 'POST',
+            data: JSON.stringify(formData),
+            contentType: 'application/json',
+            success: function(response) {
+                if (response.success) {
+                    showSuccessNotification('Ny kategori oprettet succesfuldt!');
+                    closeSlidePanel();
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showErrorNotification('Fejl: ' + response.error);
+                }
+            },
+            error: function() {
+                showErrorNotification('Der opstod en fejl ved oprettelse af kategorien');
+            }
+        });
+    }
+    
+    // Save Category Edit
+    function saveCategoryEdit() {
+        const categoryId = currentPanelData.categoryId;
+        
+        const formData = {
+            name: $('#edit-category-name').val(),
+            description: $('#edit-category-description').val(),
+            icon: $('#edit-category-icon').val() || '⚡',
+            color: $('#edit-category-color').val(),
+            sort_order: currentPanelData.category.sort_order,
+            max_selections: currentPanelData.category.max_selections,
+            is_recommended_per_campaign: currentPanelData.category.is_recommended_per_campaign
+        };
+        
+        $.ajax({
+            url: `/usps/ajax/edit-category/${categoryId}/`,
+            method: 'POST',
+            data: JSON.stringify(formData),
+            contentType: 'application/json',
+            success: function(response) {
+                if (response.success) {
+                    showSuccessNotification('Kategori opdateret succesfuldt!');
+                    closeSlidePanel();
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showErrorNotification('Fejl: ' + response.error);
+                }
+            },
+            error: function() {
+                showErrorNotification('Der opstod en fejl ved redigering af kategorien');
+            }
+        });
+    }
+    
+    // ===== PLACEHOLDER COPY SYSTEM =====
+    
+    // Handle placeholder copy to clipboard
+    $(document).on('click', '.copy-placeholder', function() {
+        const placeholder = $(this).data('placeholder');
+        
+        // Copy to clipboard
+        navigator.clipboard.writeText(placeholder).then(() => {
+            // Visual feedback
+            const button = $(this);
+            const originalText = button.text();
+            button.text('Kopieret!');
+            button.addClass('bg-green-200 text-green-800');
+            
+            setTimeout(() => {
+                button.text(originalText);
+                button.removeClass('bg-green-200 text-green-800');
+            }, 1000);
+        }).catch(() => {
+            // Fallback for older browsers
+            const textArea = document.createElement('textarea');
+            textArea.value = placeholder;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            
+            // Visual feedback
+            const button = $(this);
+            const originalText = button.text();
+            button.text('Kopieret!');
+            button.addClass('bg-green-200 text-green-800');
+            
+            setTimeout(() => {
+                button.text(originalText);
+                button.removeClass('bg-green-200 text-green-800');
+            }, 1000);
+        });
     });
     
     // ===== PLACEHOLDER TAG INPUT SYSTEM =====

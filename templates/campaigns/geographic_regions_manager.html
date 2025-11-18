@@ -521,17 +521,6 @@ body.overflow-hidden {
                 </div>
             </div>
         </div>
-        <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 stat-card">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-gray-600">Brancher</p>
-                    <p class="text-3xl font-bold text-purple-600">{{ industries_count }}</p>
-                </div>
-                <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-                    <span class="text-2xl">🏢</span>
-                </div>
-            </div>
-        </div>
     </div>
 
 
@@ -556,15 +545,6 @@ body.overflow-hidden {
                     <option value="custom">Brugerdefineret</option>
                 </select>
             </div>
-            <div class="lg:w-1/5">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Filter branche</label>
-                <select id="filter-industry" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                    <option value="">Alle brancher</option>
-                    {% for industry in industries %}
-                    <option value="{{ industry.id }}">{{ industry.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
             <div class="lg:w-1/6 flex items-end">
                 <button id="reset-filters-btn" class="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200">
                     Reset
@@ -577,7 +557,7 @@ body.overflow-hidden {
     <div class="space-y-8" id="geographic-regions-container">
         {% for region in geographic_regions %}
         <div class="geographic-region-section bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden mb-8" 
-             data-region-id="{{ region.id }}" data-category="{{ region.category }}" data-industry="{{ region.industry.id|default:'' }}" data-is-active="{{ region.is_active|yesno:'true,false' }}">
+             data-region-id="{{ region.id }}" data-category="{{ region.category }}" data-is-active="{{ region.is_active|yesno:'true,false' }}">
             
 
             <div class="region-header p-6 cursor-pointer" 
@@ -593,11 +573,6 @@ body.overflow-hidden {
                             <h3 class="text-2xl font-bold text-gray-900">{{ region.name }}</h3>
                             <div class="flex items-center space-x-4 mt-1">
                                 <p class="text-gray-600">{{ region.description|default:"Ingen beskrivelse" }}</p>
-                                {% if region.industry %}
-                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-purple-100 to-pink-100 text-purple-800 border border-purple-200">
-                                    🏢 {{ region.industry.name }}
-                                </span>
-                                {% endif %}
                                 <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
                                     {% if region.is_active %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-800{% endif %}">
                                     {% if region.is_active %}Aktiv{% else %}Inaktiv{% endif %}
@@ -1160,7 +1135,6 @@ $(document).ready(function() {
     $('#download-template-btn').click(downloadTemplate);
     $('#search-regions').on('input', filterRegions);
     $('#filter-category').change(filterRegions);
-    $('#filter-industry').change(filterRegions);
     $('#reset-filters-btn').click(resetFilters);
     
     // Slide panel events - use event delegation for reliability
@@ -2074,20 +2048,17 @@ function generateImportExcelContent() {
 function filterRegions() {
     const searchTerm = $('#search-lists').val().toLowerCase();
     const categoryFilter = $('#filter-category').val();
-    const industryFilter = $('#filter-industry').val();
     
     $('.keyword-list-section').each(function() {
         const listElement = $(this);
         const listName = listElement.find('h3').text().toLowerCase();
         const listDescription = listElement.find('.text-gray-600').text().toLowerCase();
         const listCategory = listElement.data('category');
-        const listIndustry = listElement.data('industry');
         
         const matchesSearch = listName.includes(searchTerm) || listDescription.includes(searchTerm);
         const matchesCategory = !categoryFilter || listCategory === categoryFilter;
-        const matchesIndustry = !industryFilter || (listIndustry && listIndustry.toString() === industryFilter);
         
-        if (matchesSearch && matchesCategory && matchesIndustry) {
+        if (matchesSearch && matchesCategory) {
             listElement.show();
         } else {
             listElement.hide();
@@ -2098,7 +2069,6 @@ function filterRegions() {
 function resetFilters() {
     $('#search-lists').val('');
     $('#filter-category').val('');
-    $('#filter-industry').val('');
     $('.keyword-list-section').show();
 }
 
@@ -3255,7 +3225,6 @@ window.GeoManager = {
                 name: name,
                 description: description,
                 category: category,
-                industry_id: '',
                 icon: icon,
                 color: color,
                 is_active: true,
@@ -3523,7 +3492,6 @@ window.GeoManager = {
                         region.name,
                         region.description || '',
                         region.category || 'custom',
-                        region.industry_id || '',
                         region.icon || currentIcon,
                         region.color || currentColor,
                         region.is_active
@@ -3538,14 +3506,12 @@ window.GeoManager = {
         });
     },
 
-    openEditRegionPanel: function(regionId, name, description, category, industryId, icon, color, isActive) {
+    openEditRegionPanel: function(regionId, name, description, category, icon, color, isActive) {
         const title = "Redigér Geografisk Region";
         const subtitle = "Opdatér region detaljer og indstillinger";
         
-        // Get industries for dropdown
-        const industries = this.getIndustriesFromPage();
         
-        const content = this.generateEditRegionContent(regionId, name, description, category, industryId, icon, color, isActive, industries);
+        const content = this.generateEditRegionContent(regionId, name, description, category, icon, color, isActive);
         
         this.openSlidePanel(title, subtitle, content, () => this.saveRegionEdit(regionId));
         
@@ -3557,7 +3523,7 @@ window.GeoManager = {
         }, 100);
     },
 
-    generateEditRegionContent: function(regionId, name, description, category, industryId, icon, color, isActive, industries) {
+    generateEditRegionContent: function(regionId, name, description, category, icon, color, isActive) {
         const hexColor = color.startsWith('rgb') ? this.rgbToHex(color) : color;
         
         return `
@@ -3604,16 +3570,6 @@ window.GeoManager = {
                             </select>
                         </div>
                         
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Branche</label>
-                            <select id="edit-region-industry" 
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                                <option value="">Ingen specifikke branche</option>
-                                ${industries.map(industry => `
-                                    <option value="${industry.id}" ${industryId == industry.id ? 'selected' : ''}>${industry.name}</option>
-                                `).join('')}
-                            </select>
-                        </div>
                     </div>
                 </div>
 
@@ -3688,7 +3644,6 @@ window.GeoManager = {
         const name = $('#edit-region-name').val().trim();
         const description = $('#edit-region-description').val().trim();
         const category = $('#edit-region-category').val();
-        const industryId = $('#edit-region-industry').val();
         const icon = $('#edit-region-icon').val();
         const color = $('#edit-region-color').val();
         const isActive = $('#edit-region-is-active').is(':checked');
@@ -3708,7 +3663,6 @@ window.GeoManager = {
                 name: name,
                 description: description,
                 category: category,
-                industry_id: industryId || '',
                 icon: icon,
                 color: color,
                 is_active: isActive,
@@ -3781,18 +3735,6 @@ window.GeoManager = {
         });
     },
 
-    getIndustriesFromPage: function() {
-        // Extract industries from the filter dropdown if it exists
-        const industries = [];
-        $('#filter-industry option').each(function() {
-            const value = $(this).val();
-            const text = $(this).text();
-            if (value && value !== '') {
-                industries.push({ id: value, name: text });
-            }
-        });
-        return industries;
-    },
 
     rgbToHex: function(rgb) {
         if (rgb.startsWith('#')) return rgb;
