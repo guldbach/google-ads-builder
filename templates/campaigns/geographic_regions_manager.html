@@ -35,14 +35,15 @@ window.openImportExcelForRegion = function(e) {
     const regionSection = button.closest('.geographic-region-section');
     const regionName = regionSection.querySelector('h3').textContent.trim();
     
-    const content = window.generateImportExcelForRegionContent(regionId);
+    const content = window.generateImportExcelForRegionContent(regionId, regionName);
     window.openSlidePanel(
         'Importer Byer',
         'Tilføj byer til ' + regionName,
         content,
         function() {
             window.analyzeExcelForRegion(regionId);
-        }
+        },
+        'Analysér'
     );
 };
 
@@ -59,7 +60,7 @@ window.generateImportExcelForRegionContent = function(regionId, regionName) {
                 '</div>' +
             '</div>' +
             '<div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-purple-500 transition-colors">' +
-                '<input type="file" id="region-excel-file-input" class="hidden" accept=".xlsx,.xls,.csv" />' +
+                '<input type="file" id="region-excel-file-input" class="hidden" accept=".xlsx,.xls,.csv" onchange="handleRegionFileSelect(this)" />' +
                 '<label for="region-excel-file-input" class="cursor-pointer">' +
                     '<div class="space-y-2">' +
                         '<div class="text-4xl">📄</div>' +
@@ -829,7 +830,7 @@ window.generateImportExcelForRegionContent = function(regionId, regionName) {
             <div>
                 <h3 class="text-lg font-medium text-gray-900 mb-4">📊 Upload Excel Fil</h3>
                 <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-purple-500 transition-colors">
-                    <input type="file" id="region-excel-file-input" class="hidden" accept=".xlsx,.xls,.csv" />
+                    <input type="file" id="region-excel-file-input" class="hidden" accept=".xlsx,.xls,.csv" onchange="handleRegionFileSelect(this)" />
                     <label for="region-excel-file-input" class="cursor-pointer">
                         <div class="space-y-2">
                             <div class="text-4xl">📄</div>
@@ -863,58 +864,235 @@ window.generateImportExcelForRegionContent = function(regionId, regionName) {
                     <li>• Dubletter bliver automatisk filtreret ud</li>
                 </ul>
             </div>
+            
+            <!-- Analysis Results Section (Hidden initially) -->
+            <div id="cities-analysis-results" class="hidden"></div>
         </div>
     `;
 };
 
-window.analyzeExcelForRegion = function(regionId) {
+function analyzeExcelForRegion(regionId) {
     const fileInput = document.getElementById('region-excel-file-input');
     const file = fileInput.files[0];
     
     if (!file) {
-        alert('Vælg venligst en fil først');
+        showErrorNotification('Vælg en Excel fil først');
         return;
     }
 
-    console.log('Analyzing file for region:', regionId);
+    console.log('Analyzing cities file for region:', regionId);
+    
+    // Show loading state
+    $('#slide-panel-save').prop('disabled', true).text('Analyserer...');
     
     const formData = new FormData();
     formData.append('excel_file', file);
+    formData.append('csrfmiddlewaretoken', $('[name=csrfmiddlewaretoken]').val());
     
-    const analyzeButton = document.getElementById('slide-panel-save');
-    if (analyzeButton) {
-        analyzeButton.disabled = true;
-        analyzeButton.textContent = 'Analyserer...';
-    }
-    
-    fetch(`/campaigns/ajax/analyze-excel-import-cities/${regionId}/`, {
+    $.ajax({
+        url: `/ajax/analyze-excel-import-cities/${regionId}/`,
         method: 'POST',
-        body: formData,
-        headers: {
-            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            window.showImportPreviewForRegion(regionId, data);
-        } else {
-            alert('Fejl: ' + data.error);
-            if (analyzeButton) {
-                analyzeButton.disabled = false;
-                analyzeButton.textContent = 'Analysér';
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+            if (response.success) {
+                // Transform the response to match our analysis format
+                const analysis = {
+                    total_cities: response.total_read || 0,
+                    safe_to_add: response.cities_to_add ? response.cities_to_add.map(city => ({
+                        name: city.city_name,
+                        postal_code: city.postal_code || ''
+                    })) : [],
+                    conflicts: response.duplicate_cities ? response.duplicate_cities.map(name => ({
+                        name: name,
+                        postal_code: ''
+                    })) : [],
+                    invalid: []
+                };
+                
+                displayCitiesAnalysisResults(analysis, regionId);
+                $('#slide-panel-save').html('✅ Udfør Import').prop('disabled', false).off('click').on('click', function() {
+                    executeImportForRegion(regionId, analysis);
+                });
+            } else {
+                showErrorNotification('Analyse fejl: ' + response.error);
+                $('#slide-panel-save').prop('disabled', false).html('Analysér');
             }
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Der opstod en fejl under analysen');
-        if (analyzeButton) {
-            analyzeButton.disabled = false;
-            analyzeButton.textContent = 'Analysér';
+        },
+        error: function() {
+            showErrorNotification('Der opstod en fejl under analyse');
+            $('#slide-panel-save').prop('disabled', false).html('Analysér');
         }
     });
-};
+}
+
+function displayCitiesAnalysisResults(analysis, regionId) {
+    $('#cities-analysis-results').removeClass('hidden');
+    
+    let html = `
+        <div class="space-y-3">
+            <!-- Summary -->
+            <div class="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-3">
+                <h5 class="text-sm font-bold text-gray-900 mb-2">📊 Import Analyse</h5>
+                <div class="grid grid-cols-4 gap-2 text-center">
+                    <div class="bg-white rounded-lg p-2">
+                        <div class="text-lg font-bold text-blue-600">${analysis.total_cities || 0}</div>
+                        <div class="text-xs text-gray-600">Total</div>
+                    </div>
+                    <div class="bg-white rounded-lg p-2">
+                        <div class="text-lg font-bold text-green-600">${analysis.safe_to_add ? analysis.safe_to_add.length : 0}</div>
+                        <div class="text-xs text-gray-600">Tilføj</div>
+                    </div>
+                    <div class="bg-white rounded-lg p-2">
+                        <div class="text-lg font-bold text-orange-600">${analysis.conflicts ? analysis.conflicts.length : 0}</div>
+                        <div class="text-xs text-gray-600">Dubletter</div>
+                    </div>
+                    <div class="bg-white rounded-lg p-2">
+                        <div class="text-lg font-bold text-red-600">${analysis.invalid ? analysis.invalid.length : 0}</div>
+                        <div class="text-xs text-gray-600">Fejl</div>
+                    </div>
+                </div>
+            </div>
+    `;
+    
+    // Safe to add cities
+    if (analysis.safe_to_add && analysis.safe_to_add.length > 0) {
+        html += `
+            <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+                <h6 class="text-sm font-medium text-green-800 mb-2 flex items-center justify-between">
+                    <span class="flex items-center">
+                        <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                        </svg>
+                        Nye Byer (${analysis.safe_to_add.length})
+                    </span>
+                    <div class="flex items-center space-x-2">
+                        <button type="button" onclick="selectAllCities(true)" class="text-xs text-green-600 hover:text-green-800">Alle</button>
+                        <button type="button" onclick="selectAllCities(false)" class="text-xs text-green-600 hover:text-green-800">Ingen</button>
+                    </div>
+                </h6>
+                <div class="space-y-1 max-h-32 overflow-y-auto">
+        `;
+        analysis.safe_to_add.forEach((city, index) => {
+            const cityKey = `safe_${index}`;
+            html += `
+                <div class="flex items-center space-x-2 text-sm">
+                    <input type="checkbox" id="city-${cityKey}" class="city-checkbox" checked 
+                           data-city='${JSON.stringify(city)}' />
+                    <label for="city-${cityKey}" class="flex-1 text-green-700">🏙️ ${city.name}</label>
+                    ${city.postal_code ? `<span class="text-xs text-gray-500">${city.postal_code}</span>` : ''}
+                </div>
+            `;
+        });
+        html += `
+                </div>
+            </div>
+        `;
+    }
+    
+    // Conflicts/duplicates
+    if (analysis.conflicts && analysis.conflicts.length > 0) {
+        html += `
+            <div class="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                <h6 class="text-sm font-medium text-orange-800 mb-2 flex items-center">
+                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                    Dubletter (${analysis.conflicts.length}) - springes over
+                </h6>
+                <div class="space-y-1 max-h-24 overflow-y-auto">
+        `;
+        analysis.conflicts.forEach(city => {
+            html += `
+                <div class="text-sm text-orange-700">🔄 ${city.name} ${city.postal_code ? `(${city.postal_code})` : ''}</div>
+            `;
+        });
+        html += `
+                </div>
+            </div>
+        `;
+    }
+    
+    // Invalid entries
+    if (analysis.invalid && analysis.invalid.length > 0) {
+        html += `
+            <div class="bg-red-50 border border-red-200 rounded-lg p-3">
+                <h6 class="text-sm font-medium text-red-800 mb-2 flex items-center">
+                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                    Ugyldige Indtastninger (${analysis.invalid.length})
+                </h6>
+                <div class="space-y-1 max-h-24 overflow-y-auto">
+        `;
+        analysis.invalid.forEach(entry => {
+            html += `
+                <div class="text-sm text-red-700">❌ ${entry.value} - ${entry.reason || 'Ugyldig format'}</div>
+            `;
+        });
+        html += `
+                </div>
+            </div>
+        `;
+    }
+    
+    html += `
+        </div>
+    `;
+    
+    $('#cities-analysis-results').html(html);
+}
+
+function selectAllCities(select) {
+    $('.city-checkbox').prop('checked', select);
+}
+
+function executeImportForRegion(regionId, analysis) {
+    const selectedCities = [];
+    $('.city-checkbox:checked').each(function() {
+        const cityData = JSON.parse($(this).data('city'));
+        selectedCities.push({
+            city_name: cityData.name,
+            postal_code: cityData.postal_code || ''
+        });
+    });
+    
+    if (selectedCities.length === 0) {
+        showErrorNotification('Vælg mindst én by at importere');
+        return;
+    }
+    
+    // Show loading state
+    $('#slide-panel-save').prop('disabled', true).text('Importerer...');
+    
+    const formData = new FormData();
+    formData.append('cities_data', JSON.stringify(selectedCities));
+    formData.append('region_id', regionId);
+    formData.append('csrfmiddlewaretoken', $('[name=csrfmiddlewaretoken]').val());
+    
+    $.ajax({
+        url: `/ajax/execute-excel-import-cities/${regionId}/`,
+        method: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+            if (response.success) {
+                showSuccessNotification(`Import gennemført! Tilføjet ${response.cities_added || response.summary?.created_cities || selectedCities.length} byer.`);
+                GeoManager.closeSlidePanel();
+                location.reload(); // Refresh to show new cities
+            } else {
+                showErrorNotification('Import fejl: ' + response.error);
+                $('#slide-panel-save').prop('disabled', false).text('✅ Udfør Import');
+            }
+        },
+        error: function() {
+            showErrorNotification('Der opstod en fejl under import');
+            $('#slide-panel-save').prop('disabled', false).text('✅ Udfør Import');
+        }
+    });
+}
 
 window.showImportPreviewForRegion = function(regionId, data) {
     const previewHtml = `
@@ -1109,17 +1287,24 @@ window.showNotification = function(message, type = 'info') {
 };
 
 // File handling functions for region import
-window.clearRegionSelectedFile = function() {
-    const fileInput = document.getElementById('region-excel-file-input');
-    const fileInfo = document.getElementById('region-file-selected-info');
-    
-    if (fileInput) {
-        fileInput.value = '';
+function handleRegionFileSelect(input) {
+    alert('handleRegionFileSelect called! File count: ' + input.files.length);
+    console.log('handleRegionFileSelect called!');
+    const file = input.files[0];
+    console.log('File:', file);
+    if (file) {
+        alert('File selected: ' + file.name);
+        console.log('File name:', file.name);
+        document.getElementById('region-file-selected-info').classList.remove('hidden');
+        document.getElementById('region-selected-file-name').textContent = file.name;
+        console.log('File info updated with vanilla JS');
     }
-    if (fileInfo) {
-        fileInfo.classList.add('hidden');
-    }
-};
+}
+
+function clearRegionSelectedFile() {
+    document.getElementById('region-excel-file-input').value = '';
+    document.getElementById('region-file-selected-info').classList.add('hidden');
+}
 
 // Initialize page  
 $(document).ready(function() {
@@ -1136,6 +1321,7 @@ $(document).ready(function() {
     $('#search-regions').on('input', filterRegions);
     $('#filter-category').change(filterRegions);
     $('#reset-filters-btn').click(resetFilters);
+    
     
     // Slide panel events - use event delegation for reliability
     $(document).on('click', '#slide-panel-close, #slide-panel-cancel', function(e) {
@@ -1163,13 +1349,6 @@ $(document).ready(function() {
     $(document).on('click', '.import-excel-btn', function(e) {
         console.log('Import Excel button clicked for region!', e);
         openImportExcelForRegion(e);
-    });
-    $(document).on('change', '#region-excel-file-input', function() {
-        const file = this.files[0];
-        if (file) {
-            $('#region-file-selected-info').removeClass('hidden');
-            $('#region-selected-file-name').text(file.name);
-        }
     });
     
     // Edit/delete keyword events
@@ -1294,10 +1473,7 @@ function openImportExcelForRegion(e) {
     const subtitle = "Upload Excel fil med intelligente dublet-tjek";
     const content = generateImportExcelForRegionContent(regionId, regionName);
     
-    openSlidePanel(title, subtitle, content, () => analyzeExcelForRegion(regionId));
-    
-    // Change button text to "Analysér" for Excel import
-    $('#slide-panel-save').text('Analysér');
+    openSlidePanel(title, subtitle, content, () => analyzeExcelForRegion(regionId), 'Analysér');
 }
 
 function analyzeExcelForRegion(regionId) {
@@ -1496,7 +1672,7 @@ function generateImportExcelForRegionContent(regionId, regionName) {
                 <h4 class="text-base font-medium text-gray-900 mb-3">📊 Upload Excel Fil</h4>
                 
                 <div id="region-excel-dropzone" class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-400 transition-colors">
-                    <input type="file" id="region-excel-file-input" accept=".xlsx,.xls" class="hidden" data-region-id="${regionId}">
+                    <input type="file" id="region-excel-file-input" accept=".xlsx,.xls" class="hidden" data-region-id="${regionId}" onchange="handleRegionFileSelect(this)">
                     <div class="cursor-pointer" onclick="document.getElementById('region-excel-file-input').click()">
                         <span class="text-2xl">📁</span>
                         <p class="text-gray-600 mt-2">Klik for at vælge Excel fil</p>
@@ -1504,11 +1680,16 @@ function generateImportExcelForRegionContent(regionId, regionName) {
                     </div>
                 </div>
                 
-                <div id="region-file-selected-info" class="hidden mt-2 p-2 bg-green-50 border border-green-200 rounded">
-                    <span class="text-sm text-green-800">
-                        <span class="font-medium">Fil valgt:</span> 
-                        <span id="region-selected-file-name"></span>
-                    </span>
+                <div id="region-file-selected-info" class="hidden mt-3 p-2 bg-blue-50 rounded-lg border border-blue-200">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-blue-600">📊</span>
+                        <span id="region-selected-file-name" class="text-xs font-medium text-blue-800"></span>
+                        <button type="button" onclick="clearRegionSelectedFile()" class="text-blue-600 hover:text-blue-800">
+                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
             </div>
             
@@ -1521,81 +1702,14 @@ function generateImportExcelForRegionContent(regionId, regionName) {
                     <li>• Du kan vælge hvilke byer der skal importeres</li>
                 </ul>
             </div>
-        </div>`;
-            <div class="bg-purple-50 border border-purple-200 rounded-lg p-3">
-                <div class="flex items-center space-x-2">
-                    <svg class="w-4 h-4 text-purple-600" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                    <span class="text-sm font-medium text-purple-800">Importerer til: ${listName}</span>
-                </div>
-            </div>
-            
-
-            <div>
-                <h4 class="text-base font-medium text-gray-900 mb-3">📊 Upload Excel Fil</h4>
-                
-                <div id="list-excel-dropzone" class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-purple-400 transition-colors">
-                    <input type="file" id="list-excel-file-input" accept=".xlsx,.xls" class="hidden" data-list-id="${listId}">
-                    <div class="cursor-pointer" onclick="document.getElementById('list-excel-file-input').click()">
-                        <span class="text-2xl">📁</span>
-                        <p class="mt-1 text-sm font-medium text-gray-900">Klik for at vælge Excel fil</p>
-                        <p class="text-xs text-gray-500">Eller træk og slip filen her</p>
-                        <p class="text-xs text-gray-400">(.xlsx, .xls)</p>
-                    </div>
-                    <div id="list-file-selected-info" class="hidden mt-3 p-2 bg-blue-50 rounded-lg border border-blue-200">
-                        <div class="flex items-center space-x-2">
-                            <span class="text-blue-600">📊</span>
-                            <span id="list-selected-file-name" class="text-xs font-medium text-blue-800"></span>
-                            <button type="button" onclick="clearListSelectedFile()" class="text-blue-600 hover:text-blue-800">
-                                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M6 18L18 6M6 6l12 12"/>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-
-            <div class="border-t border-gray-200 pt-3">
-                <h4 class="text-base font-medium text-gray-900 mb-2">📋 Excel Format</h4>
-                
-                <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <p class="text-xs text-blue-800 mb-2"><strong>Påkrævede kolonner:</strong></p>
-                    <ul class="text-xs text-blue-700 space-y-1">
-                        <li>• <strong>A: Bynavn</strong> - Officielt bynavn</li>
-                        <li>• <strong>B: Match Type</strong> - broad, phrase eller exact</li>
-                    </ul>
-                </div>
-                
-                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-2 mt-2">
-                    <div class="flex items-start space-x-2">
-                        <svg class="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
-                        </svg>
-                        <div>
-                            <p class="text-xs font-medium text-yellow-800">Intelligent Duplikat-detektion</p>
-                            <p class="text-xs text-yellow-700">Tjekker konflikter og foreslår optimeringer.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-
-            <div id="analysis-results" class="hidden border-t border-gray-200 pt-3">
-                <h4 class="text-base font-medium text-gray-900 mb-2">🔍 Analyse Resultat</h4>
-                <div id="analysis-content"></div>
-            </div>
         </div>
     `;
-}
 
 // Store uploaded file globally so it doesn't get lost
 let currentUploadedFile = null;
 
 function analyzeExcelForRegion(regionId) {
-    const fileInput = document.getElementById('list-excel-file-input');
+    const fileInput = document.getElementById('region-excel-file-input');
     const file = fileInput.files[0];
     
     if (!file) {
@@ -1900,10 +2014,6 @@ function executeImport(listId, analysis) {
 }
 
 // File handling for list-specific import
-function clearRegionSelectedFile() {
-    document.getElementById('list-excel-file-input').value = '';
-    document.getElementById('list-file-selected-info').classList.add('hidden');
-}
 
 function generateCreateRegionContent() {
     return `
@@ -2511,11 +2621,16 @@ function deleteCity(e) {
         });
     }
 }
-function openSlidePanel(title, subtitle, content, saveCallback) {
+function openSlidePanel(title, subtitle, content, saveCallback, buttonText) {
     $('#slide-panel-title').text(title);
     $('#slide-panel-subtitle').text(subtitle);
     $('#slide-panel-content').html(content);
     $('#slide-panel-save').off('click').on('click', saveCallback);
+    
+    // Set button text if provided
+    if (buttonText) {
+        $('#slide-panel-save').text(buttonText);
+    }
     
     // Block body scroll
     const scrollY = window.scrollY;
@@ -2529,6 +2644,7 @@ function openSlidePanel(title, subtitle, content, saveCallback) {
     
     // Add character counters
     setupCharacterCounters();
+    
 }
 
 function closeSlidePanel() {
@@ -3882,6 +3998,67 @@ $(document).ready(function() {
     console.log('✅ All event handlers bound successfully!');
     console.log('Available functions:', Object.keys(window.GeoManager));
 });
+
+// File selection handler for region import
+function handleRegionFileSelect(input) {
+    console.log('handleRegionFileSelect called!');
+    const file = input.files[0];
+    console.log('File:', file);
+    if (file) {
+        console.log('File name:', file.name);
+        document.getElementById('region-file-selected-info').classList.remove('hidden');
+        document.getElementById('region-selected-file-name').textContent = file.name;
+        console.log('File info updated');
+    }
+}
+
+function clearRegionSelectedFile() {
+    console.log('clearRegionSelectedFile called!');
+    document.getElementById('region-excel-file-input').value = '';
+    document.getElementById('region-file-selected-info').classList.add('hidden');
+    document.getElementById('region-selected-file-name').textContent = '';
+}
+
+// Delete region function
+function deleteRegion(regionId, regionName) {
+    console.log('deleteRegion called for:', regionId, regionName);
+    
+    // Show confirmation dialog
+    if (!confirm(`Er du sikker på at du vil slette region "${regionName}"?\n\nDette vil også slette alle byer i regionen. Denne handling kan ikke fortrydes.`)) {
+        return;
+    }
+    
+    // Send delete request
+    fetch(`/ajax/delete-geographic-region/${regionId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/x-www-form-urlencoded',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Remove the region element from the DOM
+            const regionElement = document.querySelector(`[data-region-id="${regionId}"]`);
+            if (regionElement) {
+                regionElement.remove();
+            }
+            
+            // Show success message
+            alert(data.message);
+            
+            // Reload page to update statistics
+            location.reload();
+        } else {
+            alert('Fejl ved sletning: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Der opstod en fejl ved sletning af regionen');
+    });
+}
 </script>
 
 {% endblock %}
