@@ -35,7 +35,7 @@ window.openImportExcelForRegion = function(e) {
     const regionSection = button.closest('.geographic-region-section');
     const regionName = regionSection.querySelector('h3').textContent.trim();
     
-    const content = window.generateImportExcelForRegionContent(regionId, regionName);
+    const content = generateImportExcelForRegionContent(regionId, regionName);
     window.openSlidePanel(
         'Importer Byer',
         'Tilføj byer til ' + regionName,
@@ -47,99 +47,7 @@ window.openImportExcelForRegion = function(e) {
     );
 };
 
-window.generateImportExcelForRegionContent = function(regionId, regionName) {
-    return '<div class="space-y-6">' +
-        '<div>' +
-            '<h3 class="text-lg font-medium text-gray-900 mb-4">📊 Upload Excel Fil</h3>' +
-            '<div class="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-4">' +
-                '<div class="flex items-center space-x-2">' +
-                    '<svg class="w-4 h-4 text-purple-600" fill="currentColor" viewBox="0 0 24 24">' +
-                        '<path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>' +
-                    '</svg>' +
-                    '<span class="text-sm font-medium text-purple-800">Importerer til: ' + regionName + '</span>' +
-                '</div>' +
-            '</div>' +
-            '<div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-purple-500 transition-colors">' +
-                '<input type="file" id="region-excel-file-input" class="hidden" accept=".xlsx,.xls,.csv" onchange="handleRegionFileSelect(this)" />' +
-                '<label for="region-excel-file-input" class="cursor-pointer">' +
-                    '<div class="space-y-2">' +
-                        '<div class="text-4xl">📄</div>' +
-                        '<div class="text-lg font-medium text-gray-900">Vælg Excel fil</div>' +
-                        '<div class="text-sm text-gray-500">Understøtter .xlsx, .xls og .csv filer</div>' +
-                    '</div>' +
-                '</label>' +
-                '<div id="region-file-selected-info" class="hidden mt-3 p-2 bg-blue-50 rounded-lg border border-blue-200">' +
-                    '<div class="flex items-center space-x-2">' +
-                        '<span class="text-blue-600">📊</span>' +
-                        '<span id="region-selected-file-name" class="text-xs font-medium text-blue-800"></span>' +
-                        '<button type="button" onclick="clearRegionSelectedFile()" class="text-blue-600 hover:text-blue-800">' +
-                            '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">' +
-                                '<path d="M6 18L18 6M6 6l12 12"></path>' +
-                            '</svg>' +
-                        '</button>' +
-                    '</div>' +
-                '</div>' +
-            '</div>' +
-        '</div>' +
-        '<div class="bg-blue-50 border border-blue-200 rounded-lg p-4">' +
-            '<h4 class="font-medium text-blue-900 mb-2">📋 Format Krav</h4>' +
-            '<ul class="text-sm text-blue-800 space-y-1">' +
-                '<li>• Kolonne A skal indeholde bynavne</li>' +
-                '<li>• Første række kan være header (bliver ignoreret)</li>' +
-                '<li>• Dubletter bliver automatisk filtreret ud</li>' +
-            '</ul>' +
-        '</div>' +
-    '</div>';
-};
 
-window.analyzeExcelForRegion = function(regionId) {
-    const fileInput = document.getElementById('region-excel-file-input');
-    const file = fileInput.files[0];
-    
-    if (!file) {
-        alert('Vælg venligst en fil først');
-        return;
-    }
-
-    console.log('Analyzing file for region:', regionId);
-    
-    const formData = new FormData();
-    formData.append('excel_file', file);
-    
-    const analyzeButton = document.getElementById('slide-panel-save');
-    if (analyzeButton) {
-        analyzeButton.disabled = true;
-        analyzeButton.textContent = 'Analyserer...';
-    }
-    
-    fetch('/ajax/analyze-excel-import-cities/' + regionId + '/', {
-        method: 'POST',
-        body: formData,
-        headers: {
-            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            window.showImportPreviewForRegion(regionId, data);
-        } else {
-            alert('Fejl: ' + data.error);
-            if (analyzeButton) {
-                analyzeButton.disabled = false;
-                analyzeButton.textContent = 'Analysér';
-            }
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Der opstod en fejl under analysen');
-        if (analyzeButton) {
-            analyzeButton.disabled = false;
-            analyzeButton.textContent = 'Analysér';
-        }
-    });
-};
 
 window.showImportPreviewForRegion = function(regionId, data) {
     // Store cities to add for later execution
@@ -264,25 +172,6 @@ window.executeRegionImport = function(regionId) {
     });
 };
 
-window.openSlidePanel = function(title, subtitle, content, saveCallback) {
-    document.getElementById('slide-panel-title').textContent = title;
-    document.getElementById('slide-panel-subtitle').textContent = subtitle;
-    document.getElementById('slide-panel-content').innerHTML = content;
-    
-    const saveButton = document.getElementById('slide-panel-save');
-    if (saveButton) {
-        saveButton.onclick = saveCallback;
-    }
-    
-    const overlay = document.getElementById('slide-panel-overlay');
-    const panel = document.getElementById('slide-panel');
-    
-    overlay.classList.remove('hidden');
-    setTimeout(function() {
-        overlay.classList.remove('opacity-0');
-        panel.classList.remove('translate-x-full');
-    }, 10);
-};
 
 window.closeSlidePanel = function() {
     const overlay = document.getElementById('slide-panel-overlay');
@@ -801,7 +690,7 @@ window.openImportExcelForRegion = function(e) {
     const regionSection = button.closest('.geographic-region-section');
     const regionName = regionSection.querySelector('h3').textContent.trim();
     
-    const content = window.generateImportExcelForRegionContent(regionId, regionName);
+    const content = generateImportExcelForRegionContent(regionId, regionName);
     window.openSlidePanel(
         'Importer Byer',
         `Tilføj byer til ${regionName}`,
@@ -812,64 +701,6 @@ window.openImportExcelForRegion = function(e) {
     );
 };
 
-window.generateImportExcelForRegionContent = function(regionId, regionName) {
-    return `
-        <div class="space-y-6">
-            <div class="bg-purple-50 border border-purple-200 rounded-lg p-3">
-                <div class="flex items-center space-x-2">
-                    <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                    </svg>
-                    <span class="text-sm text-purple-800">
-                        <strong>Importerer til:</strong> ${regionName}
-                    </span>
-                </div>
-            </div>
-
-            <div>
-                <h3 class="text-lg font-medium text-gray-900 mb-4">📊 Upload Excel Fil</h3>
-                <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-purple-500 transition-colors">
-                    <input type="file" id="region-excel-file-input" class="hidden" accept=".xlsx,.xls,.csv" onchange="handleRegionFileSelect(this)" />
-                    <label for="region-excel-file-input" class="cursor-pointer">
-                        <div class="space-y-2">
-                            <div class="text-4xl">📄</div>
-                            <div class="text-lg font-medium text-gray-900">Vælg Excel fil</div>
-                            <div class="text-sm text-gray-500">Understøtter .xlsx, .xls og .csv filer</div>
-                        </div>
-                    </label>
-                </div>
-                
-                <div id="region-file-selected-info" class="hidden mt-3 p-2 bg-blue-50 rounded-lg border border-blue-200">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center space-x-2">
-                            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                            </svg>
-                            <span class="text-blue-800 font-medium">Fil valgt: </span>
-                            <span id="region-selected-file-name" class="text-blue-700"></span>
-                        </div>
-                        <button type="button" onclick="window.clearRegionSelectedFile()" class="text-blue-600 hover:text-blue-800 text-sm underline">
-                            Ryd
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h4 class="font-medium text-blue-900 mb-2">📋 Format Krav</h4>
-                <ul class="text-sm text-blue-800 space-y-1">
-                    <li>• Kolonne A skal indeholde bynavne</li>
-                    <li>• Første række kan være header (bliver ignoreret)</li>
-                    <li>• Dubletter bliver automatisk filtreret ud</li>
-                </ul>
-            </div>
-            
-            <!-- Analysis Results Section (Hidden initially) -->
-            <div id="cities-analysis-results" class="hidden"></div>
-        </div>
-    `;
-};
 
 function analyzeExcelForRegion(regionId) {
     const fileInput = document.getElementById('region-excel-file-input');
@@ -1178,75 +1009,6 @@ window.showImportPreviewForRegion = function(regionId, data) {
 };
 
 
-window.openSlidePanel = function(title, subtitle, content, saveCallback) {
-    document.getElementById('slide-panel-title').textContent = title;
-    document.getElementById('slide-panel-subtitle').textContent = subtitle;
-    document.getElementById('slide-panel-content').innerHTML = content;
-    
-    const saveButton = document.getElementById('slide-panel-save');
-    if (saveButton) {
-        saveButton.onclick = saveCallback;
-    }
-    
-    // Attach event handlers directly to close and cancel buttons
-    const closeButton = document.getElementById('slide-panel-close');
-    const cancelButton = document.getElementById('slide-panel-cancel');
-    const overlay = document.getElementById('slide-panel-overlay');
-    
-    console.log('Setting up slide panel event handlers:');
-    console.log('Close button found:', closeButton !== null);
-    console.log('Cancel button found:', cancelButton !== null);
-    console.log('Overlay found:', overlay !== null);
-    
-    if (closeButton) {
-        closeButton.onclick = function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('Close button clicked directly');
-            window.closeSlidePanel();
-        };
-        // Also add addEventListener for backup
-        closeButton.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('Close button event listener triggered');
-            window.closeSlidePanel();
-        });
-    }
-    
-    if (cancelButton) {
-        cancelButton.onclick = function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('Cancel button clicked directly');
-            window.closeSlidePanel();
-        };
-        // Also add addEventListener for backup
-        cancelButton.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('Cancel button event listener triggered');
-            window.closeSlidePanel();
-        });
-    }
-    
-    if (overlay) {
-        overlay.onclick = function(e) {
-            if (e.target === overlay) {
-                console.log('Overlay clicked directly');
-                window.closeSlidePanel();
-            }
-        };
-    }
-    
-    const panel = document.getElementById('slide-panel');
-    
-    overlay.classList.remove('hidden');
-    setTimeout(() => {
-        overlay.classList.remove('opacity-0');
-        panel.classList.remove('translate-x-full');
-    }, 10);
-};
 
 window.closeSlidePanel = function() {
     const overlay = document.getElementById('slide-panel-overlay');
@@ -1704,6 +1466,7 @@ function generateImportExcelForRegionContent(regionId, regionName) {
             </div>
         </div>
     `;
+}
 
 // Store uploaded file globally so it doesn't get lost
 let currentUploadedFile = null;
@@ -2621,31 +2384,6 @@ function deleteCity(e) {
         });
     }
 }
-function openSlidePanel(title, subtitle, content, saveCallback, buttonText) {
-    $('#slide-panel-title').text(title);
-    $('#slide-panel-subtitle').text(subtitle);
-    $('#slide-panel-content').html(content);
-    $('#slide-panel-save').off('click').on('click', saveCallback);
-    
-    // Set button text if provided
-    if (buttonText) {
-        $('#slide-panel-save').text(buttonText);
-    }
-    
-    // Block body scroll
-    const scrollY = window.scrollY;
-    $('body').addClass('overflow-hidden').css('top', `-${scrollY}px`);
-    
-    $('#slide-panel-overlay').removeClass('hidden');
-    setTimeout(() => {
-        $('#slide-panel-overlay').removeClass('opacity-0');
-        $('#slide-panel').removeClass('translate-x-full transform');
-    }, 10);
-    
-    // Add character counters
-    setupCharacterCounters();
-    
-}
 
 function closeSlidePanel() {
     // Re-enable body scroll
@@ -3548,24 +3286,29 @@ window.GeoManager = {
     },
 
     // Slide Panel Functions
-    openSlidePanel: function(title, subtitle, content, saveCallback) {
+    openSlidePanel: function(title, subtitle, content, saveCallback, buttonText) {
         $('#slide-panel-title').text(title);
         $('#slide-panel-subtitle').text(subtitle);
         $('#slide-panel-content').html(content);
+        $('#slide-panel-save').off('click').on('click', saveCallback);
         
-        const saveButton = document.getElementById('slide-panel-save');
-        if (saveButton && saveCallback) {
-            saveButton.onclick = saveCallback;
+        // Set button text if provided
+        if (buttonText) {
+            $('#slide-panel-save').text(buttonText);
         }
         
-        const overlay = document.getElementById('slide-panel-overlay');
-        const panel = document.getElementById('slide-panel');
+        // Block body scroll
+        const scrollY = window.scrollY;
+        $('body').addClass('overflow-hidden').css('top', `-${scrollY}px`);
         
-        overlay.classList.remove('hidden');
+        $('#slide-panel-overlay').removeClass('hidden');
         setTimeout(() => {
-            overlay.classList.remove('opacity-0');
-            panel.classList.remove('translate-x-full');
+            $('#slide-panel-overlay').removeClass('opacity-0');
+            $('#slide-panel').removeClass('translate-x-full transform');
         }, 10);
+        
+        // Add character counters
+        setupCharacterCounters();
     },
 
     // Region CRUD Functions
@@ -3900,7 +3643,7 @@ window.openBulkImport = () => GeoManager.openBulkImport();
 window.enableCityEditMode = (row, cityId) => GeoManager.enableCityEditMode(row, cityId);
 window.saveCityEdit = (row, cityId) => GeoManager.saveCityEdit(row, cityId);
 window.cancelCityEdit = (e) => GeoManager.cancelCityEdit(e);
-window.openSlidePanel = (title, subtitle, content, saveCallback) => GeoManager.openSlidePanel(title, subtitle, content, saveCallback);
+window.openSlidePanel = (title, subtitle, content, saveCallback, buttonText) => GeoManager.openSlidePanel(title, subtitle, content, saveCallback, buttonText);
 window.closeSlidePanel = () => GeoManager.closeSlidePanel();
 window.showSuccessNotification = (message) => GeoManager.showSuccessNotification(message);
 window.showErrorNotification = (message) => GeoManager.showErrorNotification(message);
@@ -4059,6 +3802,9 @@ function deleteRegion(regionId, regionName) {
         alert('Der opstod en fejl ved sletning af regionen');
     });
 }
+
+// Ensure generateImportExcelForRegionContent is globally accessible
+window.generateImportExcelForRegionContent = generateImportExcelForRegionContent;
 </script>
 
 {% endblock %}
