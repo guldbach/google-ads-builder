@@ -62,4 +62,23 @@ urlpatterns = [
     path('ajax/import-danish-cities-excel/', views.import_danish_cities_excel, name='import_danish_cities_excel'),
     path('ajax/analyze-excel-import-cities/<int:region_id>/', views.analyze_excel_import_cities, name='analyze_excel_import_cities'),
     path('ajax/execute-excel-import-cities/<int:region_id>/', views.execute_excel_import_cities, name='execute_excel_import_cities'),
+    
+    # Industry Manager URLs  
+    path('industry-manager/', views.industry_manager, name='industry_manager'),
+    
+    # Campaign Builder URLs
+    path('campaign-builder/', views.campaign_builder_wizard, name='campaign_builder_wizard'),
+    
+    # Industry Manager AJAX URLs
+    path('ajax/get-industry-services/<int:industry_id>/', views.get_industry_services_ajax, name='get_industry_services_ajax'),
+    path('ajax/get-service-keywords/<int:service_id>/', views.get_service_keywords_ajax, name='get_service_keywords_ajax'),
+    path('ajax/add-service-keyword/', views.add_service_keyword_ajax, name='add_service_keyword_ajax'),
+    path('ajax/update-service-keyword/<int:keyword_id>/', views.update_service_keyword_ajax, name='update_service_keyword_ajax'),
+    path('ajax/delete-service-keyword/<int:keyword_id>/', views.delete_service_keyword_ajax, name='delete_service_keyword_ajax'),
+    path('ajax/create-industry/', views.create_industry_ajax, name='create_industry_ajax'),
+    path('ajax/create-service/', views.create_service_ajax, name='create_service_ajax'),
+    path('ajax/edit-industry/<int:industry_id>/', views.edit_industry_ajax, name='edit_industry_ajax'),
+    path('ajax/edit-service/<int:service_id>/', views.edit_service_ajax, name='edit_service_ajax'),
+    path('ajax/delete-service/<int:service_id>/', views.delete_service_ajax, name='delete_service_ajax'),
+    path('ajax/delete-industry/<int:industry_id>/', views.delete_industry_ajax, name='delete_industry_ajax'),
 ]

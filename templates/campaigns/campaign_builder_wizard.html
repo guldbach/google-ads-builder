@@ -1,0 +1,759 @@
+{% extends 'base.html' %}
+
+{% block title %}Campaign Builder Wizard | Google Ads Builder{% endblock %}
+
+{% block content %}
+
+<!-- Include jQuery -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+<!-- Custom CSS for Multi-Step Wizard -->
+<style>
+
+.step-content {
+    min-height: 500px;
+    transition: opacity 0.3s ease;
+}
+
+.wizard-card {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    border: 1px solid #f3f4f6;
+    transition: all 0.3s ease;
+}
+
+.selection-card {
+    transition: all 0.2s ease;
+    cursor: pointer;
+    border: 2px solid transparent;
+}
+
+.selection-card:hover {
+    border-color: #c084fc;
+    box-shadow: 0 4px 20px rgba(192, 132, 252, 0.2);
+    transform: translateY(-2px);
+}
+
+.selection-card.selected {
+    border-color: #8b5cf6;
+    background: linear-gradient(135deg, #8b5cf620, #8b5cf610);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(139, 92, 246, 0.3);
+}
+
+.checkbox-custom {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.statistics-card {
+    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+    border-radius: 12px;
+    padding: 1rem;
+    border: 1px solid #e2e8f0;
+}
+
+.category-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.progress-bar-container {
+    width: 100%;
+    height: 6px;
+    background-color: #e5e7eb;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #8b5cf6, #ec4899);
+    transition: width 0.5s ease;
+    border-radius: 3px;
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+</style>
+
+<!-- Hero Section -->
+<div class="text-center mb-12 p-12 bg-gradient-to-br from-purple-100 via-blue-50 to-pink-100 rounded-3xl">
+    <div class="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl mb-6 shadow-2xl">
+        <span class="text-4xl">🚀</span>
+    </div>
+    <h1 class="text-5xl font-bold text-gray-900 mb-4">Campaign Builder Wizard</h1>
+    <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+        Intelligent kampagne opsætning med multi-step guide. Byg professionelle Google Ads kampagner med USPs, negative keywords, budget strategier og geo-targeting.
+    </p>
+    
+    <!-- Progress Bar -->
+    <div class="mt-8 max-w-md mx-auto">
+        <div class="progress-bar-container">
+            <div class="progress-bar" id="wizard-progress" style="width: 20%"></div>
+        </div>
+        <p class="text-sm text-gray-500 mt-2">
+            Step <span id="current-step">1</span> of 5 - <span id="step-description">Select Industry & Services</span>
+        </p>
+    </div>
+</div>
+
+
+
+<!-- Wizard Content Container -->
+<div class="wizard-card p-8 mb-8">
+    
+    <!-- STEP 1: Industry & Service Selection -->
+    <div id="step-content-1" class="step-content animate-fade-in">
+        <div class="text-center mb-8">
+            <h2 class="text-3xl font-bold text-gray-900 mb-4">🏢 Vælg Branche og Services</h2>
+        </div>
+        
+        <!-- Industry Selection -->
+        <div class="mb-8">
+            <h3 class="text-xl font-semibold text-gray-900 mb-4">📋 Vælg Branche</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for industry in industries %}
+                <div class="selection-card p-4 rounded-lg border-2 industry-card" data-industry-id="{{ industry.id }}">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-lg flex items-center justify-center text-xl" style="background-color: {{ industry.color }}20;">
+                            {{ industry.icon }}
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="font-medium text-gray-900">{{ industry.name }}</h4>
+                            <p class="text-sm text-gray-500">{{ industry.description }}</p>
+                            <div class="flex items-center mt-2 space-x-3">
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                    {{ industry.industry_services.count }} services
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-span-full text-center py-8">
+                    <p class="text-gray-500">Ingen brancher tilgængelige. Opret en branche i <a href="{% url 'industry_manager' %}" class="text-purple-600 hover:text-purple-700 font-medium">Industry Manager</a>.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Service Selection (Hidden initially) -->
+        <div id="services-section" class="mb-8" style="display: none;">
+            <h3 class="text-xl font-semibold text-gray-900 mb-4">⚙️ Vælg Services</h3>
+            <div id="services-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Services will be loaded dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- STEP 2: USP and Negative Keywords Selection -->
+    <div id="step-content-2" class="step-content" style="display: none;">
+        <div class="text-center mb-8">
+            <h2 class="text-3xl font-bold text-gray-900 mb-4">⭐ USPs og Negative Keywords</h2>
+        </div>
+        
+        <!-- USP Selection -->
+        <div class="mb-8">
+            <h3 class="text-xl font-semibold text-gray-900 mb-4">⭐ Vælg USPs</h3>
+            <div class="space-y-6">
+                {% for category in usp_categories %}
+                <div class="bg-gray-50 rounded-lg p-6">
+                    <h4 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                        <span class="w-8 h-8 rounded-lg mr-3 flex items-center justify-center text-white" style="background-color: {{ category.color }};">
+                            {{ category.icon }}
+                        </span>
+                        {{ category.name }}
+                        <span class="ml-2 category-badge bg-purple-100 text-purple-800">{{ category.usptemplate_set.count }} USPs</span>
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {% for usp in category.usptemplate_set.all %}
+                        <div class="flex items-center p-3 bg-white rounded-lg border">
+                            <input type="checkbox" class="checkbox-custom usp-checkbox" data-usp-id="{{ usp.id }}" data-is-cta="{{ usp.is_cta|yesno:'true,false' }}">
+                            <div class="ml-3 flex-1">
+                                <p class="font-medium text-gray-900">{{ usp.text }}</p>
+                                {% if usp.is_cta %}
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mt-1">
+                                    CTA
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center py-8">
+                    <p class="text-gray-500">Ingen USP kategorier tilgængelige.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Negative Keywords Selection -->
+        <div class="mb-8">
+            <h3 class="text-xl font-semibold text-gray-900 mb-4">🚫 Negative Søgeordslister</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for keyword_list in negative_keyword_lists %}
+                <div class="selection-card p-4 rounded-lg border-2 negative-keyword-card" data-list-id="{{ keyword_list.id }}">
+                    <div class="flex items-start space-x-3">
+                        <div class="w-10 h-10 rounded-lg flex items-center justify-center text-xl" style="background-color: {{ keyword_list.color }}20;">
+                            {{ keyword_list.icon }}
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="font-medium text-gray-900">{{ keyword_list.name }}</h4>
+                            <p class="text-sm text-gray-500 mb-2">{{ keyword_list.description|truncatechars:50 }}</p>
+                            <div class="flex items-center space-x-2">
+                                <span class="category-badge bg-blue-100 text-blue-800">{{ keyword_list.keywords_count }} keywords</span>
+                                {% if keyword_list.category %}
+                                <span class="category-badge bg-gray-100 text-gray-600">{{ keyword_list.get_category_display }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-span-full text-center py-8">
+                    <p class="text-gray-500">Ingen negative søgeordslister tilgængelige.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- STEP 3: Budget Strategy and Ad Templates -->
+    <div id="step-content-3" class="step-content" style="display: none;">
+        <div class="text-center mb-8">
+            <h2 class="text-3xl font-bold text-gray-900 mb-4">💰 Budget Strategi og Ad Templates</h2>
+        </div>
+        
+        <!-- Budget Strategy Selection -->
+        <div class="mb-8">
+            <h3 class="text-xl font-semibold text-gray-900 mb-4">💰 Budget Strategi</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {% for budget_strategy in budget_strategies %}
+                <div class="selection-card p-6 rounded-lg border-2 budget-strategy-card" data-budget-id="{{ budget_strategy.id }}">
+                    <div class="flex items-start justify-between mb-4">
+                        <h4 class="text-lg font-medium text-gray-900">{{ budget_strategy.name }}</h4>
+                        {% if budget_strategy.is_default %}
+                        <span class="category-badge bg-green-100 text-green-800">Default</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-gray-600 mb-4">{{ budget_strategy.description }}</p>
+                    <div class="space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-500">Bidding Strategy:</span>
+                            <span class="text-sm font-medium text-gray-900">{{ budget_strategy.get_bidding_strategy_display }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-500">Dagligt Budget:</span>
+                            <span class="text-sm font-medium text-gray-900">{{ budget_strategy.default_daily_budget|floatformat:0 }} DKK</span>
+                        </div>
+                        {% if budget_strategy.default_cpc %}
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-500">Standard CPC:</span>
+                            <span class="text-sm font-medium text-gray-900">{{ budget_strategy.default_cpc|floatformat:0 }} DKK</span>
+                        </div>
+                        {% endif %}
+                        {% if budget_strategy.target_cpa %}
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-500">Target CPA:</span>
+                            <span class="text-sm font-medium text-gray-900">{{ budget_strategy.target_cpa|floatformat:0 }} DKK</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-span-full text-center py-8">
+                    <p class="text-gray-500">Ingen budget strategier tilgængelige.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Ad Template Selection -->
+        <div class="mb-8">
+            <h3 class="text-xl font-semibold text-gray-900 mb-4">📝 Ad Templates</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {% for ad_template in ad_templates %}
+                <div class="selection-card p-6 rounded-lg border-2 ad-template-card" data-template-id="{{ ad_template.id }}">
+                    <div class="flex items-start justify-between mb-4">
+                        <h4 class="text-lg font-medium text-gray-900">{{ ad_template.name }}</h4>
+                        <div class="flex space-x-2">
+                            {% if ad_template.is_default %}
+                            <span class="category-badge bg-green-100 text-green-800">Default</span>
+                            {% endif %}
+                            <span class="category-badge bg-purple-100 text-purple-800">{{ ad_template.industry.name }}</span>
+                        </div>
+                    </div>
+                    <p class="text-gray-600 mb-4">{{ ad_template.description }}</p>
+                    
+                    <!-- Template Preview -->
+                    <div class="bg-gray-50 rounded-lg p-4 text-sm">
+                        <div class="mb-2">
+                            <span class="text-xs font-medium text-gray-500">Headline 1:</span>
+                            <p class="text-gray-900">{{ ad_template.headline_1_pattern }}</p>
+                        </div>
+                        <div class="mb-2">
+                            <span class="text-xs font-medium text-gray-500">Headline 2:</span>
+                            <p class="text-gray-900">{{ ad_template.headline_2_pattern }}</p>
+                        </div>
+                        <div>
+                            <span class="text-xs font-medium text-gray-500">Description 1:</span>
+                            <p class="text-gray-900">{{ ad_template.description_1_pattern|truncatechars:60 }}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Template Features -->
+                    <div class="mt-4 flex flex-wrap gap-2">
+                        {% if ad_template.prioritize_trust_usps %}
+                        <span class="category-badge bg-blue-100 text-blue-800">Trust USPs</span>
+                        {% endif %}
+                        {% if ad_template.prioritize_speed_usps %}
+                        <span class="category-badge bg-orange-100 text-orange-800">Speed USPs</span>
+                        {% endif %}
+                        {% if ad_template.require_cta_usp %}
+                        <span class="category-badge bg-green-100 text-green-800">CTA Required</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-span-full text-center py-8">
+                    <p class="text-gray-500">Ingen ad templates tilgængelige.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- STEP 4: Geographic Targeting -->
+    <div id="step-content-4" class="step-content" style="display: none;">
+        <div class="text-center mb-8">
+            <h2 class="text-3xl font-bold text-gray-900 mb-4">🌍 Geografisk Målretning</h2>
+        </div>
+        
+        <!-- Geographic Regions Selection -->
+        <div class="mb-8">
+            <h3 class="text-xl font-semibold text-gray-900 mb-4">🗺️ Vælg Geografiske Regioner</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for region in geographic_regions %}
+                <div class="selection-card p-4 rounded-lg border-2 geographic-region-card" data-region-id="{{ region.id }}">
+                    <div class="flex items-start space-x-3">
+                        <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center text-xl">
+                            🏙️
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="font-medium text-gray-900">{{ region.name }}</h4>
+                            <p class="text-sm text-gray-500 mb-2">{{ region.description|truncatechars:50 }}</p>
+                            <div class="flex items-center space-x-2">
+                                <span class="category-badge bg-blue-100 text-blue-800">{{ region.cities_count }} cities</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-span-full text-center py-8">
+                    <p class="text-gray-500">Ingen geografiske regioner tilgængelige. Opret regioner i <a href="{% url 'geographic_regions_manager' %}" class="text-purple-600 hover:text-purple-700 font-medium">Geographic Regions Manager</a>.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- STEP 5: Preview and Export -->
+    <div id="step-content-5" class="step-content" style="display: none;">
+        <div class="text-center mb-8">
+            <h2 class="text-3xl font-bold text-gray-900 mb-4">👀 Forhåndsvisning og Eksport</h2>
+        </div>
+        
+        <!-- Campaign Summary -->
+        <div id="campaign-summary" class="space-y-6">
+            <!-- Summary content will be generated dynamically -->
+        </div>
+        
+        <!-- Export Options -->
+        <div class="mt-8 border-t pt-8">
+            <h3 class="text-xl font-semibold text-gray-900 mb-4">📤 Eksport Indstillinger</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button class="btn-primary p-6 rounded-lg text-left" onclick="exportCampaign('google_ads')">
+                    <h4 class="font-medium text-white mb-2">Google Ads Editor</h4>
+                    <p class="text-purple-100 text-sm">Eksportér til Google Ads Editor CSV format</p>
+                </button>
+                <button class="btn-secondary p-6 rounded-lg text-left" onclick="exportCampaign('preview')">
+                    <h4 class="font-medium text-white mb-2">Preview Kampagne</h4>
+                    <p class="text-blue-100 text-sm">Se detaljeret forhåndsvisning af kampagnen</p>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Navigation Controls -->
+<div class="flex justify-between items-center mb-8">
+    <button id="prev-btn" class="px-6 py-3 bg-gray-200 text-gray-600 rounded-lg font-medium hover:bg-gray-300 transition-all duration-200" onclick="previousStep()" style="display: none;">
+        ← Forrige Step
+    </button>
+    <div class="flex-1"></div>
+    <button id="next-btn" class="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:shadow-lg transition-all duration-200" onclick="nextStep()">
+        Næste Step →
+    </button>
+    <button id="create-campaign-btn" class="px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-medium hover:shadow-lg transition-all duration-200" onclick="createCampaign()" style="display: none;">
+        🚀 Opret Kampagne
+    </button>
+</div>
+
+
+<script>
+// Wizard State Management
+let currentStep = 1;
+let maxSteps = 5;
+let campaignConfig = {
+    industry_id: null,
+    service_ids: [],
+    usp_ids: [],
+    negative_keyword_list_ids: [],
+    budget_strategy_id: null,
+    ad_template_id: null,
+    geographic_region_ids: []
+};
+
+// Initialize wizard
+$(document).ready(function() {
+    updateWizardState();
+    setupEventListeners();
+});
+
+// Setup event listeners
+function setupEventListeners() {
+    // Industry selection
+    $('.industry-card').on('click', function() {
+        $('.industry-card').removeClass('selected');
+        $(this).addClass('selected');
+        
+        const industryId = $(this).data('industry-id');
+        campaignConfig.industry_id = industryId;
+        
+        // Load services for selected industry
+        loadServicesForIndustry(industryId);
+        
+        // Show services section
+        $('#services-section').show();
+    });
+    
+    // Service selection (multiple)
+    $(document).on('click', '.service-card', function() {
+        $(this).toggleClass('selected');
+        
+        const serviceId = $(this).data('service-id');
+        if ($(this).hasClass('selected')) {
+            if (!campaignConfig.service_ids.includes(serviceId)) {
+                campaignConfig.service_ids.push(serviceId);
+            }
+        } else {
+            campaignConfig.service_ids = campaignConfig.service_ids.filter(id => id !== serviceId);
+        }
+        
+        // Step validation is handled in nextStep() function
+    });
+    
+    // USP selection
+    $('.usp-checkbox').on('change', function() {
+        const uspId = parseInt($(this).data('usp-id'));
+        if ($(this).is(':checked')) {
+            if (!campaignConfig.usp_ids.includes(uspId)) {
+                campaignConfig.usp_ids.push(uspId);
+            }
+        } else {
+            campaignConfig.usp_ids = campaignConfig.usp_ids.filter(id => id !== uspId);
+        }
+    });
+    
+    // Negative keyword list selection
+    $('.negative-keyword-card').on('click', function() {
+        $(this).toggleClass('selected');
+        
+        const listId = $(this).data('list-id');
+        if ($(this).hasClass('selected')) {
+            if (!campaignConfig.negative_keyword_list_ids.includes(listId)) {
+                campaignConfig.negative_keyword_list_ids.push(listId);
+            }
+        } else {
+            campaignConfig.negative_keyword_list_ids = campaignConfig.negative_keyword_list_ids.filter(id => id !== listId);
+        }
+    });
+    
+    // Budget strategy selection (single)
+    $('.budget-strategy-card').on('click', function() {
+        $('.budget-strategy-card').removeClass('selected');
+        $(this).addClass('selected');
+        campaignConfig.budget_strategy_id = $(this).data('budget-id');
+    });
+    
+    // Ad template selection (single)
+    $('.ad-template-card').on('click', function() {
+        $('.ad-template-card').removeClass('selected');
+        $(this).addClass('selected');
+        campaignConfig.ad_template_id = $(this).data('template-id');
+    });
+    
+    // Geographic region selection (multiple)
+    $('.geographic-region-card').on('click', function() {
+        $(this).toggleClass('selected');
+        
+        const regionId = $(this).data('region-id');
+        if ($(this).hasClass('selected')) {
+            if (!campaignConfig.geographic_region_ids.includes(regionId)) {
+                campaignConfig.geographic_region_ids.push(regionId);
+            }
+        } else {
+            campaignConfig.geographic_region_ids = campaignConfig.geographic_region_ids.filter(id => id !== regionId);
+        }
+    });
+}
+
+// Load services for selected industry
+function loadServicesForIndustry(industryId) {
+    const servicesContainer = $('#services-container');
+    
+    // Show loading state
+    servicesContainer.html(`
+        <div class="col-span-full text-center py-8">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto"></div>
+            <p class="text-gray-500 mt-2">Indlæser services...</p>
+        </div>
+    `);
+    
+    // Make AJAX call to get services for this industry
+    $.ajax({
+        url: `/ajax/get-industry-services/${industryId}/`,
+        method: 'GET',
+        success: function(response) {
+            if (response.success) {
+                if (response.services.length === 0) {
+                    // No services available
+                    servicesContainer.html(`
+                        <div class="col-span-full text-center py-8">
+                            <div class="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                                <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                            <p class="text-gray-500 mb-4">Ingen services tilgængelige for "${response.industry_name}"</p>
+                            <p class="text-sm text-gray-400">Du kan tilføje services i <a href="/industry-manager/" class="text-purple-600 hover:text-purple-700 font-medium">Industry Manager</a></p>
+                        </div>
+                    `);
+                } else {
+                    // Generate service cards
+                    let servicesHtml = '';
+                    response.services.forEach(service => {
+                        servicesHtml += `
+                            <div class="selection-card p-4 rounded-lg border-2 service-card" data-service-id="${service.id}">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-sm">${service.icon}</div>
+                                    <div class="flex-1">
+                                        <h4 class="font-medium text-gray-900">${service.name}</h4>
+                                        <p class="text-sm text-gray-500">${service.description || 'Ingen beskrivelse'}</p>
+                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mt-1">
+                                            ${service.keyword_count} keywords
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    servicesContainer.html(servicesHtml);
+                }
+                
+                // Update step validation since services have loaded
+                // Step validation is handled in nextStep() function
+            } else {
+                servicesContainer.html(`
+                    <div class="col-span-full text-center py-8">
+                        <p class="text-red-500 mb-2">Fejl ved indlæsning af services</p>
+                        <p class="text-sm text-gray-500">${response.error || 'Ukendt fejl'}</p>
+                    </div>
+                `);
+            }
+        },
+        error: function(xhr) {
+            console.error('Error loading services:', xhr);
+            servicesContainer.html(`
+                <div class="col-span-full text-center py-8">
+                    <p class="text-red-500 mb-2">Fejl ved indlæsning af services</p>
+                    <p class="text-sm text-gray-500">Prøv igen senere eller kontakt support</p>
+                </div>
+            `);
+        }
+    });
+}
+
+// Navigation functions
+function nextStep() {
+    if (currentStep < maxSteps) {
+        if (validateCurrentStep()) {
+            currentStep++;
+            updateWizardState();
+            
+            // Special handling for final step
+            if (currentStep === maxSteps) {
+                generateCampaignSummary();
+            }
+        }
+    }
+}
+
+function previousStep() {
+    if (currentStep > 1) {
+        currentStep--;
+        updateWizardState();
+    }
+}
+
+// Validate current step
+function validateCurrentStep() {
+    switch(currentStep) {
+        case 1:
+            if (!campaignConfig.industry_id) {
+                alert('Vælg venligst en branche før du fortsætter.');
+                return false;
+            }
+            if (campaignConfig.service_ids.length === 0) {
+                alert('Vælg mindst én service før du fortsætter.');
+                return false;
+            }
+            return true;
+        case 2:
+            if (campaignConfig.usp_ids.length === 0) {
+                alert('Vælg mindst én USP før du fortsætter.');
+                return false;
+            }
+            return true;
+        case 3:
+            if (!campaignConfig.budget_strategy_id) {
+                alert('Vælg en budget strategi før du fortsætter.');
+                return false;
+            }
+            if (!campaignConfig.ad_template_id) {
+                alert('Vælg et ad template før du fortsætter.');
+                return false;
+            }
+            return true;
+        case 4:
+            if (campaignConfig.geographic_region_ids.length === 0) {
+                alert('Vælg mindst én geografisk region før du fortsætter.');
+                return false;
+            }
+            return true;
+        default:
+            return true;
+    }
+}
+
+// Update wizard state
+function updateWizardState() {
+    // Hide all step content
+    $('.step-content').hide();
+    
+    // Show current step content
+    $(`#step-content-${currentStep}`).show().addClass('animate-fade-in');
+    
+    // Step indicators removed - only progress bar remains
+    
+    // Update progress bar
+    const progressPercent = (currentStep / maxSteps) * 100;
+    $('#wizard-progress').css('width', `${progressPercent}%`);
+    
+    // Update step description
+    const stepDescriptions = [
+        'Vælg branche og services',
+        'USPs og keywords',
+        'Budget og templates',
+        'Geo-targeting',
+        'Preview og export'
+    ];
+    $('#current-step').text(currentStep);
+    $('#step-description').text(stepDescriptions[currentStep - 1]);
+    
+    // Update navigation buttons
+    if (currentStep === 1) {
+        $('#prev-btn').hide();
+    } else {
+        $('#prev-btn').show();
+    }
+    
+    if (currentStep === maxSteps) {
+        $('#next-btn').hide();
+        $('#create-campaign-btn').show();
+    } else {
+        $('#next-btn').show();
+        $('#create-campaign-btn').hide();
+    }
+}
+
+// Generate campaign summary for final step
+function generateCampaignSummary() {
+    const summaryContainer = $('#campaign-summary');
+    
+    const summaryHtml = `
+        <div class="bg-white rounded-lg p-6 border border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">📋 Kampagne Oversigt</h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h4 class="font-medium text-gray-900 mb-2">🏢 Branche & Services</h4>
+                    <p class="text-sm text-gray-600 mb-1">Branche: ${campaignConfig.industry_id ? 'Valgt' : 'Ikke valgt'}</p>
+                    <p class="text-sm text-gray-600">Services: ${campaignConfig.service_ids.length} valgt</p>
+                </div>
+                
+                <div>
+                    <h4 class="font-medium text-gray-900 mb-2">⭐ USPs & Negative Keywords</h4>
+                    <p class="text-sm text-gray-600 mb-1">USPs: ${campaignConfig.usp_ids.length} valgt</p>
+                    <p class="text-sm text-gray-600">Negative lister: ${campaignConfig.negative_keyword_list_ids.length} valgt</p>
+                </div>
+                
+                <div>
+                    <h4 class="font-medium text-gray-900 mb-2">💰 Budget & Templates</h4>
+                    <p class="text-sm text-gray-600 mb-1">Budget strategi: ${campaignConfig.budget_strategy_id ? 'Valgt' : 'Ikke valgt'}</p>
+                    <p class="text-sm text-gray-600">Ad template: ${campaignConfig.ad_template_id ? 'Valgt' : 'Ikke valgt'}</p>
+                </div>
+                
+                <div>
+                    <h4 class="font-medium text-gray-900 mb-2">🌍 Geo-targeting</h4>
+                    <p class="text-sm text-gray-600">Regioner: ${campaignConfig.geographic_region_ids.length} valgt</p>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    summaryContainer.html(summaryHtml);
+}
+
+// Export functions
+function exportCampaign(format) {
+    console.log('Exporting campaign:', format, campaignConfig);
+    alert(`Eksporterer kampagne i ${format} format...`);
+}
+
+// Create campaign function
+function createCampaign() {
+    console.log('Creating campaign with config:', campaignConfig);
+    alert('Kampagne oprettes... Dette vil blive implementeret i næste fase.');
+}
+</script>
+
+{% endblock %}

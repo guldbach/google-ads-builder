@@ -115,6 +115,12 @@ class USPTemplate(models.Model):
         help_text="Performance score mellem 0 og 1 (opdateres automatisk)"
     )
     
+    # Call-to-Action identification
+    is_cta = models.BooleanField(
+        default=False,
+        help_text="Er denne USP en Call-to-Action? (f.eks. 'Få en pris på 2 min', 'Ring nu og få tilbud')"
+    )
+    
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

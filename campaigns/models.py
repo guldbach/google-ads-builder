@@ -6,9 +6,198 @@ class Industry(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-
+    
+    # New fields for Industry Manager
+    synonyms = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Synonymer for branchen, f.eks. ['Kloakfirma', 'Kloakmand'] for 'Kloakmester'"
+    )
+    icon = models.CharField(
+        max_length=10,
+        default='🏢',
+        help_text="Emoji icon for branchen"
+    )
+    color = models.CharField(
+        max_length=7,
+        default='#3B82F6',
+        help_text="Hex farve kode for branchen"
+    )
+    is_active = models.BooleanField(default=True)
+    
+    # Negative keyword list connections for campaign-level
+    default_negative_keyword_lists = models.ManyToManyField(
+        'NegativeKeywordList',
+        blank=True,
+        related_name='default_for_industries',
+        help_text="Standard negative søgeordslister for denne branche (kampagne-niveau)"
+    )
+    
     def __str__(self):
         return self.name
+    
+    def services_count(self):
+        """Return count of services for this industry"""
+        return self.industry_services.count()
+    
+    def keywords_count(self):
+        """Return total count of keywords across all services"""
+        return ServiceKeyword.objects.filter(service__industry=self).count()
+
+
+class IndustryService(models.Model):
+    """Services/Ydelser under en branche (f.eks. Kloakrensning, Kloakservice)"""
+    
+    industry = models.ForeignKey(
+        Industry, 
+        on_delete=models.CASCADE, 
+        related_name='industry_services'
+    )
+    name = models.CharField(
+        max_length=100, 
+        help_text="Service navn, f.eks. 'Kloakrensning'"
+    )
+    description = models.TextField(
+        blank=True,
+        help_text="Beskrivelse af servicen"
+    )
+    
+    # Visual settings (som negative keywords lists)
+    icon = models.CharField(
+        max_length=10,
+        default='⚙️',
+        help_text="Emoji icon for servicen"
+    )
+    color = models.CharField(
+        max_length=7,
+        default='#8B5CF6',
+        help_text="Hex farve kode for servicen"
+    )
+    
+    # Settings
+    is_active = models.BooleanField(default=True)
+    sort_order = models.IntegerField(default=1)
+    
+    # Negative keyword list connections for ad-group-level
+    service_negative_keyword_lists = models.ManyToManyField(
+        'NegativeKeywordList',
+        blank=True,
+        related_name='used_by_services',
+        help_text="Service-specifikke negative søgeordslister (annoncegruppe-niveau)"
+    )
+    
+    # Metadata
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.industry.name} - {self.name}"
+    
+    def keywords_count(self):
+        """Return count of keywords for this service"""
+        return self.service_keywords.count()
+    
+    class Meta:
+        ordering = ['sort_order', 'name']
+        unique_together = ['industry', 'name']
+
+
+class ServiceKeyword(models.Model):
+    """Keywords under en service (som negative keywords structure)"""
+    
+    MATCH_TYPES = [
+        ('broad', 'Broad Match'),
+        ('phrase', 'Phrase Match'),
+        ('exact', 'Exact Match'),
+    ]
+    
+    service = models.ForeignKey(
+        IndustryService, 
+        on_delete=models.CASCADE, 
+        related_name='service_keywords'
+    )
+    keyword_text = models.CharField(
+        max_length=200, 
+        help_text="Keyword text, f.eks. 'kloakrensning'"
+    )
+    match_type = models.CharField(
+        max_length=10, 
+        choices=MATCH_TYPES, 
+        default='phrase'
+    )
+    
+    # Additional fields
+    is_primary = models.BooleanField(
+        default=False,
+        help_text="Er dette et primært keyword for servicen?"
+    )
+    
+    # Metadata
+    added_at = models.DateTimeField(auto_now_add=True)
+    source_file_line = models.IntegerField(
+        null=True, 
+        blank=True,
+        help_text="Linje nummer fra upload fil"
+    )
+    notes = models.CharField(
+        max_length=255, 
+        blank=True,
+        help_text="Noter om dette keyword"
+    )
+    
+    def __str__(self):
+        return f"{self.service.name} - {self.keyword_text} ({self.match_type})"
+    
+    class Meta:
+        unique_together = ['service', 'keyword_text', 'match_type']
+        ordering = ['-is_primary', 'keyword_text']
+
+
+class IndustryHeadline(models.Model):
+    """Standard headlines per branche"""
+    
+    industry = models.ForeignKey(
+        Industry, 
+        on_delete=models.CASCADE, 
+        related_name='industry_headlines'
+    )
+    headline_text = models.CharField(
+        max_length=30, 
+        help_text="Headline text med placeholders, f.eks. 'Professionel {SERVICE}'"
+    )
+    description = models.TextField(
+        blank=True,
+        help_text="Beskrivelse af hvornår denne headline bruges"
+    )
+    
+    # Settings
+    is_active = models.BooleanField(default=True)
+    priority = models.IntegerField(
+        default=1,
+        help_text="Prioritetsrækkefølge (1 = højest)"
+    )
+    
+    # Placeholders supported
+    uses_service_placeholder = models.BooleanField(
+        default=False,
+        help_text="Bruger {SERVICE} placeholder"
+    )
+    uses_city_placeholder = models.BooleanField(
+        default=False,
+        help_text="Bruger {CITY} placeholder" 
+    )
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.industry.name} - {self.headline_text}"
+    
+    class Meta:
+        ordering = ['priority', 'headline_text']
+        unique_together = ['industry', 'headline_text']
 
 
 class Client(models.Model):
@@ -966,3 +1155,173 @@ class GeographicRegionUpload(models.Model):
     
     class Meta:
         ordering = ['-uploaded_at']
+
+
+# Campaign Builder Support Models
+class BudgetStrategy(models.Model):
+    """Standard budget strategier for forskellige brancher og kampagne typer"""
+    
+    BIDDING_STRATEGIES = [
+        ('enhanced_cpc', 'Enhanced CPC'),
+        ('target_cpa', 'Target CPA'),
+        ('maximize_clicks', 'Maximize Clicks'),
+        ('manual_cpc', 'Manual CPC'),
+        ('target_roas', 'Target ROAS'),
+    ]
+    
+    name = models.CharField(
+        max_length=100,
+        help_text="Navn på strategien, f.eks. 'Standard Håndværker', 'Akut Service'"
+    )
+    description = models.TextField(
+        blank=True,
+        help_text="Beskrivelse af hvornår denne strategi skal bruges"
+    )
+    
+    # Budget settings
+    bidding_strategy = models.CharField(
+        max_length=20,
+        choices=BIDDING_STRATEGIES,
+        default='enhanced_cpc',
+        help_text="Google Ads bidding strategy"
+    )
+    default_daily_budget = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text="Foreslået dagligt budget i DKK"
+    )
+    default_cpc = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Standard CPC bid (hvis manual CPC eller enhanced CPC)"
+    )
+    target_cpa = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Target CPA (hvis Target CPA strategi)"
+    )
+    target_roas = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Target ROAS (hvis Target ROAS strategi)"
+    )
+    
+    # Industry connections
+    industries = models.ManyToManyField(
+        Industry,
+        blank=True,
+        help_text="Industrier denne strategi anbefales til"
+    )
+    
+    # Settings
+    is_default = models.BooleanField(
+        default=False,
+        help_text="Er dette en default strategi for nye kampagner?"
+    )
+    is_active = models.BooleanField(default=True)
+    
+    # Metadata
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.name} ({self.get_bidding_strategy_display()}) - {self.default_daily_budget} DKK/dag"
+    
+    class Meta:
+        verbose_name = "Budget Strategy"
+        verbose_name_plural = "Budget Strategies"
+        ordering = ['name']
+
+
+class AdTemplate(models.Model):
+    """Template for intelligente annonce-generering baseret på USPs + keywords"""
+    
+    name = models.CharField(
+        max_length=100,
+        help_text="Navn på template, f.eks. 'Håndværker Standard', 'Service med Priser'"
+    )
+    description = models.TextField(
+        blank=True,
+        help_text="Beskrivelse af hvornår denne template skal bruges"
+    )
+    industry = models.ForeignKey(
+        Industry,
+        on_delete=models.CASCADE,
+        help_text="Branche denne template er designet til"
+    )
+    
+    # Headline templates with placeholders
+    headline_1_pattern = models.CharField(
+        max_length=30,
+        help_text="Template for headline 1, f.eks. '{PRIMARY_KEYWORD} fra kun {PRICE},-'"
+    )
+    headline_2_pattern = models.CharField(
+        max_length=30,
+        help_text="Template for headline 2, f.eks. '{USP_TRUST}' eller '{USP_SPEED}'"
+    )
+    headline_3_pattern = models.CharField(
+        max_length=30,
+        help_text="Template for headline 3, f.eks. '{USP_CTA}'"
+    )
+    
+    # Description templates  
+    description_1_pattern = models.CharField(
+        max_length=90,
+        help_text="Template for description 1, f.eks. 'Professionel {SERVICE} af erfarne fagfolk. {USP_TRUST}.'"
+    )
+    description_2_pattern = models.CharField(
+        max_length=90,
+        help_text="Template for description 2, f.eks. '{USP_SPEED}. {USP_CTA}.'"
+    )
+    
+    # URL template
+    final_url_pattern = models.CharField(
+        max_length=200,
+        default='{BASE_URL}',
+        help_text="URL template, f.eks. '{BASE_URL}/{SERVICE_SLUG}' eller '{BASE_URL}/{CITY_SLUG}/{SERVICE_SLUG}'"
+    )
+    
+    # USP prioritering logic
+    prioritize_trust_usps = models.BooleanField(
+        default=True,
+        help_text="Prioritér troværdigheds-USPs (Trustpilot, erfaring, etc.)"
+    )
+    prioritize_speed_usps = models.BooleanField(
+        default=True,
+        help_text="Prioritér hastigheds-USPs (samme dag, hurtig service, etc.)"
+    )
+    prioritize_price_usps = models.BooleanField(
+        default=False,
+        help_text="Prioritér pris-USPs (konkurrencedygtige priser, etc.)"
+    )
+    require_cta_usp = models.BooleanField(
+        default=True,
+        help_text="Kræv mindst én Call-to-Action USP"
+    )
+    
+    # Settings
+    is_default = models.BooleanField(
+        default=False,
+        help_text="Er dette default template for denne industry?"
+    )
+    is_active = models.BooleanField(default=True)
+    
+    # Metadata
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.name} ({self.industry.name})"
+    
+    class Meta:
+        verbose_name = "Ad Template"
+        verbose_name_plural = "Ad Templates"
+        ordering = ['industry__name', 'name']

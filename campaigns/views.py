@@ -9,7 +9,8 @@ from .models import (
     Industry, Client, Campaign, AdGroup, Ad, Keyword, PerformanceDataImport, 
     HistoricalCampaignPerformance, HistoricalKeywordPerformance,
     NegativeKeywordList, NegativeKeyword, CampaignNegativeKeywordList, NegativeKeywordUpload,
-    GeographicRegion, DanishCity, GeographicRegionUpload
+    GeographicRegion, DanishCity, GeographicRegionUpload,
+    IndustryService, ServiceKeyword, IndustryHeadline
 )
 
 # Import geographic regions views
@@ -2430,3 +2431,860 @@ def process_negative_keywords_excel(excel_file, user):
             'success': False,
             'error': f'Fejl ved læsning af Excel fil: {str(e)}'
         }
+
+
+# =================================================================
+# INDUSTRY MANAGER VIEWS
+# =================================================================
+
+def industry_manager(request):
+    """Industry Manager - administrer brancher, services og keywords"""
+    
+    # Get all industries with their related services and keywords
+    from .models import IndustryService, ServiceKeyword, IndustryHeadline
+    
+    industries = Industry.objects.all().prefetch_related(
+        'industry_services__service_keywords',
+        'industry_headlines'
+    ).order_by('name')
+    
+    # Calculate statistics for each industry
+    for industry in industries:
+        industry.services_total = industry.industry_services.count()
+    
+    context = {
+        'industries': industries,
+        'total_industries': industries.count(),
+        'total_services': IndustryService.objects.count(),
+        'total_keywords': ServiceKeyword.objects.count(),
+    }
+    
+    return render(request, 'campaigns/industry_manager.html', context)
+
+
+def campaign_builder_wizard(request):
+    """Campaign Builder Wizard - intelligent kampagne opsætning med multi-step guide"""
+    
+    # Hent data for wizard steps
+    from .models import BudgetStrategy, AdTemplate
+    from usps.models import USPTemplate, USPMainCategory
+    from .models import NegativeKeywordList, GeographicRegion, IndustryService, ServiceKeyword
+    
+    # Step 1: Industries and Services
+    industries = Industry.objects.filter(is_active=True).prefetch_related(
+        'industry_services__service_keywords'
+    ).order_by('name')
+    
+    # Step 2: USPs and Negative Keywords
+    usp_categories = USPMainCategory.objects.filter(is_active=True).prefetch_related(
+        'usptemplate_set'
+    ).order_by('name')
+    
+    negative_keyword_lists = NegativeKeywordList.objects.filter(is_active=True).order_by('name')
+    
+    # Step 3: Budget Strategies and Ad Templates
+    budget_strategies = BudgetStrategy.objects.filter(is_active=True).order_by('-is_default', 'name')
+    ad_templates = AdTemplate.objects.filter(is_active=True).order_by('-is_default', 'name')
+    
+    # Step 4: Geographic Regions
+    geographic_regions = GeographicRegion.objects.filter(is_active=True).order_by('name')
+    
+    context = {
+        'industries': industries,
+        'usp_categories': usp_categories,
+        'negative_keyword_lists': negative_keyword_lists,
+        'budget_strategies': budget_strategies,
+        'ad_templates': ad_templates,
+        'geographic_regions': geographic_regions,
+    }
+    
+    return render(request, 'campaigns/campaign_builder_wizard.html', context)
+
+
+# =================================================================
+# INDUSTRY MANAGER AJAX VIEWS
+# =================================================================
+
+@csrf_exempt
+def get_industry_services_ajax(request, industry_id):
+    """Get services for a specific industry for Campaign Builder"""
+    if request.method == 'GET':
+        try:
+            from .models import IndustryService
+            
+            industry = Industry.objects.get(id=industry_id)
+            services = industry.industry_services.all().order_by('name')
+            
+            services_data = []
+            for service in services:
+                keyword_count = service.service_keywords.count()
+                services_data.append({
+                    'id': service.id,
+                    'name': service.name,
+                    'description': service.description or '',
+                    'keyword_count': keyword_count,
+                    'icon': service.icon or '⚙️',
+                })
+            
+            return JsonResponse({
+                'success': True,
+                'services': services_data,
+                'industry_name': industry.name
+            })
+        
+        except Industry.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Branche ikke fundet'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+@csrf_exempt
+def get_service_keywords_ajax(request, service_id):
+    """Get keywords for a specific service"""
+    if request.method == 'GET':
+        try:
+            from .models import IndustryService, ServiceKeyword
+            
+            service = IndustryService.objects.get(id=service_id)
+            keywords = service.service_keywords.all().order_by('-is_primary', 'keyword_text')
+            
+            keywords_data = []
+            for keyword in keywords:
+                keywords_data.append({
+                    'id': keyword.id,
+                    'keyword_text': keyword.keyword_text,
+                    'match_type': keyword.match_type,
+                    'match_type_display': keyword.get_match_type_display(),
+                    'is_primary': keyword.is_primary,
+                    'notes': keyword.notes,
+                })
+            
+            return JsonResponse({
+                'success': True,
+                'service': {
+                    'id': service.id,
+                    'name': service.name,
+                    'description': service.description,
+                    'icon': service.icon,
+                    'color': service.color,
+                },
+                'keywords': keywords_data,
+                'total_keywords': len(keywords_data)
+            })
+            
+        except IndustryService.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Service ikke fundet'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+
+@csrf_exempt  
+def add_service_keyword_ajax(request):
+    """Add a new keyword to a service"""
+    if request.method == 'POST':
+        try:
+            from .models import IndustryService, ServiceKeyword
+            
+            service_id = request.POST.get('service_id')
+            keyword_text = request.POST.get('keyword_text', '').strip()
+            match_type = request.POST.get('match_type', 'phrase')
+            is_primary = request.POST.get('is_primary') == 'true'
+            notes = request.POST.get('notes', '').strip()
+            
+            if not service_id or not keyword_text:
+                return JsonResponse({'success': False, 'error': 'Service og keyword text er påkrævet'})
+            
+            service = IndustryService.objects.get(id=service_id)
+            
+            # Check for duplicates
+            if ServiceKeyword.objects.filter(
+                service=service,
+                keyword_text__iexact=keyword_text,
+                match_type=match_type
+            ).exists():
+                return JsonResponse({'success': False, 'error': f'Keyword "{keyword_text}" med {match_type} match type eksisterer allerede'})
+            
+            # Create keyword
+            keyword = ServiceKeyword.objects.create(
+                service=service,
+                keyword_text=keyword_text,
+                match_type=match_type,
+                is_primary=is_primary,
+                notes=notes
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Keyword "{keyword_text}" blev tilføjet!',
+                'keyword': {
+                    'id': keyword.id,
+                    'keyword_text': keyword.keyword_text,
+                    'match_type': keyword.match_type,
+                    'match_type_display': keyword.get_match_type_display(),
+                    'is_primary': keyword.is_primary,
+                    'notes': keyword.notes,
+                }
+            })
+            
+        except IndustryService.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Service ikke fundet'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+
+@csrf_exempt
+def update_service_keyword_ajax(request, keyword_id):
+    """Update a service keyword"""
+    if request.method == 'POST':
+        try:
+            from .models import ServiceKeyword
+            
+            keyword = ServiceKeyword.objects.get(id=keyword_id)
+            
+            keyword_text = request.POST.get('keyword_text', '').strip()
+            match_type = request.POST.get('match_type')
+            is_primary = request.POST.get('is_primary') == 'true'
+            notes = request.POST.get('notes', '').strip()
+            
+            if not keyword_text:
+                return JsonResponse({'success': False, 'error': 'Keyword text er påkrævet'})
+            
+            # Check for duplicates (excluding current keyword)
+            if ServiceKeyword.objects.filter(
+                service=keyword.service,
+                keyword_text__iexact=keyword_text,
+                match_type=match_type
+            ).exclude(id=keyword_id).exists():
+                return JsonResponse({'success': False, 'error': f'Keyword "{keyword_text}" med {match_type} match type eksisterer allerede'})
+            
+            # Update keyword
+            keyword.keyword_text = keyword_text
+            keyword.match_type = match_type
+            keyword.is_primary = is_primary
+            keyword.notes = notes
+            keyword.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Keyword "{keyword_text}" blev opdateret!',
+                'keyword': {
+                    'id': keyword.id,
+                    'keyword_text': keyword.keyword_text,
+                    'match_type': keyword.match_type,
+                    'match_type_display': keyword.get_match_type_display(),
+                    'is_primary': keyword.is_primary,
+                    'notes': keyword.notes,
+                }
+            })
+            
+        except ServiceKeyword.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Keyword ikke fundet'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+
+@csrf_exempt
+def delete_service_keyword_ajax(request, keyword_id):
+    """Delete a service keyword"""
+    if request.method == 'POST':
+        try:
+            from .models import ServiceKeyword
+            
+            keyword = ServiceKeyword.objects.get(id=keyword_id)
+            keyword_text = keyword.keyword_text
+            
+            keyword.delete()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Keyword "{keyword_text}" blev slettet!'
+            })
+            
+        except ServiceKeyword.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Keyword ikke fundet'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+
+@csrf_exempt
+def create_industry_ajax(request):
+    """Create a new industry"""
+    if request.method == 'POST':
+        try:
+            name = request.POST.get('name', '').strip()
+            description = request.POST.get('description', '').strip()
+            synonyms_data = request.POST.get('synonyms', '')
+            icon = request.POST.get('icon', '🏢').strip()
+            color = request.POST.get('color', '#3B82F6').strip()
+            
+            if not name:
+                return JsonResponse({'success': False, 'error': 'Navn er påkrævet'})
+            
+            # Parse synonyms (either JSON array or comma separated string)
+            synonyms = []
+            if synonyms_data:
+                try:
+                    # Try to parse as JSON first (from new slide panel)
+                    synonyms = json.loads(synonyms_data)
+                    if not isinstance(synonyms, list):
+                        synonyms = []
+                except (json.JSONDecodeError, TypeError):
+                    # Fall back to comma-separated string parsing (legacy)
+                    synonyms = [s.strip() for s in synonyms_data.split(',') if s.strip()]
+            
+            # Check if industry already exists
+            if Industry.objects.filter(name__iexact=name).exists():
+                return JsonResponse({'success': False, 'error': f'Branche "{name}" eksisterer allerede'})
+            
+            # Create industry
+            industry = Industry.objects.create(
+                name=name,
+                description=description,
+                synonyms=synonyms,
+                icon=icon,
+                color=color,
+                is_active=True
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Branche "{name}" blev oprettet!',
+                'industry_id': industry.id
+            })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+
+@csrf_exempt
+def create_service_ajax(request):
+    """Create a new service under an industry"""
+    if request.method == 'POST':
+        try:
+            from .models import IndustryService
+            from django.contrib.auth.models import User
+            
+            industry_id = request.POST.get('industry_id')
+            name = request.POST.get('name', '').strip()
+            description = request.POST.get('description', '').strip()
+            icon = request.POST.get('icon', '⚙️').strip()
+            color = request.POST.get('color', '#8B5CF6').strip()
+            
+            if not industry_id or not name:
+                return JsonResponse({'success': False, 'error': 'Branche og navn er påkrævet'})
+            
+            industry = Industry.objects.get(id=industry_id)
+            
+            # Check if service already exists in this industry
+            if IndustryService.objects.filter(industry=industry, name__iexact=name).exists():
+                return JsonResponse({'success': False, 'error': f'Service "{name}" eksisterer allerede i denne branche'})
+            
+            # Get or create demo user
+            user, created = User.objects.get_or_create(
+                username='demo_user',
+                defaults={'email': 'demo@example.com', 'first_name': 'Demo', 'last_name': 'User'}
+            )
+            
+            # Create service
+            service = IndustryService.objects.create(
+                industry=industry,
+                name=name,
+                description=description,
+                icon=icon,
+                color=color,
+                created_by=user
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Service "{name}" blev oprettet!',
+                'service_id': service.id
+            })
+            
+        except Industry.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Branche ikke fundet'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+
+# Edit industry and service functions
+@csrf_exempt
+def edit_industry_ajax(request, industry_id):
+    """Edit industry - GET returns current data, POST updates"""
+    try:
+        industry = Industry.objects.get(id=industry_id)
+        
+        if request.method == 'GET':
+            # Return current industry data for editing
+            return JsonResponse({
+                'success': True,
+                'industry': {
+                    'id': industry.id,
+                    'name': industry.name,
+                    'description': industry.description or '',
+                    'synonyms': ', '.join(industry.synonyms) if industry.synonyms else '',
+                    'icon': industry.icon or '🏢',
+                    'color': industry.color or '#3B82F6',
+                    'is_active': industry.is_active
+                }
+            })
+        
+        elif request.method == 'POST':
+            # Update industry
+            name = request.POST.get('name', '').strip()
+            description = request.POST.get('description', '').strip()
+            synonyms_data = request.POST.get('synonyms', '')
+            icon = request.POST.get('icon', '🏢').strip()
+            color = request.POST.get('color', '#3B82F6').strip()
+            # Preserve existing is_active if not explicitly sent (slide panel compatibility)
+            is_active_field = request.POST.get('is_active')
+            is_active = industry.is_active if is_active_field is None else is_active_field == 'true'
+            
+            if not name:
+                return JsonResponse({'success': False, 'error': 'Navn er påkrævet'})
+            
+            # Parse synonyms (either JSON array or comma separated string)
+            synonyms = []
+            if synonyms_data:
+                try:
+                    # Try to parse as JSON first (from new slide panel)
+                    synonyms = json.loads(synonyms_data)
+                    if not isinstance(synonyms, list):
+                        synonyms = []
+                except (json.JSONDecodeError, TypeError):
+                    # Fall back to comma-separated string parsing (legacy)
+                    synonyms = [s.strip() for s in synonyms_data.split(',') if s.strip()]
+            
+            # Check if another industry has this name (exclude current)
+            existing = Industry.objects.filter(name__iexact=name).exclude(id=industry_id)
+            if existing.exists():
+                return JsonResponse({'success': False, 'error': f'Branche "{name}" eksisterer allerede'})
+            
+            # Update industry
+            industry.name = name
+            industry.description = description
+            industry.synonyms = synonyms
+            industry.icon = icon
+            industry.color = color
+            industry.is_active = is_active
+            industry.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Branche "{name}" blev opdateret!'
+            })
+    
+    except Industry.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Branche ikke fundet'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+
+@csrf_exempt
+def delete_industry_ajax(request, industry_id):
+    """Delete an industry"""
+    if request.method == 'DELETE':
+        try:
+            industry = Industry.objects.get(id=industry_id)
+            industry_name = industry.name
+            
+            # Check if industry has associated services or keywords
+            services_count = industry.industry_services.count()
+            keywords_count = sum(service.service_keywords.count() for service in industry.industry_services.all())
+            
+            # Delete the industry (this will cascade delete related services and keywords)
+            industry.delete()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Branche "{industry_name}" blev slettet!',
+                'deleted_services': services_count,
+                'deleted_keywords': keywords_count
+            })
+            
+        except Industry.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Branche ikke fundet'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': f'Fejl ved sletning: {str(e)}'})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+
+@csrf_exempt 
+def edit_service_ajax(request, service_id):
+    """Edit service - GET returns current data, POST updates"""
+    try:
+        service = IndustryService.objects.get(id=service_id)
+        
+        if request.method == 'GET':
+            # Return current service data for editing
+            return JsonResponse({
+                'success': True,
+                'service': {
+                    'id': service.id,
+                    'name': service.name,
+                    'description': service.description or '',
+                    'icon': service.icon or '⚙️',
+                    'color': service.color or '#8B5CF6',
+                    'is_active': service.is_active,
+                    'industry_id': service.industry.id,
+                    'industry_name': service.industry.name
+                }
+            })
+        
+        elif request.method == 'POST':
+            # Update service
+            name = request.POST.get('name', '').strip()
+            description = request.POST.get('description', '').strip()
+            icon = request.POST.get('icon', '⚙️').strip()
+            color = request.POST.get('color', '#8B5CF6').strip()
+            is_active = request.POST.get('is_active') == 'true'
+            
+            if not name:
+                return JsonResponse({'success': False, 'error': 'Navn er påkrævet'})
+            
+            # Check if another service in same industry has this name (exclude current)
+            existing = IndustryService.objects.filter(
+                industry=service.industry, 
+                name__iexact=name
+            ).exclude(id=service_id)
+            
+            if existing.exists():
+                return JsonResponse({'success': False, 'error': f'Service "{name}" eksisterer allerede i denne branche'})
+            
+            # Update service
+            service.name = name
+            service.description = description
+            service.icon = icon
+            service.color = color
+            service.is_active = is_active
+            service.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Service "{name}" blev opdateret!'
+            })
+    
+    except IndustryService.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Service ikke fundet'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+
+
+
+@csrf_exempt
+def create_service_ajax(request):
+    """AJAX endpoint to create new service"""
+    if request.method == 'POST':
+        try:
+            industry_id = request.POST.get('industry_id')
+            name = request.POST.get('name', '').strip()
+            description = request.POST.get('description', '').strip()
+            icon = request.POST.get('icon', '⚙️').strip()
+            color = request.POST.get('color', '#8B5CF6').strip()
+            
+            if not name:
+                return JsonResponse({'success': False, 'error': 'Service navn er påkrævet'})
+            
+            if not industry_id:
+                return JsonResponse({'success': False, 'error': 'Branche ID er påkrævet'})
+                
+            # Get industry
+            industry = get_object_or_404(Industry, id=industry_id)
+            
+            # Check if service name already exists for this industry
+            if IndustryService.objects.filter(
+                industry=industry,
+                name__iexact=name,
+                is_active=True
+            ).exists():
+                return JsonResponse({'success': False, 'error': 'En service med dette navn eksisterer allerede for denne branche'})
+            
+            # Get user for creation - use authenticated user or demo user as fallback  
+            if request.user.is_authenticated:
+                created_by = request.user
+            else:
+                # Fallback to demo user for testing
+                from django.contrib.auth.models import User
+                created_by = User.objects.get(username='demo')
+            
+            service = IndustryService.objects.create(
+                industry=industry,
+                name=name,
+                description=description,
+                icon=icon,
+                color=color,
+                is_active=True,
+                created_by=created_by
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Service "{name}" blev oprettet!',
+                'service': {
+                    'id': service.id,
+                    'name': service.name,
+                    'description': service.description,
+                    'icon': service.icon,
+                    'color': service.color,
+                    'keywords_count': 0
+                }
+            })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+
+@csrf_exempt
+def edit_service_ajax(request, service_id):
+    """AJAX endpoint to edit existing service"""
+    if request.method == 'POST':
+        try:
+            service = get_object_or_404(IndustryService, id=service_id)
+            
+            name = request.POST.get('name', '').strip()
+            description = request.POST.get('description', '').strip()
+            icon = request.POST.get('icon', '⚙️').strip()
+            color = request.POST.get('color', '#8B5CF6').strip()
+            is_active_field = request.POST.get('is_active')
+            
+            if not name:
+                return JsonResponse({'success': False, 'error': 'Service navn er påkrævet'})
+            
+            # Check if service name already exists for this industry (excluding current service)
+            if IndustryService.objects.filter(
+                industry=service.industry,
+                name__iexact=name,
+                is_active=True
+            ).exclude(id=service_id).exists():
+                return JsonResponse({'success': False, 'error': 'En service med dette navn eksisterer allerede for denne branche'})
+            
+            # Preserve existing is_active if not explicitly sent (slide panel compatibility)
+            is_active = service.is_active if is_active_field is None else is_active_field == 'true'
+            
+            service.name = name
+            service.description = description
+            service.icon = icon
+            service.color = color
+            service.is_active = is_active
+            service.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Service "{name}" blev opdateret!'
+            })
+            
+        except IndustryService.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Service ikke fundet'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+
+@csrf_exempt
+def delete_service_ajax(request, service_id):
+    """AJAX endpoint to delete a service"""
+    if request.method == 'POST':
+        try:
+            service = get_object_or_404(IndustryService, id=service_id)
+            service_name = service.name
+            
+            # Set is_active to False instead of hard deletion to preserve referential integrity
+            service.is_active = False
+            service.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Service "{service_name}" blev slettet!'
+            })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+
+@csrf_exempt
+def get_service_keywords_ajax(request, service_id):
+    """AJAX endpoint to get keywords for a service"""
+    if request.method == 'GET':
+        try:
+            service = get_object_or_404(IndustryService, id=service_id)
+            keywords = service.service_keywords.all()
+            
+            keywords_data = []
+            for keyword in keywords:
+                keywords_data.append({
+                    'id': keyword.id,
+                    'keyword_text': keyword.keyword_text,
+                    'match_type': keyword.match_type,
+                    'match_type_display': keyword.get_match_type_display(),
+                    'is_primary': keyword.is_primary,
+                    'notes': keyword.notes,
+                    'added_at': keyword.added_at.strftime('%d/%m/%Y')
+                })
+            
+            return JsonResponse({
+                'success': True,
+                'keywords': keywords_data,
+                'service_name': service.name
+            })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+
+@csrf_exempt  
+def add_service_keyword_ajax(request):
+    """AJAX endpoint to add keyword to service"""
+    if request.method == 'POST':
+        try:
+            service_id = request.POST.get('service_id')
+            keyword_text = request.POST.get('keyword_text', '').strip()
+            match_type = request.POST.get('match_type', 'phrase')
+            is_primary = request.POST.get('is_primary') == 'true'
+            notes = request.POST.get('notes', '').strip()
+            
+            if not keyword_text:
+                return JsonResponse({'success': False, 'error': 'Keyword tekst er påkrævet'})
+            
+            if not service_id:
+                return JsonResponse({'success': False, 'error': 'Service ID er påkrævet'})
+                
+            # Get service
+            service = get_object_or_404(IndustryService, id=service_id)
+            
+            # Check if keyword with same match type already exists
+            if ServiceKeyword.objects.filter(
+                service=service,
+                keyword_text__iexact=keyword_text,
+                match_type=match_type
+            ).exists():
+                return JsonResponse({
+                    'success': False, 
+                    'error': f'Keyword "{keyword_text}" med {match_type} match type eksisterer allerede for denne service'
+                })
+            
+            keyword = ServiceKeyword.objects.create(
+                service=service,
+                keyword_text=keyword_text,
+                match_type=match_type,
+                is_primary=is_primary,
+                notes=notes
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Keyword "{keyword_text}" blev tilføjet!',
+                'keyword': {
+                    'id': keyword.id,
+                    'keyword_text': keyword.keyword_text,
+                    'match_type': keyword.match_type,
+                    'match_type_display': keyword.get_match_type_display(),
+                    'is_primary': keyword.is_primary,
+                    'notes': keyword.notes,
+                    'added_at': keyword.added_at.strftime('%d/%m/%Y')
+                }
+            })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+
+@csrf_exempt
+def update_service_keyword_ajax(request, keyword_id):
+    """AJAX endpoint to update service keyword"""
+    if request.method == 'POST':
+        try:
+            keyword = get_object_or_404(ServiceKeyword, id=keyword_id)
+            
+            keyword_text = request.POST.get('keyword_text', '').strip()
+            match_type = request.POST.get('match_type', keyword.match_type)
+            is_primary = request.POST.get('is_primary') == 'true'
+            notes = request.POST.get('notes', '').strip()
+            
+            if not keyword_text:
+                return JsonResponse({'success': False, 'error': 'Keyword tekst er påkrævet'})
+            
+            # Check if keyword with same match type already exists (excluding current keyword)
+            if ServiceKeyword.objects.filter(
+                service=keyword.service,
+                keyword_text__iexact=keyword_text,
+                match_type=match_type
+            ).exclude(id=keyword_id).exists():
+                return JsonResponse({
+                    'success': False, 
+                    'error': f'Keyword "{keyword_text}" med {match_type} match type eksisterer allerede for denne service'
+                })
+            
+            keyword.keyword_text = keyword_text
+            keyword.match_type = match_type
+            keyword.is_primary = is_primary
+            keyword.notes = notes
+            keyword.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Keyword "{keyword_text}" blev opdateret!',
+                'keyword': {
+                    'id': keyword.id,
+                    'keyword_text': keyword.keyword_text,
+                    'match_type': keyword.match_type,
+                    'match_type_display': keyword.get_match_type_display(),
+                    'is_primary': keyword.is_primary,
+                    'notes': keyword.notes
+                }
+            })
+            
+        except ServiceKeyword.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Keyword ikke fundet'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+
+@csrf_exempt
+def delete_service_keyword_ajax(request, keyword_id):
+    """AJAX endpoint to delete service keyword"""
+    if request.method == 'POST':
+        try:
+            keyword = get_object_or_404(ServiceKeyword, id=keyword_id)
+            keyword_text = keyword.keyword_text
+            
+            keyword.delete()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Keyword "{keyword_text}" blev slettet!'
+            })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
