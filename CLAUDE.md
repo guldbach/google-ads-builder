@@ -6,6 +6,39 @@ Dette dokument indeholder guidelines og instruktioner til Claude når der bygges
 
 Google Ads Builder er et intelligent Django-baseret værktøj til at bygge Google Ads kampagner baseret på website crawling, AI-analyse og prædefinerede USP'er.
 
+## 🚨 KRITISK: Playwright Testing Requirement
+
+**VIGTIGST AF ALT**: Alle funktioner og potentielle konflikter SKAL testes med Playwright inden du siger du er færdig!
+
+### Obligatorisk Testing Workflow:
+1. **Implementer funktionalitet** først
+2. **Skriv Playwright test** der verificerer funktionalitet virker
+3. **Kør test og fix issues** indtil test passerer  
+4. **Først derefter erklær opgave færdig**
+
+### Playwright Test Eksempler:
+```python
+# Test example for feature verification
+async def test_feature():
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=False)
+        page = await browser.new_page()
+        
+        # Test actual user workflow
+        await page.goto('http://localhost:8000/page/')
+        await page.click('button:has-text("Action")')
+        
+        # Verify results
+        assert await page.inner_text('.success') == 'Expected result'
+        await browser.close()
+```
+
+### Test Kommandoer:
+```bash
+source venv/bin/activate
+python test_your_feature.py
+```
+
 ## 📋 Generelle Development Guidelines
 
 ### Code Conventions
@@ -16,10 +49,12 @@ Google Ads Builder er et intelligent Django-baseret værktøj til at bygge Googl
 - **Model Methods**: Alle Django modeller skal have `__str__` methods
 - **Error Handling**: Implementer proper exception handling og brugervenlige fejlbeskeder
 
-### Testing
-- Test alle nye features med eksisterende Playwright test suite
+### Testing (EKSPANDERET)
+- **OBLIGATORISK**: Test alle nye features med Playwright før færdigerklæring
+- **Regression Tests**: Verificér at eksisterende funktionalitet ikke brydes
+- **Edge Cases**: Test error scenarios, validation failures, og user input edge cases  
+- **Cross-browser**: Playwright tests skal køre uden fejl
 - Skriv unit tests for nye models og views
-- Verificér at eksisterende funktionalitet ikke brydes
 
 ## 🎨 Modern Design System Guidelines
 

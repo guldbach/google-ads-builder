@@ -173,17 +173,6 @@ window.executeRegionImport = function(regionId) {
 };
 
 
-window.closeSlidePanel = function() {
-    const overlay = document.getElementById('slide-panel-overlay');
-    const panel = document.getElementById('slide-panel');
-    
-    overlay.classList.add('opacity-0');
-    panel.classList.add('translate-x-full');
-    
-    setTimeout(function() {
-        overlay.classList.add('hidden');
-    }, 300);
-};
 
 window.showNotification = function(message, type) {
     type = type || 'info';
@@ -377,71 +366,8 @@ body.overflow-hidden {
     </div>
 
 
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 stat-card">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-gray-600">Total Regioner</p>
-                    <p class="text-3xl font-bold text-gray-900">{{ geographic_regions|length }}</p>
-                </div>
-                <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-                    <span class="text-2xl">🗺️</span>
-                </div>
-            </div>
-        </div>
-        <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 stat-card">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-gray-600">Aktive Regioner</p>
-                    <p class="text-3xl font-bold text-green-600">{{ active_regions }}</p>
-                </div>
-                <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                    <span class="text-2xl">✅</span>
-                </div>
-            </div>
-        </div>
-        <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 stat-card">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-gray-600">Total Byer</p>
-                    <p class="text-3xl font-bold text-blue-600">{{ total_cities }}</p>
-                </div>
-                <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                    <span class="text-2xl">🏙️</span>
-                </div>
-            </div>
-        </div>
-    </div>
 
 
-    <div class="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-gray-100">
-        <div class="flex flex-col lg:flex-row gap-4">
-            <div class="flex-1">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Søg i regioner</label>
-                <input type="text" id="search-regions" placeholder="Søg efter regionnavn, beskrivelse eller byer..." 
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-            </div>
-            <div class="lg:w-1/5">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Filter kategori</label>
-                <select id="filter-category" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                    <option value="">Alle kategorier</option>
-                    <option value="nordsjaelland">Nordsjælland</option>
-                    <option value="money">Money Byer</option>
-                    <option value="trekant">Trekantsområdet</option>
-                    <option value="storkoebenhavn">Storkøbenhavn</option>
-                    <option value="jylland">Jylland</option>
-                    <option value="fyn">Fyn</option>
-                    <option value="bornholm">Bornholm</option>
-                    <option value="custom">Brugerdefineret</option>
-                </select>
-            </div>
-            <div class="lg:w-1/6 flex items-end">
-                <button id="reset-filters-btn" class="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200">
-                    Reset
-                </button>
-            </div>
-        </div>
-    </div>
 
 
     <div class="space-y-8" id="geographic-regions-container">
@@ -759,7 +685,13 @@ function analyzeExcelForRegion(regionId) {
 }
 
 function displayCitiesAnalysisResults(analysis, regionId) {
-    $('#cities-analysis-results').removeClass('hidden');
+    // Find or create the analysis results container
+    let resultsContainer = $('#cities-analysis-results');
+    if (resultsContainer.length === 0) {
+        resultsContainer = $('<div id="cities-analysis-results"></div>');
+        $('#slide-panel-content').append(resultsContainer);
+    }
+    resultsContainer.removeClass('hidden');
     
     let html = `
         <div class="space-y-3">
@@ -768,27 +700,27 @@ function displayCitiesAnalysisResults(analysis, regionId) {
                 <h5 class="text-sm font-bold text-gray-900 mb-2">📊 Import Analyse</h5>
                 <div class="grid grid-cols-4 gap-2 text-center">
                     <div class="bg-white rounded-lg p-2">
-                        <div class="text-lg font-bold text-blue-600">${analysis.total_cities || 0}</div>
+                        <div class="text-lg font-bold text-blue-600">${analysis.total_read || 0}</div>
                         <div class="text-xs text-gray-600">Total</div>
                     </div>
                     <div class="bg-white rounded-lg p-2">
-                        <div class="text-lg font-bold text-green-600">${analysis.safe_to_add ? analysis.safe_to_add.length : 0}</div>
-                        <div class="text-xs text-gray-600">Tilføj</div>
+                        <div class="text-lg font-bold text-green-600">${analysis.new_cities || 0}</div>
+                        <div class="text-xs text-gray-600">Nye Byer</div>
                     </div>
                     <div class="bg-white rounded-lg p-2">
-                        <div class="text-lg font-bold text-orange-600">${analysis.conflicts ? analysis.conflicts.length : 0}</div>
+                        <div class="text-lg font-bold text-orange-600">${analysis.duplicates || 0}</div>
                         <div class="text-xs text-gray-600">Dubletter</div>
                     </div>
                     <div class="bg-white rounded-lg p-2">
-                        <div class="text-lg font-bold text-red-600">${analysis.invalid ? analysis.invalid.length : 0}</div>
-                        <div class="text-xs text-gray-600">Fejl</div>
+                        <div class="text-lg font-bold text-purple-600">${analysis.unique_cities || 0}</div>
+                        <div class="text-xs text-gray-600">Unikke</div>
                     </div>
                 </div>
             </div>
     `;
     
-    // Safe to add cities
-    if (analysis.safe_to_add && analysis.safe_to_add.length > 0) {
+    // New cities to add
+    if (analysis.cities_preview && analysis.cities_preview.length > 0) {
         html += `
             <div class="bg-green-50 border border-green-200 rounded-lg p-3">
                 <h6 class="text-sm font-medium text-green-800 mb-2 flex items-center justify-between">
@@ -796,7 +728,7 @@ function displayCitiesAnalysisResults(analysis, regionId) {
                         <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
                         </svg>
-                        Nye Byer (${analysis.safe_to_add.length})
+                        Nye Byer (${analysis.cities_preview.length})
                     </span>
                     <div class="flex items-center space-x-2">
                         <button type="button" onclick="selectAllCities(true)" class="text-xs text-green-600 hover:text-green-800">Alle</button>
@@ -805,14 +737,12 @@ function displayCitiesAnalysisResults(analysis, regionId) {
                 </h6>
                 <div class="space-y-1 max-h-32 overflow-y-auto">
         `;
-        analysis.safe_to_add.forEach((city, index) => {
+        analysis.cities_preview.forEach((city, index) => {
             const cityKey = `safe_${index}`;
             html += `
                 <div class="flex items-center space-x-2 text-sm">
-                    <input type="checkbox" id="city-${cityKey}" class="city-checkbox" checked 
-                           data-city='${JSON.stringify(city)}' />
-                    <label for="city-${cityKey}" class="flex-1 text-green-700">🏙️ ${city.name}</label>
-                    ${city.postal_code ? `<span class="text-xs text-gray-500">${city.postal_code}</span>` : ''}
+                    <input type="checkbox" id="city-${cityKey}" name="cities_to_add" value="${city}" class="city-checkbox" checked />
+                    <label for="city-${cityKey}" class="flex-1 text-green-700">🏙️ ${city}</label>
                 </div>
             `;
         });
@@ -822,44 +752,21 @@ function displayCitiesAnalysisResults(analysis, regionId) {
         `;
     }
     
-    // Conflicts/duplicates
-    if (analysis.conflicts && analysis.conflicts.length > 0) {
+    // Duplicates
+    if (analysis.duplicate_cities && analysis.duplicate_cities.length > 0) {
         html += `
             <div class="bg-orange-50 border border-orange-200 rounded-lg p-3">
                 <h6 class="text-sm font-medium text-orange-800 mb-2 flex items-center">
                     <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                     </svg>
-                    Dubletter (${analysis.conflicts.length}) - springes over
+                    Dubletter (${analysis.duplicate_cities.length}) - springes over
                 </h6>
                 <div class="space-y-1 max-h-24 overflow-y-auto">
         `;
-        analysis.conflicts.forEach(city => {
+        analysis.duplicate_cities.forEach(city => {
             html += `
-                <div class="text-sm text-orange-700">🔄 ${city.name} ${city.postal_code ? `(${city.postal_code})` : ''}</div>
-            `;
-        });
-        html += `
-                </div>
-            </div>
-        `;
-    }
-    
-    // Invalid entries
-    if (analysis.invalid && analysis.invalid.length > 0) {
-        html += `
-            <div class="bg-red-50 border border-red-200 rounded-lg p-3">
-                <h6 class="text-sm font-medium text-red-800 mb-2 flex items-center">
-                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                    </svg>
-                    Ugyldige Indtastninger (${analysis.invalid.length})
-                </h6>
-                <div class="space-y-1 max-h-24 overflow-y-auto">
-        `;
-        analysis.invalid.forEach(entry => {
-            html += `
-                <div class="text-sm text-red-700">❌ ${entry.value} - ${entry.reason || 'Ugyldig format'}</div>
+                <div class="text-sm text-orange-700">🔄 ${city}</div>
             `;
         });
         html += `
@@ -872,7 +779,7 @@ function displayCitiesAnalysisResults(analysis, regionId) {
         </div>
     `;
     
-    $('#cities-analysis-results').html(html);
+    resultsContainer.html(html);
 }
 
 function selectAllCities(select) {
@@ -1492,16 +1399,16 @@ function analyzeExcelForRegion(regionId) {
     formData.append('csrfmiddlewaretoken', $('[name=csrfmiddlewaretoken]').val());
     
     $.ajax({
-        url: `/ajax/analyze-excel-import/${listId}/`,
+        url: `/ajax/analyze-excel-import-cities/${regionId}/`,
         method: 'POST',
         data: formData,
         processData: false,
         contentType: false,
         success: function(response) {
             if (response.success) {
-                displayAnalysisResults(response.analysis, listId);
+                displayCitiesAnalysisResults(response, regionId);
                 $('#slide-panel-save').html('✅ Udfør Import').prop('disabled', false).off('click').on('click', function() {
-                    executeImport(listId, response.analysis);
+                    executeRegionImport(regionId, response);
                 });
             } else {
                 showErrorNotification('Analyse fejl: ' + response.error);
@@ -3020,40 +2927,91 @@ window.GeoManager = {
         this.openSlidePanel(title, subtitle, content, () => {
             this.saveNewRegion();
         });
+        
+        // Initialize interactive features for create form
+        setTimeout(() => {
+            this.setupCreateRegionVisualPreview();
+            this.setupCreateColorPicker();
+            this.setupCreateIconSelector();
+        }, 100);
     },
 
     generateCreateRegionContent: function() {
         return `
             <div class="space-y-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Regionnavn *</label>
-                        <input type="text" id="create-region-name" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="f.eks. Nordsjælland">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Kategori</label>
-                        <select id="create-region-category" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                            <option value="custom">Brugerdefineret</option>
-                            <option value="nordsjaelland">Nordsjælland</option>
-                            <option value="storkoebenhavn">Storkøbenhavn</option>
-                            <option value="jylland">Jylland</option>
-                            <option value="fyn">Fyn</option>
-                            <option value="bornholm">Bornholm</option>
-                        </select>
-                    </div>
-                </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Beskrivelse</label>
-                    <textarea id="create-region-description" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="Beskrivelse af regionen..."></textarea>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Ikon</label>
-                        <input type="text" id="create-region-icon" value="🗺️" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    <h4 class="text-lg font-medium text-gray-900 mb-4">📝 Grundlæggende Information</h4>
+                    
+                    <div class="grid grid-cols-1 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Region Navn</label>
+                            <input type="text" id="create-region-name" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                   placeholder="f.eks. Nordsjælland" maxlength="100" required>
+                            <div class="text-xs text-gray-500 mt-1">
+                                <span id="create-region-name-count">0</span>/100 karakterer
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Beskrivelse</label>
+                            <textarea id="create-region-description" 
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                      rows="3" maxlength="500" placeholder="Beskrivelse af regionen..."></textarea>
+                            <div class="text-xs text-gray-500 mt-1">
+                                <span id="create-region-desc-count">0</span>/500 karakterer
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Farve</label>
-                        <input type="color" id="create-region-color" value="#3B82F6" class="w-full h-10 border border-gray-300 rounded-lg">
+                </div>
+
+                <div>
+                    <h4 class="text-lg font-medium text-gray-900 mb-4">🎨 Visuel Design</h4>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Ikon</label>
+                            <div class="flex items-center space-x-4">
+                                <input type="text" id="create-region-icon" 
+                                       class="w-20 px-3 py-2 border border-gray-300 rounded-lg text-center text-xl"
+                                       value="🗺️" maxlength="2">
+                                <div class="flex flex-wrap gap-2">
+                                    ${['🗺️', '🏙️', '🏖️', '🌾', '🏝️', '⭐', '🎯', '🔥'].map(emoji => `
+                                        <button type="button" class="icon-option w-10 h-10 rounded-lg border border-gray-300 hover:bg-gray-50 text-xl" 
+                                                data-icon="${emoji}">${emoji}</button>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Farve</label>
+                            <div class="flex items-center space-x-4">
+                                <input type="color" id="create-region-color" 
+                                       class="w-16 h-10 border border-gray-300 rounded-lg"
+                                       value="#3B82F6">
+                                <div class="flex space-x-2">
+                                    ${['#3B82F6', '#8B5CF6', '#EC4899', '#10B981', '#F59E0B', '#EF4444'].map(colorOption => `
+                                        <button type="button" class="color-option w-8 h-8 rounded-lg border border-gray-300" 
+                                                style="background-color: ${colorOption}" data-color="${colorOption}"></button>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 p-4 bg-gray-50 rounded-lg">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Preview:</label>
+                        <div class="flex items-center space-x-3">
+                            <div id="create-preview-icon" class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl text-white" 
+                                 style="background-color: #3B82F6;">
+                                🗺️
+                            </div>
+                            <div>
+                                <div id="create-preview-name" class="text-lg font-medium text-gray-900">Region Navn</div>
+                                <div id="create-preview-desc" class="text-sm text-gray-600">Beskrivelse...</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -3063,7 +3021,6 @@ window.GeoManager = {
     saveNewRegion: function() {
         const name = $('#create-region-name').val().trim();
         const description = $('#create-region-description').val().trim();
-        const category = $('#create-region-category').val();
         const icon = $('#create-region-icon').val().trim() || '🗺️';
         const color = $('#create-region-color').val();
         
@@ -3078,7 +3035,7 @@ window.GeoManager = {
             data: {
                 name: name,
                 description: description,
-                category: category,
+                category: 'custom',
                 icon: icon,
                 color: color,
                 is_active: true,
@@ -3413,24 +3370,6 @@ window.GeoManager = {
                     </div>
                 </div>
 
-                <div>
-                    <h4 class="text-lg font-medium text-gray-900 mb-4">🏢 Kategorisering</h4>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Kategori</label>
-                            <select id="edit-region-category" 
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                                <option value="metro" ${category === 'metro' ? 'selected' : ''}>🏙️ Storby</option>
-                                <option value="coast" ${category === 'coast' ? 'selected' : ''}>🏖️ Kyst</option>
-                                <option value="rural" ${category === 'rural' ? 'selected' : ''}>🌾 Land</option>
-                                <option value="island" ${category === 'island' ? 'selected' : ''}>🏝️ Ø</option>
-                                <option value="custom" ${category === 'custom' ? 'selected' : ''}>⚙️ Tilpasset</option>
-                            </select>
-                        </div>
-                        
-                    </div>
-                </div>
 
                 <div>
                     <h4 class="text-lg font-medium text-gray-900 mb-4">🎨 Visuel Design</h4>
@@ -3502,7 +3441,6 @@ window.GeoManager = {
     saveRegionEdit: function(regionId) {
         const name = $('#edit-region-name').val().trim();
         const description = $('#edit-region-description').val().trim();
-        const category = $('#edit-region-category').val();
         const icon = $('#edit-region-icon').val();
         const color = $('#edit-region-color').val();
         const isActive = $('#edit-region-is-active').is(':checked');
@@ -3521,7 +3459,7 @@ window.GeoManager = {
             data: {
                 name: name,
                 description: description,
-                category: category,
+                category: 'custom',
                 icon: icon,
                 color: color,
                 is_active: isActive,
@@ -3594,6 +3532,55 @@ window.GeoManager = {
         });
     },
 
+    // Helper functions for region creation (matching edit functionality)
+    setupCreateRegionVisualPreview: function() {
+        const nameInput = $('#create-region-name');
+        const descInput = $('#create-region-description');
+        const iconInput = $('#create-region-icon');
+        const colorInput = $('#create-region-color');
+        
+        const updatePreview = () => {
+            $('#create-preview-name').text(nameInput.val() || 'Region Navn');
+            $('#create-preview-desc').text(descInput.val() || 'Beskrivelse...');
+            $('#create-preview-icon').text(iconInput.val()).css('background-color', colorInput.val());
+        };
+        
+        const updateCharacterCounts = () => {
+            $('#create-region-name-count').text(nameInput.val().length);
+            $('#create-region-desc-count').text(descInput.val().length);
+        };
+        
+        nameInput.on('input', () => {
+            updatePreview();
+            updateCharacterCounts();
+        });
+        
+        descInput.on('input', () => {
+            updatePreview();
+            updateCharacterCounts();
+        });
+        
+        iconInput.on('input', updatePreview);
+        colorInput.on('input', updatePreview);
+        
+        // Initialize counts
+        updateCharacterCounts();
+    },
+
+    setupCreateColorPicker: function() {
+        $(document).on('click', '.color-option', function() {
+            const color = $(this).data('color');
+            $('#create-region-color').val(color).trigger('change');
+        });
+    },
+
+    setupCreateIconSelector: function() {
+        $(document).on('click', '.icon-option', function() {
+            const icon = $(this).data('icon');
+            $('#create-region-icon').val(icon).trigger('change');
+        });
+    },
+
 
     rgbToHex: function(rgb) {
         if (rgb.startsWith('#')) return rgb;
@@ -3614,14 +3601,18 @@ window.GeoManager = {
     },
 
     closeSlidePanel: function() {
-        const overlay = document.getElementById('slide-panel-overlay');
-        const panel = document.getElementById('slide-panel');
+        // Re-enable body scroll
+        const body = $('body');
+        const scrollY = body.css('top');
+        body.removeClass('overflow-hidden').css('top', '');
+        if (scrollY) {
+            window.scrollTo(0, parseInt(scrollY || '0', 10) * -1);
+        }
         
-        overlay.classList.add('opacity-0');
-        panel.classList.add('translate-x-full');
-        
+        $('#slide-panel-overlay').addClass('opacity-0');
+        $('#slide-panel').addClass('translate-x-full transform');
         setTimeout(() => {
-            overlay.classList.add('hidden');
+            $('#slide-panel-overlay').addClass('hidden');
         }, 300);
     }
 };
@@ -3700,6 +3691,19 @@ $(document).ready(function() {
     $('#bulk-import-btn').on('click', function(e) {
         e.preventDefault();
         GeoManager.openBulkImport();
+    });
+    
+    // Import Excel button handler
+    $(document).on('click', '.import-excel-btn', function(e) {
+        e.preventDefault();
+        const regionId = $(this).data('region-id');
+        const title = 'Importer Byer fra Excel';
+        const subtitle = 'Upload Excel fil for at analysere og importere nye byer';
+        const content = generateImportExcelForRegionContent(regionId);
+        
+        GeoManager.openSlidePanel(title, subtitle, content, () => {
+            analyzeExcelForRegion(regionId);
+        }, 'Analysér Fil');
     });
     
     // Keyboard shortcuts for edit mode
@@ -3803,8 +3807,220 @@ function deleteRegion(regionId, regionName) {
     });
 }
 
+// =================================================================
+// EXCEL IMPORT FUNCTIONALITY - RESTORED AFTER CLEANUP
+// =================================================================
+
+function generateImportExcelForRegionContent(regionId) {
+    return `
+        <div class="space-y-6">
+            <div>
+                <h4 class="text-lg font-medium text-gray-900 mb-4">📄 Upload Excel Fil</h4>
+                
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-purple-500 transition-colors">
+                    <input type="file" id="region-excel-file-input" class="hidden" accept=".xlsx,.xls,.csv" onchange="handleRegionFileSelect(this)" />
+                    <label for="region-excel-file-input" class="cursor-pointer">
+                        <div class="space-y-2">
+                            <div class="text-4xl">📊</div>
+                            <div class="text-lg font-medium text-gray-900">Vælg Excel fil</div>
+                            <div class="text-sm text-gray-500">Understøtter .xlsx, .xls og .csv filer</div>
+                        </div>
+                    </label>
+                    <div id="region-file-selected-info" class="hidden mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-blue-600">📊</span>
+                                <span id="region-selected-file-name" class="text-sm font-medium text-blue-800"></span>
+                            </div>
+                            <button type="button" onclick="clearRegionSelectedFile()" class="text-blue-600 hover:text-blue-800">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 class="font-medium text-blue-900 mb-2">📋 Format Krav</h4>
+                <ul class="text-sm text-blue-800 space-y-1">
+                    <li>• Kolonne A skal indeholde bynavne</li>
+                    <li>• Første række kan være header (bliver ignoreret)</li>
+                    <li>• Dubletter bliver automatisk filtreret ud</li>
+                    <li>• Understøtter danske tegn (æ, ø, å)</li>
+                </ul>
+            </div>
+            
+            <div id="cities-analysis-results" style="display: none;">
+                <!-- Analysis results will be inserted here -->
+            </div>
+        </div>
+    `;
+}
+
+function analyzeExcelForRegion(regionId) {
+    const fileInput = document.getElementById('region-excel-file-input');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        showErrorNotification('Vælg venligst en Excel fil først');
+        return;
+    }
+    
+    // Change button text and disable it
+    const saveButton = document.getElementById('slide-panel-save');
+    const originalText = saveButton.textContent;
+    saveButton.textContent = 'Analyserer...';
+    saveButton.disabled = true;
+    
+    const formData = new FormData();
+    formData.append('excel_file', file);
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
+    $.ajax({
+        url: `/ajax/analyze-excel-import-cities/${regionId}/`,
+        method: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+            if (response.success) {
+                displayCitiesAnalysisResults(response, regionId);
+                // Change button to import mode
+                saveButton.textContent = 'Importér Valgte Byer';
+                saveButton.disabled = false;
+                saveButton.onclick = () => executeRegionImport(regionId);
+            } else {
+                showErrorNotification('Analyse fejl: ' + response.error);
+                saveButton.textContent = originalText;
+                saveButton.disabled = false;
+            }
+        },
+        error: function(xhr) {
+            const error = xhr.responseJSON?.error || 'Fejl under analyse af fil';
+            showErrorNotification(error);
+            saveButton.textContent = originalText;
+            saveButton.disabled = false;
+        }
+    });
+}
+
+function displayCitiesAnalysisResults(analysis, regionId) {
+    const resultsContainer = document.getElementById('cities-analysis-results');
+    
+    let html = '<div class="border-t border-gray-200 pt-6"><h4 class="text-lg font-medium text-gray-900 mb-4">📊 Analyse Resultater</h4>';
+    
+    // New cities to import
+    if (analysis.cities_preview && analysis.cities_preview.length > 0) {
+        html += `
+            <div class="mb-6">
+                <h5 class="font-medium text-green-700 mb-3">✅ Nye byer til import (${analysis.cities_preview.length})</h5>
+                <div class="bg-green-50 border border-green-200 rounded-lg p-4 max-h-60 overflow-y-auto">
+                    <div class="flex items-center mb-3">
+                        <input type="checkbox" id="select-all-new" checked onchange="selectAllCities(this.checked, 'new')" 
+                               class="rounded text-green-600 focus:ring-green-500">
+                        <label for="select-all-new" class="ml-2 text-sm font-medium text-green-800">Vælg alle nye byer</label>
+                    </div>
+                    <div class="space-y-1">`;
+        
+        analysis.cities_preview.forEach((city, index) => {
+            html += `
+                <label class="flex items-center space-x-2">
+                    <input type="checkbox" name="cities_to_import" value="${city}" checked 
+                           class="rounded text-green-600 focus:ring-green-500 new-city-checkbox">
+                    <span class="text-sm text-green-800">${city}</span>
+                </label>`;
+        });
+        
+        html += `
+                    </div>
+                </div>
+            </div>`;
+    }
+    
+    // Duplicate cities
+    if (analysis.duplicate_cities && analysis.duplicate_cities.length > 0) {
+        html += `
+            <div class="mb-4">
+                <h5 class="font-medium text-yellow-700 mb-3">⚠️ Dubletter (bliver sprunget over) (${analysis.duplicate_cities.length})</h5>
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 max-h-40 overflow-y-auto">
+                    <div class="space-y-1">`;
+        
+        analysis.duplicate_cities.forEach(city => {
+            html += `<div class="text-sm text-yellow-800">• ${city}</div>`;
+        });
+        
+        html += `
+                    </div>
+                </div>
+            </div>`;
+    }
+    
+    html += '</div>';
+    
+    resultsContainer.innerHTML = html;
+    resultsContainer.style.display = 'block';
+}
+
+function executeRegionImport(regionId) {
+    const checkedCities = [];
+    document.querySelectorAll('input[name="cities_to_import"]:checked').forEach(checkbox => {
+        checkedCities.push(checkbox.value);
+    });
+    
+    if (checkedCities.length === 0) {
+        showErrorNotification('Vælg mindst én by til import');
+        return;
+    }
+    
+    const importBtn = document.getElementById('slide-panel-save');
+    const originalText = importBtn.textContent;
+    importBtn.textContent = 'Importerer...';
+    importBtn.disabled = true;
+    
+    $.ajax({
+        url: `/ajax/execute-excel-import-cities/${regionId}/`,
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        data: JSON.stringify({
+            cities: checkedCities
+        }),
+        success: function(response) {
+            if (response.success) {
+                showSuccessNotification(`Import gennemført! ${response.imported_count} byer blev tilføjet.`);
+                // Close the slide panel
+                closeSlidePanel();
+                // Refresh the page to show updated cities
+                location.reload();
+            } else {
+                showErrorNotification(response.error || 'Fejl under import');
+            }
+        },
+        error: function(xhr) {
+            const error = xhr.responseJSON?.error || 'Fejl under import';
+            showErrorNotification(error);
+        },
+        complete: function() {
+            importBtn.textContent = originalText;
+            importBtn.disabled = false;
+        }
+    });
+}
+
+function selectAllCities(checked, type) {
+    const checkboxes = document.querySelectorAll(`.${type}-city-checkbox`);
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = checked;
+    });
+}
+
 // Ensure generateImportExcelForRegionContent is globally accessible
 window.generateImportExcelForRegionContent = generateImportExcelForRegionContent;
+window.analyzeExcelForRegion = analyzeExcelForRegion;
 </script>
 
 {% endblock %}

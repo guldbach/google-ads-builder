@@ -26,15 +26,8 @@ def geographic_regions_manager(request):
         # For demo purposes, show all regions when not authenticated
         geographic_regions = GeographicRegion.objects.all().prefetch_related('cities').order_by('-created_at')
     
-    # Get all industries for filter dropdown
-    # Calculate statistics
-    categories_used = set(gr.category for gr in geographic_regions)
-    
     context = {
         'geographic_regions': geographic_regions,
-        'total_cities': sum(gr.cities_count for gr in geographic_regions),
-        'active_regions': geographic_regions.filter(is_active=True).count(),
-        'categories_count': len(categories_used),
     }
     
     return render(request, 'campaigns/geographic_regions_manager.html', context)
@@ -656,8 +649,13 @@ def execute_excel_import_cities(request, region_id):
             except GeographicRegion.DoesNotExist:
                 return JsonResponse({'success': False, 'error': 'Region ikke fundet'})
             
-            # Get cities to add from POST data
-            cities_to_add = json.loads(request.POST.get('cities_to_add', '[]'))
+            # Get cities to add from JSON body
+            try:
+                request_data = json.loads(request.body)
+                cities_to_add = request_data.get('cities', [])
+            except json.JSONDecodeError:
+                # Fallback to POST data for backward compatibility
+                cities_to_add = json.loads(request.POST.get('cities_to_add', '[]'))
             
             if not cities_to_add:
                 return JsonResponse({'success': False, 'error': 'Ingen byer angivet til import'})

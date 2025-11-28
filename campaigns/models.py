@@ -48,6 +48,12 @@ class Industry(models.Model):
 class IndustryService(models.Model):
     """Services/Ydelser under en branche (f.eks. Kloakrensning, Kloakservice)"""
     
+    SERVICE_TYPE_CHOICES = [
+        ('service', 'Service'),
+        ('industry_keywords', 'Branche Keywords'),
+        ('synonym_keywords', 'Synonym Keywords'),
+    ]
+    
     industry = models.ForeignKey(
         Industry, 
         on_delete=models.CASCADE, 
@@ -61,13 +67,14 @@ class IndustryService(models.Model):
         blank=True,
         help_text="Beskrivelse af servicen"
     )
+    service_type = models.CharField(
+        max_length=20,
+        choices=SERVICE_TYPE_CHOICES,
+        default='service',
+        help_text="Type af service - bruges til at skelne mellem services, branche keywords og synonym keywords"
+    )
     
     # Visual settings (som negative keywords lists)
-    icon = models.CharField(
-        max_length=10,
-        default='⚙️',
-        help_text="Emoji icon for servicen"
-    )
     color = models.CharField(
         max_length=7,
         default='#8B5CF6',
@@ -95,8 +102,16 @@ class IndustryService(models.Model):
         return f"{self.industry.name} - {self.name}"
     
     def keywords_count(self):
-        """Return count of keywords for this service"""
+        """Return count of Google Ads keywords for this service"""
         return self.service_keywords.count()
+    
+    def seo_keywords_count(self):
+        """Return count of SEO keywords for this service"""
+        return self.seo_keywords.count()
+    
+    def total_keywords_count(self):
+        """Return total count of all keywords (Ads + SEO) for this service"""
+        return self.keywords_count() + self.seo_keywords_count()
     
     class Meta:
         ordering = ['sort_order', 'name']
@@ -152,6 +167,175 @@ class ServiceKeyword(models.Model):
     class Meta:
         unique_together = ['service', 'keyword_text', 'match_type']
         ordering = ['-is_primary', 'keyword_text']
+
+
+class ServiceSEOKeyword(models.Model):
+    """SEO Keywords under en service (separat fra Google Ads keywords)"""
+    
+    KEYWORD_TYPE_CHOICES = [
+        ('money', 'Money Keyword'),
+        ('price', 'Pris Keyword'),
+        ('info', 'Informations Keyword'),
+        ('lsi', 'LSI Keyword'),
+    ]
+    
+    service = models.ForeignKey(
+        IndustryService, 
+        on_delete=models.CASCADE, 
+        related_name='seo_keywords'
+    )
+    keyword_text = models.CharField(
+        max_length=200, 
+        help_text="SEO keyword text, f.eks. 'kloakrensning pris'"
+    )
+    search_volume = models.IntegerField(
+        null=True, 
+        blank=True,
+        help_text="Månedlig søgevolume (fra keyword tools)"
+    )
+    keyword_type = models.CharField(
+        max_length=10, 
+        choices=KEYWORD_TYPE_CHOICES, 
+        default='money',
+        help_text="Type af SEO keyword"
+    )
+    
+    # Additional SEO fields
+    is_primary = models.BooleanField(
+        default=False,
+        help_text="Er dette et primært SEO keyword for servicen?"
+    )
+    target_url = models.URLField(
+        blank=True,
+        help_text="Target URL for dette keyword (valgfrit)"
+    )
+    current_ranking = models.IntegerField(
+        null=True, 
+        blank=True,
+        help_text="Nuværende Google ranking position"
+    )
+    notes = models.TextField(
+        blank=True,
+        help_text="SEO noter og strategi for dette keyword"
+    )
+    
+    # Metadata
+    added_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.service.name} - {self.keyword_text} (SEO)"
+    
+    class Meta:
+        unique_together = ['service', 'keyword_text']
+        ordering = ['-is_primary', 'search_volume', 'keyword_text']
+
+
+class IndustryKeyword(models.Model):
+    """Google Ads keywords på branche-niveau - kan nedarves til services"""
+    
+    MATCH_TYPES = [
+        ('broad', 'Broad Match'),
+        ('phrase', 'Phrase Match'),
+        ('exact', 'Exact Match'),
+    ]
+    
+    industry = models.ForeignKey(
+        Industry, 
+        on_delete=models.CASCADE, 
+        related_name='industry_keywords'
+    )
+    keyword_text = models.CharField(
+        max_length=200, 
+        help_text="Google Ads keyword text på branche-niveau, f.eks. 'kloakmester'"
+    )
+    match_type = models.CharField(
+        max_length=10, 
+        choices=MATCH_TYPES, 
+        default='phrase'
+    )
+    
+    # Settings
+    is_primary = models.BooleanField(
+        default=False,
+        help_text="Er dette et primært keyword for branchen?"
+    )
+    inherited_by_services = models.BooleanField(
+        default=True,
+        help_text="Skal dette keyword automatisk nedarves til nye services?"
+    )
+    
+    # Metadata
+    added_at = models.DateTimeField(auto_now_add=True)
+    notes = models.CharField(
+        max_length=255, 
+        blank=True,
+        help_text="Noter om dette branche keyword"
+    )
+    
+    def __str__(self):
+        return f"{self.industry.name} - {self.keyword_text} ({self.match_type})"
+    
+    class Meta:
+        unique_together = ['industry', 'keyword_text', 'match_type']
+        ordering = ['-is_primary', 'keyword_text']
+
+
+class IndustrySEOKeyword(models.Model):
+    """SEO keywords på branche-niveau - kan nedarves til services"""
+    
+    KEYWORD_TYPE_CHOICES = [
+        ('money', 'Money Keyword'),
+        ('price', 'Pris Keyword'),
+        ('info', 'Informations Keyword'),
+        ('lsi', 'LSI Keyword'),
+    ]
+    
+    industry = models.ForeignKey(
+        Industry, 
+        on_delete=models.CASCADE, 
+        related_name='industry_seo_keywords'
+    )
+    keyword_text = models.CharField(
+        max_length=200, 
+        help_text="SEO keyword text på branche-niveau, f.eks. 'kloakmester pris'"
+    )
+    search_volume = models.IntegerField(
+        null=True, 
+        blank=True,
+        help_text="Månedlig søgevolume (fra keyword tools)"
+    )
+    keyword_type = models.CharField(
+        max_length=10, 
+        choices=KEYWORD_TYPE_CHOICES, 
+        default='money',
+        help_text="Type af SEO keyword på branche-niveau"
+    )
+    
+    # Settings
+    is_primary = models.BooleanField(
+        default=False,
+        help_text="Er dette et primært SEO keyword for branchen?"
+    )
+    inherited_by_services = models.BooleanField(
+        default=True,
+        help_text="Skal dette keyword automatisk nedarves til nye services?"
+    )
+    
+    # Metadata
+    added_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    notes = models.TextField(
+        blank=True,
+        help_text="SEO noter og strategi for dette branche keyword"
+    )
+    
+    def __str__(self):
+        return f"{self.industry.name} - {self.keyword_text} (SEO)"
+    
+    class Meta:
+        unique_together = ['industry', 'keyword_text']
+        ordering = ['-is_primary', 'search_volume', 'keyword_text']
 
 
 class IndustryHeadline(models.Model):
@@ -1325,3 +1509,37 @@ class AdTemplate(models.Model):
         verbose_name = "Ad Template"
         verbose_name_plural = "Ad Templates"
         ordering = ['industry__name', 'name']
+
+
+class ServiceNegativeKeywordList(models.Model):
+    """Connection between services and negative keyword lists"""
+    
+    service = models.ForeignKey(
+        IndustryService, 
+        on_delete=models.CASCADE, 
+        related_name='negative_keyword_connections'
+    )
+    negative_list = models.ForeignKey(
+        NegativeKeywordList, 
+        on_delete=models.CASCADE,
+        related_name='service_connections'
+    )
+    
+    # Settings
+    is_active = models.BooleanField(default=True)
+    connected_at = models.DateTimeField(auto_now_add=True)
+    connected_by = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True
+    )
+    
+    def __str__(self):
+        return f"{self.service.name} → {self.negative_list.name}"
+    
+    class Meta:
+        unique_together = ['service', 'negative_list']
+        verbose_name = "Service Negative Keyword Connection"
+        verbose_name_plural = "Service Negative Keyword Connections"
+        ordering = ['-connected_at']

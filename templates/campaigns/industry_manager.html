@@ -7,6 +7,9 @@
 <!-- Include jQuery -->
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 
+<!-- CSRF Token for AJAX requests -->
+{% csrf_token %}
+
 <!-- Custom CSS for 3-level hierarchy -->
 <style>
 .rotate-180 {
@@ -19,7 +22,7 @@
 /* Service Cards Styling */
 .service-card {
     transition: all 0.2s ease;
-    border: 1px solid transparent;
+    border: 1px solid #333333;
 }
 
 .service-card:hover {
@@ -29,13 +32,113 @@
 
 .service-card.expanded {
     border-color: rgb(99, 102, 241);
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(147, 197, 253, 0.05));
     box-shadow: 0 8px 25px rgba(99, 102, 241, 0.2);
+    transform: translateY(-1px);
+}
+
+/* Service icon CSS removed */
+.service-card.expanded .service-icon-removed {
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.service-card.expanded h5 {
+    color: rgb(99, 102, 241);
+    font-weight: 600;
+}
+
+/* Active service styling with custom colors */
+.service-card.active:hover {
+    border-color: var(--service-color);
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--service-color) 25%, transparent);
+}
+
+.service-card.active.expanded {
+    border-color: var(--service-color);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--service-color) 8%, transparent), color-mix(in srgb, var(--service-color) 3%, transparent));
+    box-shadow: 0 8px 25px color-mix(in srgb, var(--service-color) 30%, transparent);
+    transform: translateY(-1px);
+}
+
+.service-card.active.expanded h5 {
+    color: var(--service-color);
+    font-weight: 600;
 }
 
 /* Keywords table styling */
 .keywords-section {
     background-color: #fafafa;
     border-top: 1px solid #e5e7eb;
+}
+
+/* Keywords content styling - ensure full width below services */
+.keywords-content {
+    width: 100%;
+    margin-top: 1.5rem;
+    margin-bottom: 2rem;
+    background-color: #fafafa;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+/* Keyword Tabs Styling */
+.keyword-tabs {
+    display: flex;
+    border-bottom: 2px solid #e5e7eb;
+    background: white;
+}
+
+.keyword-tab {
+    flex: 1;
+    padding: 12px 16px;
+    text-align: center;
+    background: #f8fafc;
+    color: #64748b;
+    cursor: pointer;
+    border: none;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s ease;
+    font-medium;
+}
+
+.keyword-tab:hover {
+    background: #e2e8f0;
+    color: #475569;
+}
+
+.keyword-tab.active {
+    background: white;
+    color: #3b82f6;
+    border-bottom-color: #3b82f6;
+}
+
+.keyword-tab.ads.active {
+    color: #3b82f6;
+    border-bottom-color: #3b82f6;
+}
+
+.keyword-tab.seo.active {
+    color: #059669;
+    border-bottom-color: #059669;
+}
+
+.keyword-tab.negative.active {
+    color: #dc2626;
+    border-bottom-color: #dc2626;
+}
+
+.tab-content {
+    display: none;
+    min-height: 200px;
+}
+
+.tab-content.active {
+    display: block !important;
+    opacity: 1;
+    visibility: visible;
+    height: auto;
+    min-height: 200px;
 }
 
 /* Enhanced Button Hover Effects */
@@ -97,23 +200,39 @@
         </p>
     </div>
 
-    <!-- Quick Actions -->
-    <div class="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-gray-100">
-        <div class="flex flex-wrap justify-between items-center gap-4">
-            <h2 class="text-lg font-semibold text-gray-900">Hurtige Handlinger</h2>
-            <div class="flex flex-wrap gap-3">
-                <button id="create-industry-btn" class="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-2 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center space-x-2">
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+    <!-- Quick Actions with Help -->
+    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 mb-8">
+        <div class="p-6 border-b border-gray-100">
+            <div class="flex flex-wrap justify-between items-center gap-4">
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-900">Hurtige Handlinger</h2>
+                    <p class="text-sm text-gray-500 mt-1">Start med at oprette din første branche, eller udvid eksisterende brancher nedenfor</p>
+                </div>
+                <div class="flex flex-wrap gap-3">
+                    <button id="create-industry-btn" class="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-2 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center space-x-2">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                        </svg>
+                        <span>Opret Ny Branche</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Workflow Guide -->
+        <div class="p-4 bg-blue-50">
+            <div class="flex items-start space-x-3">
+                <div class="flex-shrink-0">
+                    <svg class="w-5 h-5 text-blue-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
                     </svg>
-                    <span>Opret Ny Branche</span>
-                </button>
-                <button id="download-template-btn" class="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center space-x-2">
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
-                    </svg>
-                    <span>Download Template</span>
-                </button>
+                </div>
+                <div class="text-sm">
+                    <p class="text-blue-800 font-medium">Sådan kommer du i gang:</p>
+                    <p class="text-blue-700 mt-1">
+                        1. Opret en branche → 2. Klik for at udvide og tilføje services → 3. Administrér keywords via nøgle-ikonet
+                    </p>
+                </div>
             </div>
         </div>
     </div>
@@ -135,7 +254,12 @@
                             {{ industry.icon }}
                         </div>
                         <div>
-                            <h3 class="text-2xl font-bold text-gray-900">{{ industry.name }}</h3>
+                            <div class="flex items-center space-x-3 mb-1">
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                                    🏢 Level 1: Branche
+                                </span>
+                                <h3 class="text-2xl font-bold text-gray-900">{{ industry.name }}</h3>
+                            </div>
                             <div class="flex items-center space-x-4 mt-1">
                                 <p class="text-gray-600">{{ industry.description|default:"Ingen beskrivelse" }}</p>
                                 {% if industry.synonyms %}
@@ -160,14 +284,14 @@
                                 <p class="text-xs text-gray-500 mt-1">services</p>
                             </div>
                         </div>
-                        <button class="edit-industry-btn text-gray-500 hover:text-blue-600 p-2 edit-btn" 
+                        <button class="edit-industry-btn text-gray-500 hover:text-blue-600 p-2 edit-btn transition-colors duration-200 rounded-lg hover:bg-blue-50" 
                                 data-industry-id="{{ industry.id }}" title="Redigér branche" 
                                 onclick="event.stopPropagation(); openEditIndustryPanel({{ industry.id }}, '{{ industry.name|escapejs }}', '{{ industry.description|default:""|escapejs }}', {{ industry.synonyms|default:"[]"|safe }}, '{{ industry.icon|default:"🏢"|escapejs }}', '{{ industry.color|default:"#8B5CF6"|escapejs }}', {{ industry.is_active|yesno:'true,false' }})">
                             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
                             </svg>
                         </button>
-                        <button class="delete-industry-btn text-gray-500 hover:text-red-600 p-2 edit-btn" 
+                        <button class="delete-industry-btn text-gray-500 hover:text-red-600 p-2 edit-btn transition-colors duration-200 rounded-lg hover:bg-red-50" 
                                 data-industry-id="{{ industry.id }}" title="Slet branche" onclick="event.stopPropagation(); deleteIndustry({{ industry.id }}, '{{ industry.name }}')">
                             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
@@ -186,6 +310,28 @@
             <div class="services-content" style="display: none;" data-industry-id="{{ industry.id }}">
                 <div class="border-t border-gray-200">
                     
+                    <!-- Navigation Level Indicator -->
+                    <div class="p-4 bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-2 text-sm text-gray-600">
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                    📋 Level 2: Services
+                                </span>
+                                <svg class="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+                                </svg>
+                                <span class="font-medium">{{ industry.name }}</span>
+                            </div>
+                            <button class="collapse-services-btn text-gray-500 hover:text-gray-700 p-1 rounded-lg hover:bg-white transition-colors duration-200" 
+                                    onclick="toggleIndustryExpansion({{ industry.id }})" 
+                                    title="Luk services oversigt">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Add New Service Form -->
                     <div class="p-6 bg-gray-50 border-b border-gray-200">
                         <div class="flex items-center justify-between mb-4">
@@ -202,29 +348,42 @@
                         {% if industry.industry_services.all %}
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                             {% for service in industry.industry_services.all %}
-                            <div class="service-card bg-white rounded-xl p-4 border border-gray-200 cursor-pointer"
+                            <div class="service-card bg-white rounded-xl p-4 cursor-pointer{% if service.is_active %} active{% endif %}"
                                  data-service-id="{{ service.id }}" 
+                                 data-active="{{ service.is_active|yesno:'true,false' }}"
+                                 style="--service-color: {{ service.color|default:'#8B5CF6' }};"
                                  onclick="toggleServiceExpansion({{ service.id }}, {{ industry.id }})">
                                 <div class="flex items-center justify-between mb-2">
                                     <div class="flex items-center space-x-3">
-                                        <div class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm"
-                                             style="background-color: {{ service.color }};">
-                                            {{ service.icon }}
-                                        </div>
                                         <div>
-                                            <h5 class="font-medium text-gray-900">{{ service.name }}</h5>
+                                            <div class="flex items-center space-x-2">
+                                                <h5 class="font-medium text-gray-900">{{ service.name }}</h5>
+                                                {% if service.service_type == 'industry_keywords' %}
+                                                <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200 whitespace-nowrap">
+                                                    🏢 Branche
+                                                </span>
+                                                {% elif service.service_type == 'synonym_keywords' %}
+                                                <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800 border border-green-200 whitespace-nowrap">
+                                                    🔄 Synonymer
+                                                </span>
+                                                {% elif service.service_type == 'service' %}
+                                                <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200 whitespace-nowrap">
+                                                    🔧 Service
+                                                </span>
+                                                {% endif %}
+                                            </div>
                                             <p class="text-xs text-gray-500">{{ service.keywords_count }} keywords</p>
                                         </div>
                                     </div>
                                     <div class="flex items-center space-x-1">
-                                        <button class="edit-service-btn text-gray-400 hover:text-blue-600 p-1" 
+                                        <button class="edit-service-btn text-gray-500 hover:text-blue-600 p-2 edit-btn transition-colors duration-200" 
                                                 data-service-id="{{ service.id }}" title="Redigér service" 
                                                 onclick="event.stopPropagation(); editService({{ service.id }})">
                                             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                                                 <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
                                             </svg>
                                         </button>
-                                        <button class="delete-service-btn text-gray-400 hover:text-red-600 p-1" 
+                                        <button class="delete-service-btn text-gray-500 hover:text-red-600 p-2 edit-btn transition-colors duration-200" 
                                                 data-service-id="{{ service.id }}" title="Slet service" 
                                                 onclick="event.stopPropagation(); deleteService({{ service.id }}, '{{ service.name }}', {{ industry.id }})">
                                             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -246,10 +405,16 @@
                         </div>
                         
                         {% else %}
-                        <div class="text-center py-12 text-gray-500">
-                            <span class="text-4xl">⚙️</span>
-                            <p class="mt-2">Ingen services endnu</p>
-                            <p class="text-sm">Opret din første service ovenfor</p>
+                        <div class="text-center py-12 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl mx-6 mb-6">
+                            <div class="w-16 h-16 mx-auto bg-gradient-to-r from-purple-100 to-pink-100 rounded-full flex items-center justify-center mb-4">
+                                <span class="text-3xl">⚙️</span>
+                            </div>
+                            <h4 class="text-lg font-medium text-gray-900 mb-2">Ingen services endnu</h4>
+                            <p class="text-sm text-gray-600 mb-4">Services er dine konkrete ydelser inden for denne branche</p>
+                            <button class="create-service-btn bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200 text-sm"
+                                    data-industry-id="{{ industry.id }}" onclick="createService({{ industry.id }})">
+                                ➕ Opret Din Første Service
+                            </button>
                         </div>
                         {% endif %}
                     </div>
@@ -257,10 +422,25 @@
             </div>
         </div>
         {% empty %}
-        <div class="text-center py-12 bg-white rounded-2xl shadow-lg">
-            <span class="text-6xl">🏢</span>
-            <h3 class="text-xl font-medium text-gray-900 mt-4">Ingen brancher endnu</h3>
-            <p class="text-gray-500 mt-2">Opret din første branche for at komme i gang</p>
+        <div class="text-center py-16 bg-white rounded-2xl shadow-lg border border-gray-100">
+            <div class="w-24 h-24 mx-auto bg-gradient-to-r from-purple-100 to-pink-100 rounded-2xl flex items-center justify-center mb-6">
+                <span class="text-5xl">🏢</span>
+            </div>
+            <h3 class="text-2xl font-bold text-gray-900 mb-3">Ingen brancher endnu</h3>
+            <p class="text-gray-600 mb-6 max-w-md mx-auto">
+                Brancher hjælper dig med at organisere og genbruge kampagnestrukturer. Start med at oprette din første branche.
+            </p>
+            <button id="create-industry-btn-empty" class="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-3 rounded-lg hover:shadow-lg transition-all duration-200 text-lg font-medium"
+                    onclick="openCreateIndustryPanel()">
+                <svg class="w-6 h-6 inline mr-2" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+                Opret Din Første Branche
+            </button>
+            
+            <div class="mt-8 text-sm text-gray-500">
+                <p>💡 <strong>Tip:</strong> Populære brancher inkluderer Håndværk, Sundhed, Service og Teknologi</p>
+            </div>
         </div>
         {% endfor %}
     </div>
@@ -316,6 +496,18 @@
 // Global variables  
 let currentExpandedIndustry = null;
 let currentExpandedService = null;
+
+// Negative keyword lists data from Django context
+const negativeKeywordLists = [
+    {% for list in negative_keyword_lists %}
+    {
+        id: {{ list.id }},
+        name: "{{ list.name|escapejs }}",
+        description: "{{ list.description|escapejs }}",
+        keywords_count: {{ list.negative_keywords.count|default:0 }}
+    }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+];
 
 // Initialize current state based on visible elements on page load
 function initializeExpandedState() {
@@ -444,164 +636,7 @@ function toggleIndustryExpansion(industryId) {
     }
 }
 
-// Toggle service expansion (Level 2 -> 3)
-function toggleServiceExpansion(serviceId, industryId) {
-    const serviceCard = $(`.service-card[data-service-id="${serviceId}"]`);
-    const keywordsSection = $(`#keywords-section-${industryId}`);
-    
-    if (currentExpandedService === serviceId) {
-        // Collapse current service
-        keywordsSection.slideUp(300);
-        serviceCard.removeClass('expanded');
-        currentExpandedService = null;
-    } else {
-        // Collapse previous service
-        if (currentExpandedService) {
-            $(`.service-card[data-service-id="${currentExpandedService}"]`).removeClass('expanded');
-        }
-        
-        // Expand this service
-        serviceCard.addClass('expanded');
-        
-        // Load keywords for this service
-        loadServiceKeywords(serviceId, industryId);
-        keywordsSection.slideDown(300);
-        currentExpandedService = serviceId;
-    }
-}
 
-// Load service keywords (Level 3)
-function loadServiceKeywords(serviceId, industryId) {
-    const keywordsSection = $(`#keywords-section-${industryId}`);
-    
-    // Show loading state
-    keywordsSection.html(`
-        <div class="p-6 text-center">
-            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto"></div>
-            <p class="mt-2 text-gray-600">Indlæser keywords...</p>
-        </div>
-    `);
-    
-    // AJAX call to load keywords
-    $.ajax({
-        url: `/ajax/get-service-keywords/${serviceId}/`,
-        method: 'GET',
-        success: function(data) {
-            renderKeywordsTable(data, serviceId, industryId);
-        },
-        error: function(xhr) {
-            console.error('Error loading keywords:', xhr);
-            keywordsSection.html(`
-                <div class="p-6 text-center text-red-600">
-                    <p>❌ Fejl ved indlæsning af keywords</p>
-                    <p class="text-sm">${xhr.responseJSON?.error || 'Ukendt fejl'}</p>
-                </div>
-            `);
-        }
-    });
-}
-
-// Render keywords table
-function renderKeywordsTable(data, serviceId, industryId) {
-    const keywordsSection = $(`#keywords-section-${industryId}`);
-    
-    let keywordsHtml = '';
-    if (data.keywords.length > 0) {
-        keywordsHtml = `
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead class="bg-gray-100">
-                        <tr>
-                            <th class="px-4 py-3 text-left font-medium text-gray-900">Keyword</th>
-                            <th class="px-4 py-3 text-left font-medium text-gray-900">Match Type</th>
-                            <th class="px-4 py-3 text-center font-medium text-gray-900">Primær</th>
-                            <th class="px-4 py-3 text-left font-medium text-gray-900">Noter</th>
-                            <th class="px-4 py-3 text-center font-medium text-gray-900">Handlinger</th>
-                        </tr>
-                    </thead>
-                    <tbody>`;
-        
-        data.keywords.forEach(keyword => {
-            const matchTypeClass = {
-                'broad': 'bg-green-100 text-green-800',
-                'phrase': 'bg-blue-100 text-blue-800', 
-                'exact': 'bg-purple-100 text-purple-800'
-            }[keyword.match_type] || 'bg-gray-100 text-gray-800';
-            
-            keywordsHtml += `
-                <tr class="border-b border-gray-200 hover:bg-gray-50">
-                    <td class="px-4 py-3">
-                        <span class="font-medium ${keyword.is_primary ? 'text-purple-600' : 'text-gray-900'}">${keyword.keyword_text}</span>
-                    </td>
-                    <td class="px-4 py-3">
-                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${matchTypeClass}">
-                            ${keyword.match_type_display}
-                        </span>
-                    </td>
-                    <td class="px-4 py-3 text-center">
-                        ${keyword.is_primary ? '<span class="text-purple-600">⭐</span>' : '-'}
-                    </td>
-                    <td class="px-4 py-3">
-                        <span class="text-gray-600">${keyword.notes || '-'}</span>
-                    </td>
-                    <td class="px-4 py-3 text-center">
-                        <div class="flex items-center justify-center space-x-2">
-                            <button class="edit-keyword-btn text-blue-600 hover:text-blue-800 p-1" 
-                                    data-keyword-id="${keyword.id}" title="Redigér keyword">
-                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                                </svg>
-                            </button>
-                            <button class="delete-keyword-btn text-red-600 hover:text-red-800 p-1" 
-                                    data-keyword-id="${keyword.id}" title="Slet keyword">
-                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                                </svg>
-                            </button>
-                        </div>
-                    </td>
-                </tr>`;
-        });
-        
-        keywordsHtml += `
-                    </tbody>
-                </table>
-            </div>`;
-    } else {
-        keywordsHtml = `
-            <div class="text-center py-12 text-gray-500">
-                <span class="text-4xl">🔑</span>
-                <p class="mt-2">Ingen keywords endnu</p>
-                <p class="text-sm">Tilføj dit første keyword</p>
-            </div>`;
-    }
-    
-    keywordsSection.html(`
-        <div class="p-6 bg-gray-50 border-t border-gray-200">
-            <div class="flex items-center justify-between mb-4">
-                <div>
-                    <h4 class="text-lg font-medium text-gray-900">🔑 Keywords for ${data.service_name}</h4>
-                    <p class="text-sm text-gray-600">${data.keywords.length} keyword${data.keywords.length !== 1 ? 's' : ''}</p>
-                </div>
-                <div class="flex space-x-2">
-                    <button class="add-keyword-btn bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200"
-                            data-service-id="${serviceId}">
-                        Tilføj Keyword
-                    </button>
-                    <button class="import-keywords-btn bg-gradient-to-r from-green-600 to-blue-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200"
-                            data-service-id="${serviceId}">
-                        Import Excel
-                    </button>
-                </div>
-            </div>
-            
-            <!-- Keywords Table -->
-            <div class="bg-white rounded-lg border border-gray-200">
-                ${keywordsHtml}
-            </div>
-        </div>
-    `);
-}
 
 // Industry and Service CRUD functions
 function editIndustry(industryId) {
@@ -650,15 +685,7 @@ $(document).ready(function() {
         openAddKeywordModal(serviceId);
     });
     
-    $(document).on('click', '.edit-keyword-btn', function() {
-        const keywordId = $(this).data('keyword-id');
-        editKeyword(keywordId);
-    });
     
-    $(document).on('click', '.delete-keyword-btn', function() {
-        const keywordId = $(this).data('keyword-id');
-        deleteKeyword(keywordId);
-    });
 });
 
 // =================================================================
@@ -752,128 +779,7 @@ function addKeyword(serviceId) {
 }
 
 // Edit keyword
-function editKeyword(keywordId) {
-    // First get the keyword data
-    $.ajax({
-        url: `/ajax/update-service-keyword/${keywordId}/`,
-        method: 'GET',
-        success: function(data) {
-            openEditKeywordModal(keywordId, data);
-        },
-        error: function() {
-            showToast('Fejl ved hentning af keyword data', 'error');
-        }
-    });
-}
 
-function openEditKeywordModal(keywordId, data) {
-    const modalHtml = `
-        <div id="edit-keyword-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4">
-                <div class="p-6 border-b border-gray-200">
-                    <h3 class="text-xl font-bold text-gray-900">Redigér Keyword</h3>
-                </div>
-                <form id="edit-keyword-form" class="p-6 space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Keyword</label>
-                        <input type="text" id="edit_keyword_text" value="${data.keyword_text}" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" required>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Match Type</label>
-                        <select id="edit_match_type" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                            <option value="phrase" ${data.match_type === 'phrase' ? 'selected' : ''}>Phrase Match</option>
-                            <option value="broad" ${data.match_type === 'broad' ? 'selected' : ''}>Broad Match</option>
-                            <option value="exact" ${data.match_type === 'exact' ? 'selected' : ''}>Exact Match</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="flex items-center space-x-2">
-                            <input type="checkbox" id="edit_is_primary" ${data.is_primary ? 'checked' : ''} class="rounded border-gray-300 text-purple-600 focus:ring-purple-500">
-                            <span class="text-sm font-medium text-gray-700">Primært keyword</span>
-                        </label>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Noter (valgfrit)</label>
-                        <input type="text" id="edit_notes" value="${data.notes || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                    </div>
-                    <div class="flex justify-end space-x-3 pt-4">
-                        <button type="button" onclick="closeEditKeywordModal()" class="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">
-                            Annullér
-                        </button>
-                        <button type="submit" class="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-lg hover:shadow-lg transition-all duration-200">
-                            Gem Ændringer
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    `;
-    
-    $('body').append(modalHtml);
-    
-    $('#edit-keyword-form').on('submit', function(e) {
-        e.preventDefault();
-        updateKeyword(keywordId);
-    });
-}
-
-function closeEditKeywordModal() {
-    $('#edit-keyword-modal').remove();
-}
-
-function updateKeyword(keywordId) {
-    const formData = {
-        keyword_text: $('#edit_keyword_text').val(),
-        match_type: $('#edit_match_type').val(),
-        is_primary: $('#edit_is_primary').prop('checked'),
-        notes: $('#edit_notes').val() || '',
-        csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
-    };
-    
-    $.ajax({
-        url: `/ajax/update-service-keyword/${keywordId}/`,
-        method: 'POST',
-        data: formData,
-        success: function(response) {
-            closeEditKeywordModal();
-            // Reload keywords for the current service
-            if (currentExpandedService) {
-                loadServiceKeywords(currentExpandedService, currentExpandedIndustry);
-            }
-            showToast('Keyword opdateret succesfuldt', 'success');
-        },
-        error: function(xhr) {
-            const error = xhr.responseJSON?.error || 'Fejl ved opdatering af keyword';
-            showToast(error, 'error');
-        }
-    });
-}
-
-// Delete keyword
-function deleteKeyword(keywordId) {
-    if (!confirm('Er du sikker på at du vil slette dette keyword?')) {
-        return;
-    }
-    
-    $.ajax({
-        url: `/ajax/delete-service-keyword/${keywordId}/`,
-        method: 'DELETE',
-        headers: {
-            'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
-        },
-        success: function(response) {
-            // Reload keywords for the current service
-            if (currentExpandedService) {
-                loadServiceKeywords(currentExpandedService, currentExpandedIndustry);
-            }
-            showToast('Keyword slettet succesfuldt', 'success');
-        },
-        error: function(xhr) {
-            const error = xhr.responseJSON?.error || 'Fejl ved sletning af keyword';
-            showToast(error, 'error');
-        }
-    });
-}
 
 // =================================================================
 // SLIDE PANEL FUNCTIONS
@@ -1492,8 +1398,8 @@ function createService(industryId) {
             industry_id: industryId,
             name: $('#service-name').val(),
             description: $('#service-description').val(),
-            icon: $('#service-icon').val(),
-            color: $('#service-color').val()
+            color: $('#service-color').val(),
+            service_type: $('#service-type').val()
         };
         
         console.log('Creating service with data:', formData);
@@ -1534,66 +1440,80 @@ function editService(serviceId) {
     const title = 'Redigér Service';
     const subtitle = 'Opdater service information';
     
-    const content = getServiceFormContent();
-    
-    const saveCallback = function() {
-        const formData = {
-            name: $('#service-name').val(),
-            description: $('#service-description').val(),
-            icon: $('#service-icon').val(),
-            color: $('#service-color').val()
-        };
-        
-        console.log('Editing service with data:', formData);
-        
-        $.ajax({
-            url: `/ajax/edit-service/${serviceId}/`,
-            type: 'POST',
-            data: formData,
-            headers: {
-                'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
-            },
-            success: function(response) {
-                console.log('Edit service response:', response);
-                if (response.success) {
-                    closeSlidePanel();
-                    showToast(response.message, 'success');
+    // First load current service data from backend
+    $.ajax({
+        url: `/ajax/edit-service/${serviceId}/`,
+        type: 'GET',
+        headers: {
+            'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+        },
+        success: function(response) {
+            if (response.success) {
+                const serviceData = response.service;
+                console.log('Loaded service data:', serviceData);
+                
+                const content = getServiceFormContent();
+                
+                const saveCallback = function() {
+                    const formData = {
+                        name: $('#service-name').val(),
+                        description: $('#service-description').val(),
+                        color: $('#service-color').val(),
+                        service_type: $('#service-type').val()
+                    };
                     
-                    // Reload the page to show updated service
-                    window.location.reload();
-                } else {
-                    showToast(response.error || 'Fejl ved opdatering af service', 'error');
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('Edit service error:', error);
-                showToast('Fejl ved opdatering af service', 'error');
+                    console.log('Editing service with data:', formData);
+                    
+                    $.ajax({
+                        url: `/ajax/edit-service/${serviceId}/`,
+                        type: 'POST',
+                        data: formData,
+                        headers: {
+                            'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+                        },
+                        success: function(response) {
+                            console.log('Edit service response:', response);
+                            if (response.success) {
+                                closeSlidePanel();
+                                showToast(response.message, 'success');
+                                
+                                // Reload the page to show updated service
+                                window.location.reload();
+                            } else {
+                                showToast(response.error || 'Fejl ved opdatering af service', 'error');
+                            }
+                        },
+                        error: function(xhr, status, error) {
+                            console.error('Edit service error:', error);
+                            showToast('Fejl ved opdatering af service', 'error');
+                        }
+                    });
+                };
+                
+                openSlidePanel(title, subtitle, content, saveCallback);
+                setupServiceVisualPreview();
+                
+                // Pre-populate form with current service data
+                setTimeout(() => {
+                    $('#service-name').val(serviceData.name || '');
+                    $('#service-description').val(serviceData.description || '');
+                    $('#service-color').val(serviceData.color || '#8B5CF6');
+                    $('#service-type').val(serviceData.service_type || 'service');
+                    
+                    
+                    // Trigger preview updates and auto-defaults
+                    $('#service-name, #service-color, #service-type').trigger('input');
+                }, 100);
+                
+            } else {
+                showToast(response.error || 'Fejl ved indlæsning af service data', 'error');
             }
-        });
-    };
-    
-    openSlidePanel(title, subtitle, content, saveCallback);
-    setupServiceVisualPreview();
-    
-    // Pre-fill form with existing service data
-    const serviceCard = $(`.service-card[data-service-id="${serviceId}"]`);
-    if (serviceCard.length > 0) {
-        const serviceName = serviceCard.find('h5').text();
-        const serviceIcon = serviceCard.find('.w-8').text();
-        const serviceColor = serviceCard.find('.w-8').css('background-color');
-        
-        $('#service-name').val(serviceName);
-        $('#service-icon').val(serviceIcon);
-        
-        // Convert RGB to hex for color input
-        if (serviceColor) {
-            const hex = rgbToHex(serviceColor);
-            if (hex) $('#service-color').val(hex);
+        },
+        error: function(xhr, status, error) {
+            console.error('Error loading service data:', error);
+            showToast('Fejl ved indlæsning af service data', 'error');
         }
-        
-        // Trigger preview updates
-        $('#service-name, #service-icon, #service-color').trigger('input');
-    }
+    });
 }
 
 function deleteService(serviceId, serviceName, industryId) {
@@ -1639,6 +1559,17 @@ function getServiceFormContent() {
                 
                 <div class="grid grid-cols-1 gap-4">
                     <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Type *</label>
+                        <select id="service-type" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                            <option value="service">🔧 Service (til annoncegrupper)</option>
+                            <option value="industry_keywords">🏢 Branche Keywords (til kampagner)</option>
+                            <option value="synonym_keywords">🔄 Synonym Keywords (til synonymer)</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Services bruges til annoncegrupper, branche keywords til kampagner</p>
+                    </div>
+                
+                    <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Navn på service *</label>
                         <input type="text" id="service-name" 
                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
@@ -1660,34 +1591,22 @@ function getServiceFormContent() {
             <div class="border-t border-gray-200 pt-6">
                 <h4 class="text-lg font-medium text-gray-900 mb-4">🎨 Visuel Design</h4>
                 
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Ikon</label>
-                        <input type="text" id="service-icon" value="⚙️" 
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                        <p class="text-sm text-gray-500 mt-1">Emoji eller symbol</p>
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Primærfarve</label>
-                        <input type="color" id="service-color" value="#8B5CF6" 
-                               class="w-full h-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
-                    </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Primærfarve</label>
+                    <input type="color" id="service-color" value="#8B5CF6" 
+                           class="w-full h-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
                 </div>
             </div>
+            
             
             <div class="border-t border-gray-200 pt-6">
                 <h4 class="text-lg font-medium text-gray-900 mb-4">👁️ Forhåndsvisning</h4>
                 
                 <div id="service-preview-container">
                     <div class="bg-white rounded-xl p-4 border border-gray-200">
-                        <div class="flex items-center space-x-3">
-                            <div id="service-preview-icon" class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm" 
-                                 style="background-color: #8B5CF6;">⚙️</div>
-                            <div>
-                                <h5 id="service-preview-name" class="font-medium text-gray-900">Service navn vil vises her</h5>
-                                <p class="text-xs text-gray-500">0 keywords</p>
-                            </div>
+                        <div>
+                            <h5 id="service-preview-name" class="font-medium text-gray-900">Service navn vil vises her</h5>
+                            <p class="text-xs text-gray-500">0 keywords</p>
                         </div>
                     </div>
                 </div>
@@ -1696,7 +1615,101 @@ function getServiceFormContent() {
     `;
 }
 
+function generateNegativeKeywordListsHTML() {
+    if (!negativeKeywordLists || negativeKeywordLists.length === 0) {
+        return `
+            <div class="text-center p-6 bg-gray-50 rounded-lg">
+                <span class="text-2xl">📋</span>
+                <h4 class="text-lg font-medium text-gray-900 mb-2">Ingen negative søgeordslister fundet</h4>
+                <p class="text-sm text-gray-600">Opret først nogle negative søgeordslister for at kunne vælge dem her.</p>
+            </div>
+        `;
+    }
+
+    let html = `
+        <div class="space-y-3">
+    `;
+
+    negativeKeywordLists.forEach(list => {
+        html += `
+            <div class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200">
+                <input type="checkbox" 
+                       class="negative-list-checkbox mr-3" 
+                       id="negative-list-${list.id}" 
+                       value="${list.id}">
+                <label for="negative-list-${list.id}" class="flex-1 cursor-pointer">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h5 class="font-medium text-gray-900">${list.name}</h5>
+                            <p class="text-sm text-gray-600">${list.description}</p>
+                        </div>
+                        <div class="text-xs text-gray-500">
+                            ${list.keywords_count} keywords
+                        </div>
+                    </div>
+                </label>
+            </div>
+        `;
+    });
+
+    html += `
+        </div>
+        <div class="mt-4">
+            <button type="button" 
+                    class="text-sm text-blue-600 hover:text-blue-800 transition-colors duration-200"
+                    onclick="selectAllNegativeLists()">
+                📋 Vælg alle
+            </button>
+            <span class="mx-2 text-gray-300">|</span>
+            <button type="button" 
+                    class="text-sm text-gray-600 hover:text-gray-800 transition-colors duration-200"
+                    onclick="deselectAllNegativeLists()">
+                ❌ Fravælg alle
+            </button>
+        </div>
+    `;
+
+    return html;
+}
+
+function selectAllNegativeLists() {
+    $('.negative-list-checkbox').prop('checked', true);
+}
+
+function deselectAllNegativeLists() {
+    $('.negative-list-checkbox').prop('checked', false);
+}
+
 function setupServiceVisualPreview() {
+    // Update defaults when service type changes
+    $('#service-type').on('change', function() {
+        const type = $(this).val();
+        let icon, color, placeholder;
+        
+        switch(type) {
+            case 'industry_keywords':
+                icon = '🏢';
+                color = '#3B82F6';
+                placeholder = 'f.eks. VVS Branche Keywords';
+                break;
+            case 'synonym_keywords':
+                icon = '🔄';
+                color = '#059669';
+                placeholder = 'f.eks. VVS Synonymer';
+                break;
+            default: // service
+                icon = '⚙️';
+                color = '#8B5CF6';
+                placeholder = 'f.eks. Toilet installation';
+                break;
+        }
+        
+        $('#service-color').val(color);
+        $('#service-name').attr('placeholder', placeholder);
+        
+        // Update preview (color removed since no icon)
+    });
+
     // Update preview when name changes
     $('#service-name').on('input', function() {
         const name = $(this).val() || 'Service navn vil vises her';
@@ -1707,16 +1720,10 @@ function setupServiceVisualPreview() {
         $('#service-name-count').text(count);
     });
     
-    // Update preview when icon changes
-    $('#service-icon').on('input', function() {
-        const icon = $(this).val() || '⚙️';
-        $('#service-preview-icon').text(icon);
-    });
     
-    // Update preview when color changes
+    // Update preview when color changes (no icon to update anymore)
     $('#service-color').on('input', function() {
-        const color = $(this).val() || '#8B5CF6';
-        $('#service-preview-icon').css('background-color', color);
+        // Color preview removed since service icons are removed
     });
 }
 
@@ -1744,15 +1751,37 @@ let currentKeywordEditId = null;
 
 function toggleServiceExpansion(serviceId, industryId) {
     console.log('toggleServiceExpansion called with serviceId:', serviceId, 'industryId:', industryId);
+    console.log('Current expanded service:', currentExpandedService);
     
     const keywordsSection = $(`#keywords-section-${industryId}`);
+    const currentServiceCard = $(`.service-card[data-service-id="${serviceId}"]`);
     
-    if (keywordsSection.is(':visible')) {
-        // Hide keywords section
+    if (currentExpandedService === serviceId) {
+        // Same service clicked - close keywords and remove active styling
+        console.log('Closing keywords for same service:', serviceId);
         keywordsSection.slideUp(300);
+        currentServiceCard.removeClass('expanded');
+        currentExpandedService = null;
     } else {
-        // Load and show keywords for this service
-        loadServiceKeywords(serviceId, industryId);
+        // Remove expanded class from previously active service
+        if (currentExpandedService !== null) {
+            $(`.service-card[data-service-id="${currentExpandedService}"]`).removeClass('expanded');
+        }
+        
+        // Add expanded class to new active service
+        currentServiceCard.addClass('expanded');
+        
+        if (currentExpandedService !== null) {
+            // Different service clicked while another is open - switch directly
+            console.log('Switching from service', currentExpandedService, 'to service', serviceId);
+            currentExpandedService = serviceId;
+            loadServiceKeywords(serviceId, industryId);
+        } else {
+            // No service open - open this one
+            console.log('Opening keywords for service:', serviceId);
+            currentExpandedService = serviceId;
+            loadServiceKeywords(serviceId, industryId);
+        }
     }
 }
 
@@ -1791,6 +1820,40 @@ function loadServiceKeywords(serviceId, industryId) {
 }
 
 function generateKeywordsHtml(serviceId, keywords, serviceName) {
+    return `
+        <div class="keywords-content border-t border-gray-200" data-service-id="${serviceId}">
+            <!-- Tab Navigation -->
+            <div class="keyword-tabs">
+                <button class="keyword-tab ads active" onclick="switchKeywordTab(${serviceId}, 'ads')" data-tab="ads">
+                    📊 Google Ads Keywords
+                </button>
+                <button class="keyword-tab seo" onclick="switchKeywordTab(${serviceId}, 'seo')" data-tab="seo">
+                    🌐 SEO Keywords  
+                </button>
+                <button class="keyword-tab negative" onclick="switchKeywordTab(${serviceId}, 'negative')" data-tab="negative">
+                    🚫 Negative Keywords
+                </button>
+            </div>
+            
+            <!-- Google Ads Tab Content -->
+            <div id="tab-content-ads-${serviceId}" class="tab-content active">
+                ${generateGoogleAdsKeywordsContent(serviceId, keywords, serviceName)}
+            </div>
+            
+            <!-- SEO Tab Content -->
+            <div id="tab-content-seo-${serviceId}" class="tab-content">
+                ${generateSEOKeywordsContent(serviceId, serviceName)}
+            </div>
+            
+            <!-- Negative Keywords Tab Content -->
+            <div id="tab-content-negative-${serviceId}" class="tab-content">
+                ${generateNegativeKeywordsContent(serviceId, serviceName)}
+            </div>
+        </div>
+    `;
+}
+
+function generateGoogleAdsKeywordsContent(serviceId, keywords, serviceName) {
     let keywordsTableHtml = '';
     
     if (keywords.length > 0) {
@@ -1815,40 +1878,120 @@ function generateKeywordsHtml(serviceId, keywords, serviceName) {
     } else {
         keywordsTableHtml = `
             <div class="text-center py-12 text-gray-500">
-                <span class="text-4xl">🔍</span>
-                <p class="mt-2">Ingen keywords endnu</p>
-                <p class="text-sm">Tilføj dit første keyword ovenfor</p>
+                <span class="text-4xl">📊</span>
+                <p class="mt-2">Ingen Google Ads keywords endnu</p>
+                <p class="text-sm">Tilføj dit første keyword nedenfor</p>
             </div>`;
     }
     
     return `
-        <div class="keywords-content p-6 border-t border-gray-200" data-service-id="${serviceId}">
-            <!-- Add New Keyword Form -->
-            <div class="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
+        <div class="p-6">
+            <!-- Add New Google Ads Keyword Form -->
+            <div class="mb-6 bg-blue-50 p-4 rounded-lg border border-blue-200">
                 <div class="flex items-center justify-between mb-4">
-                    <h4 class="text-lg font-medium text-gray-900">🔍 Tilføj Keywords til "${serviceName}"</h4>
+                    <h4 class="text-lg font-medium text-blue-900">📊 Tilføj Google Ads Keywords til "${serviceName}"</h4>
                 </div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <input type="text" placeholder="Keyword..." 
-                           class="new-service-keyword-text px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    <input type="text" placeholder="Google Ads keyword..." 
+                           class="new-service-keyword-text px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                            data-service-id="${serviceId}">
-                    <select class="new-service-keyword-match-type px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    <select class="new-service-keyword-match-type px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             data-service-id="${serviceId}">
                         <option value="broad">Broad Match</option>
                         <option value="phrase">Phrase Match</option>
                         <option value="exact">Exact Match</option>
                     </select>
-                    <button class="add-service-keyword-btn bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200"
+                    <button class="add-service-keyword-btn bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200"
                             data-service-id="${serviceId}">
-                        Tilføj
+                        📝 Tilføj Keyword
                     </button>
                 </div>
             </div>
             
-            <!-- Keywords Table -->
-            <div class="keywords-list" data-service-id="${serviceId}">
+            <!-- Google Ads Keywords Table -->
+            <div class="keywords-list bg-white rounded-lg border border-gray-200" data-service-id="${serviceId}">
                 ${keywordsTableHtml}
+            </div>
+        </div>
+    `;
+}
+
+function generateSEOKeywordsContent(serviceId, serviceName) {
+    return `
+        <div class="p-6">
+            <!-- Add New SEO Keyword Form -->
+            <div class="mb-6 bg-green-50 p-4 rounded-lg border border-green-200">
+                <div class="flex items-center justify-between mb-4">
+                    <h4 class="text-lg font-medium text-green-900">🌐 Tilføj SEO Keywords til "${serviceName}"</h4>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <input type="text" placeholder="SEO keyword..." 
+                           class="new-seo-keyword-text px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                           data-service-id="${serviceId}">
+                    <select class="new-seo-keyword-type px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            data-service-id="${serviceId}">
+                        <option value="money" selected>Money Keyword</option>
+                        <option value="price">Pris Keyword</option>
+                        <option value="info">Informations Keyword</option>
+                        <option value="lsi">LSI Keyword</option>
+                    </select>
+                    <input type="number" placeholder="Søgevolumen" 
+                           class="new-seo-keyword-volume px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                           data-service-id="${serviceId}">
+                    <button class="add-seo-keyword-btn bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200"
+                            data-service-id="${serviceId}"
+                            onclick="addSEOKeyword(${serviceId})">
+                        🌐 Tilføj SEO Keyword
+                    </button>
+                </div>
+            </div>
+            
+            <!-- SEO Keywords Table (will be loaded via AJAX) -->
+            <div id="seo-keywords-table-${serviceId}" class="bg-white rounded-lg border border-gray-200">
+                <div class="text-center py-12 text-gray-500">
+                    <span class="text-4xl">🌐</span>
+                    <p class="mt-2">Loading SEO keywords...</p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function generateNegativeKeywordsContent(serviceId, serviceName) {
+    return `
+        <div class="p-6">
+            <!-- Negative Keywords Header -->
+            <div class="mb-6 bg-red-50 p-4 rounded-lg border border-red-200">
+                <div class="flex items-center justify-between mb-4">
+                    <h4 class="text-lg font-medium text-red-900">🚫 Negative Keywords for "${serviceName}"</h4>
+                    <button class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 text-sm"
+                            onclick="showAddNegativeListModal(${serviceId})">
+                        ➕ Tilføj Liste
+                    </button>
+                </div>
+                <p class="text-sm text-red-700">Tilknyttede negative søgeordslister som vil blive anvendt i denne service</p>
+            </div>
+            
+            <!-- Connected Lists as Buttons -->
+            <div id="negative-lists-buttons-${serviceId}" class="mb-6">
+                <div class="flex flex-wrap gap-2" id="connected-lists-${serviceId}">
+                    <!-- Connected lists will be loaded here as buttons -->
+                </div>
+                <div class="text-center py-6 text-gray-500" id="no-lists-message-${serviceId}">
+                    <span class="text-3xl">📋</span>
+                    <p class="mt-2">Ingen negative søgeordslister tilknyttet endnu</p>
+                    <p class="text-sm">Klik "➕ Tilføj Liste" for at tilknytte negative søgeordslister</p>
+                </div>
+            </div>
+            
+            <!-- Available Lists for Adding -->
+            <div id="available-lists-container-${serviceId}" class="hidden bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <h5 class="font-medium text-gray-900 mb-3">Tilgængelige lister:</h5>
+                <div id="available-lists-${serviceId}" class="flex flex-wrap gap-2">
+                    <!-- Available lists will be loaded here -->
+                </div>
             </div>
         </div>
     `;
@@ -1913,15 +2056,7 @@ $(document).on('click', '.add-service-keyword-btn', function() {
     addServiceKeyword(serviceId);
 });
 
-$(document).on('click', '.edit-keyword-btn', function() {
-    const keywordId = $(this).data('keyword-id');
-    enterEditMode(keywordId);
-});
 
-$(document).on('click', '.delete-keyword-btn', function() {
-    const keywordId = $(this).data('keyword-id');
-    deleteServiceKeyword(keywordId);
-});
 
 $(document).on('click', '.toggle-primary-btn', function() {
     const keywordId = $(this).data('keyword-id');
@@ -2127,37 +2262,34 @@ function updateServiceKeyword(keywordId, keywordText, matchType, isPrimary) {
 
 function deleteServiceKeyword(keywordId) {
     const row = $(`.keyword-row[data-keyword-id="${keywordId}"]`);
-    const keywordText = row.find('.keyword-text').text();
     
-    if (confirm(`Er du sikker på at du vil slette keywordet "${keywordText}"?`)) {
-        console.log('Deleting keyword:', keywordId);
-        
-        $.ajax({
-            url: `/ajax/delete-service-keyword/${keywordId}/`,
-            type: 'POST',
-            headers: {
-                'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
-            },
-            success: function(response) {
-                console.log('Delete keyword response:', response);
-                if (response.success) {
-                    const serviceId = row.closest('.keywords-content').data('service-id');
-                    row.fadeOut(300, function() {
-                        $(this).remove();
-                        // Update keyword counter after removal
-                        updateServiceKeywordCounter(serviceId);
-                    });
-                    showToast(response.message, 'success');
-                } else {
-                    showToast(response.error || 'Fejl ved sletning af keyword', 'error');
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('Delete keyword error:', error);
-                showToast('Fejl ved sletning af keyword', 'error');
+    console.log('Deleting keyword:', keywordId);
+    
+    $.ajax({
+        url: `/ajax/delete-service-keyword/${keywordId}/`,
+        type: 'POST',
+        headers: {
+            'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+        },
+        success: function(response) {
+            console.log('Delete keyword response:', response);
+            if (response.success) {
+                const serviceId = row.closest('.keywords-content').data('service-id');
+                row.fadeOut(300, function() {
+                    $(this).remove();
+                    // Update keyword counter after removal
+                    updateServiceKeywordCounter(serviceId);
+                });
+                showToast(response.message, 'success');
+            } else {
+                showToast(response.error || 'Fejl ved sletning af keyword', 'error');
             }
-        });
-    }
+        },
+        error: function(xhr, status, error) {
+            console.error('Delete keyword error:', error);
+            showToast('Fejl ved sletning af keyword', 'error');
+        }
+    });
 }
 
 function togglePrimaryKeyword(keywordId, isPrimary) {
@@ -2368,9 +2500,1517 @@ $(document).on('keypress', '.new-service-keyword-text', function(e) {
     }
 });
 
+// Tab switching functionality
+function switchKeywordTab(serviceId, tabType) {
+    console.log('Switching to tab:', tabType, 'for service:', serviceId);
+    
+    // Update tab buttons (only for this service's tab container)
+    $(`.keywords-content[data-service-id="${serviceId}"] .keyword-tabs button`).removeClass('active');
+    $(`.keywords-content[data-service-id="${serviceId}"] .keyword-tabs button[data-tab="${tabType}"]`).addClass('active');
+    
+    // Update tab content (only for this service)
+    $(`#tab-content-ads-${serviceId}, #tab-content-seo-${serviceId}, #tab-content-negative-${serviceId}`).removeClass('active');
+    $(`#tab-content-${tabType}-${serviceId}`).addClass('active');
+    
+    console.log(`Active tab set for service ${serviceId}:`, tabType);
+    
+    // Load content if needed
+    if (tabType === 'seo') {
+        loadSEOKeywords(serviceId);
+    } else if (tabType === 'negative') {
+        loadNegativeKeywordLists(serviceId);
+    }
+}
+
+// SEO Keywords functionality
+function loadSEOKeywords(serviceId) {
+    console.log('Loading SEO keywords for service:', serviceId);
+    
+    $.ajax({
+        url: `/ajax/get-service-seo-keywords/${serviceId}/`,
+        type: 'GET',
+        success: function(response) {
+            if (response.success) {
+                generateSEOKeywordsTable(serviceId, response.keywords);
+            } else {
+                showToast(response.error || 'Fejl ved indlæsning af SEO keywords', 'error');
+            }
+        },
+        error: function() {
+            showToast('Fejl ved indlæsning af SEO keywords', 'error');
+        }
+    });
+}
+
+function addSEOKeyword(serviceId) {
+    const keywordText = $(`.new-seo-keyword-text[data-service-id="${serviceId}"]`).val().trim();
+    const keywordType = $(`.new-seo-keyword-type[data-service-id="${serviceId}"]`).val();
+    const searchVolume = $(`.new-seo-keyword-volume[data-service-id="${serviceId}"]`).val();
+    
+    if (!keywordText) {
+        showToast('Indtast venligst et SEO keyword', 'error');
+        return;
+    }
+    
+    $.ajax({
+        url: `/ajax/add-service-seo-keyword/${serviceId}/`,
+        method: 'POST',
+        data: {
+            keyword_text: keywordText,
+            keyword_type: keywordType,
+            search_volume: searchVolume || '',
+            csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+        },
+        success: function(response) {
+            if (response.success) {
+                // Clear form
+                $(`.new-seo-keyword-text[data-service-id="${serviceId}"]`).val('');
+                $(`.new-seo-keyword-volume[data-service-id="${serviceId}"]`).val('');
+                $(`.new-seo-keyword-type[data-service-id="${serviceId}"]`).val('money');
+                
+                // Reload SEO keywords
+                loadSEOKeywords(serviceId);
+                showToast('SEO keyword tilføjet succesfuldt', 'success');
+            } else {
+                showToast(response.error || 'Fejl ved tilføjelse af SEO keyword', 'error');
+            }
+        },
+        error: function() {
+            showToast('Fejl ved tilføjelse af SEO keyword', 'error');
+        }
+    });
+}
+
+function addGoogleAdsKeyword(serviceId) {
+    const keywordText = $(`.new-ads-keyword-text[data-service-id="${serviceId}"]`).val().trim();
+    const matchType = $(`.new-ads-keyword-match-type[data-service-id="${serviceId}"]`).val();
+    
+    if (!keywordText) {
+        showToast('Indtast venligst et Google Ads keyword', 'error');
+        return;
+    }
+    
+    $.ajax({
+        url: '/ajax/add-service-keyword/',
+        method: 'POST',
+        data: {
+            service_id: serviceId,
+            keyword_text: keywordText,
+            match_type: matchType,
+            is_primary: false,
+            csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+        },
+        success: function(response) {
+            if (response.success) {
+                // Clear form
+                $(`.new-ads-keyword-text[data-service-id="${serviceId}"]`).val('');
+                $(`.new-ads-keyword-match-type[data-service-id="${serviceId}"]`).val('phrase');
+                
+                // Reload Google Ads keywords
+                loadGoogleAdsKeywords(serviceId);
+                showToast('Google Ads keyword tilføjet succesfuldt', 'success');
+            } else {
+                showToast(response.error || 'Fejl ved tilføjelse af Google Ads keyword', 'error');
+            }
+        },
+        error: function() {
+            showToast('Fejl ved tilføjelse af Google Ads keyword', 'error');
+        }
+    });
+}
+
+// Negative Keywords functionality  
+function loadNegativeKeywordLists(serviceId) {
+    console.log('Loading negative keyword lists for service:', serviceId);
+    
+    // Load connected lists and available lists in parallel
+    Promise.all([
+        $.ajax({
+            url: `/ajax/get-service-negative-lists/${serviceId}/`,
+            method: 'GET'
+        }),
+        $.ajax({
+            url: `/ajax/search-negative-keyword-lists/`,
+            method: 'GET',
+            data: {
+                industry_id: window.currentServiceIndustryId || ''
+            }
+        })
+    ]).then(([connectedResponse, availableResponse]) => {
+        if (connectedResponse.success && availableResponse.success) {
+            generateNegativeKeywordsTable(serviceId, connectedResponse.lists, availableResponse.lists);
+        } else {
+            showToast('Fejl ved indlæsning af negative keywords', 'error');
+        }
+    }).catch(function() {
+        showToast('Fejl ved indlæsning af negative keywords', 'error');
+    });
+}
+
+function searchNegativeKeywordLists(serviceId, query) {
+    // Debounce search
+    clearTimeout(window.negativeSearchTimeout);
+    window.negativeSearchTimeout = setTimeout(() => {
+        if (query.length > 2) {
+            $.ajax({
+                url: `/ajax/search-negative-keyword-lists/`,
+                type: 'GET',
+                data: { q: query },
+                success: function(response) {
+                    if (response.success) {
+                        // Update search results display
+                        console.log('Search results:', response.lists);
+                    }
+                }
+            });
+        }
+    }, 300);
+}
+
+// SEO Keywords table generation
+function generateSEOKeywordsTable(serviceId, keywords) {
+    let html = '';
+    
+    if (keywords.length === 0) {
+        html = `
+            <div class="text-center py-12 text-green-600">
+                <span class="text-4xl">🌐</span>
+                <p class="mt-2 text-gray-600">Ingen SEO keywords endnu</p>
+                <p class="text-sm text-gray-500">Tilføj dit første SEO keyword ovenfor</p>
+            </div>
+        `;
+    } else {
+        html = `
+            <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                <div class="bg-green-50 px-6 py-3 border-b border-green-200">
+                    <h5 class="font-semibold text-green-800 flex items-center">
+                        <span class="text-lg mr-2">📊</span>
+                        SEO Keywords (${keywords.length})
+                    </h5>
+                </div>
+                
+                <div class="divide-y divide-gray-200">
+        `;
+        
+        html += `
+            <table class="w-full">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th class="text-left py-3 px-4 font-medium text-gray-900">Keyword</th>
+                        <th class="text-left py-3 px-4 font-medium text-gray-900">Type</th>
+                        <th class="text-left py-3 px-4 font-medium text-gray-900">Søgevolumen</th>
+                        <th class="text-center py-3 px-4 font-medium text-gray-900">Primær</th>
+                        <th class="text-right py-3 px-4 font-medium text-gray-900">Handlinger</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+        `;
+        
+        keywords.forEach(keyword => {
+            const keywordTypeColors = {
+                'money': 'bg-green-100 text-green-800',
+                'price': 'bg-blue-100 text-blue-800', 
+                'info': 'bg-purple-100 text-purple-800',
+                'lsi': 'bg-orange-100 text-orange-800'
+            };
+            
+            const typeColor = keywordTypeColors[keyword.keyword_type] || 'bg-gray-100 text-gray-800';
+            const primaryIcon = keyword.is_primary ? '⭐' : '☆';
+            const primaryClass = keyword.is_primary ? 'text-yellow-500' : 'text-gray-400';
+            
+            html += `
+                <tr class="hover:bg-gray-50 transition-colors duration-200" data-keyword-id="${keyword.id}">
+                    <td class="py-3 px-4">
+                        <span class="font-medium text-gray-900">${keyword.keyword_text}</span>
+                    </td>
+                    <td class="py-3 px-4">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${typeColor}">
+                            ${keyword.keyword_type_display}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4 text-gray-600">
+                        ${keyword.search_volume ? keyword.search_volume.toLocaleString() : '-'}
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                        <span class="${primaryClass} text-lg">
+                            ${primaryIcon}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4 text-right">
+                        <div class="flex items-center justify-end space-x-2">
+                            <button onclick="editSEOKeyword(${keyword.id}, ${serviceId})" 
+                                    class="text-gray-500 hover:text-green-600 p-1" title="Redigér keyword">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                                </svg>
+                            </button>
+                            <button onclick="deleteSEOKeyword(${keyword.id}, ${serviceId})" 
+                                    class="text-gray-500 hover:text-red-600 p-1" title="Slet keyword">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M9 3V4H4V6H5V19C5 20.1 5.9 21 7 21H17C18.1 21 19 20.1 19 19V6H20V4H15V3H9ZM7 6H17V19H7V6ZM9 8V17H11V8H9ZM13 8V17H15V8H13Z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                </tbody>
+            </table>
+        `;
+        
+        html += `
+                </div>
+            </div>
+        `;
+    }
+    
+    $(`#seo-keywords-table-${serviceId}`).html(html);
+}
+
+function generateNegativeKeywordsTable(serviceId, connectedLists, availableLists) {
+    let html = `
+        <!-- Connected Lists Section -->
+        <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <h5 class="font-semibold text-red-800 mb-3 flex items-center">
+                <span class="text-lg mr-2">🔗</span>
+                Tilkoblede Negative Keyword Lister (${connectedLists.length})
+            </h5>
+    `;
+    
+    if (connectedLists.length === 0) {
+        html += `
+            <p class="text-red-600 text-sm">Ingen negative keyword lister tilkoblet endnu.</p>
+        `;
+    } else {
+        html += `<div class="space-y-2">`;
+        connectedLists.forEach(list => {
+            html += `
+                <div class="flex items-center justify-between bg-white p-3 rounded-lg border border-red-200">
+                    <div class="flex items-center space-x-3">
+                        <span class="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm" 
+                              style="background-color: ${list.color || '#8B5CF6'}">${list.icon || '📋'}</span>
+                        <div>
+                            <span class="font-medium text-gray-900">${list.name}</span>
+                            <span class="text-xs text-gray-500 ml-2">(${list.keywords_count} keywords)</span>
+                            <div class="text-xs text-gray-500">${list.category_display} • Tilkoblet ${list.connected_at}</div>
+                        </div>
+                    </div>
+                    <button onclick="disconnectNegativeList(${list.connection_id}, ${serviceId})" 
+                            class="text-red-600 hover:text-red-800 text-sm px-2 py-1 rounded hover:bg-red-100">
+                        Fjern
+                    </button>
+                </div>
+            `;
+        });
+        html += `</div>`;
+    }
+    
+    html += `
+        </div>
+        
+        <!-- Available Lists Section -->
+        <div class="bg-white border border-gray-200 rounded-lg p-4">
+            <h5 class="font-semibold text-gray-800 mb-3 flex items-center">
+                <span class="text-lg mr-2">🔍</span>
+                Tilgængelige Negative Keyword Lister (${availableLists.length})
+            </h5>
+            
+            <div class="mb-4">
+                <input type="text" 
+                       id="negative-search-${serviceId}"
+                       placeholder="Søg efter navn, kategori eller beskrivelse..." 
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                       oninput="searchNegativeKeywordLists(${serviceId}, this.value)">
+            </div>
+            
+            <div id="available-negative-lists-${serviceId}" class="space-y-2 max-h-64 overflow-y-auto">
+    `;
+    
+    if (availableLists.length === 0) {
+        html += `
+            <p class="text-gray-500 text-sm text-center py-4">Ingen tilgængelige negative keyword lister fundet.</p>
+        `;
+    } else {
+        // Filter out already connected lists
+        const connectedIds = connectedLists.map(list => list.list_id);
+        const unconnectedLists = availableLists.filter(list => !connectedIds.includes(list.id));
+        
+        if (unconnectedLists.length === 0) {
+            html += `
+                <p class="text-gray-500 text-sm text-center py-4">Alle tilgængelige lister er allerede tilkoblet.</p>
+            `;
+        } else {
+            unconnectedLists.forEach(list => {
+                html += `
+                    <div class="flex items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-200 hover:bg-gray-100">
+                        <div class="flex items-center space-x-3">
+                            <span class="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm" 
+                                  style="background-color: ${list.color || '#8B5CF6'}">${list.icon || '📋'}</span>
+                            <div>
+                                <span class="font-medium text-gray-900">${list.name}</span>
+                                <span class="text-xs text-gray-500 ml-2">(${list.keywords_count} keywords)</span>
+                                <div class="text-xs text-gray-500">${list.category_display} • ${list.industry_name}</div>
+                                ${list.description ? `<div class="text-xs text-gray-600 mt-1">${list.description}</div>` : ''}
+                            </div>
+                        </div>
+                        <button onclick="connectNegativeList(${list.id}, ${serviceId})" 
+                                class="bg-red-600 text-white px-3 py-1 rounded-lg hover:bg-red-700 text-sm">
+                            Tilkobl
+                        </button>
+                    </div>
+                `;
+            });
+        }
+    }
+    
+    html += `
+            </div>
+        </div>
+    `;
+    
+    $(`#negative-keywords-content-${serviceId}`).html(html);
+}
+
+function connectNegativeList(listId, serviceId) {
+    $.ajax({
+        url: `/ajax/connect-negative-list/${serviceId}/`,
+        method: 'POST',
+        data: {
+            list_id: listId,
+            csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+        },
+        success: function(response) {
+            if (response.success) {
+                showToast(response.message, 'success');
+                // Reload the negative keywords tab to show updated lists
+                loadNegativeKeywordLists(serviceId);
+            } else {
+                showToast(response.error || 'Fejl ved tilkobling af liste', 'error');
+            }
+        },
+        error: function() {
+            showToast('Fejl ved tilkobling af negative keyword liste', 'error');
+        }
+    });
+}
+
+function disconnectNegativeList(connectionId, serviceId) {
+    $.ajax({
+        url: `/ajax/disconnect-negative-list/${connectionId}/`,
+        method: 'POST',
+        data: {
+            csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+        },
+        success: function(response) {
+            if (response.success) {
+                showToast(response.message, 'success');
+                // Reload the negative keywords tab to show updated lists
+                loadNegativeKeywordLists(serviceId);
+            } else {
+                showToast(response.error || 'Fejl ved frakobling af liste', 'error');
+            }
+        },
+        error: function() {
+            showToast('Fejl ved frakobling af negative keyword liste', 'error');
+        }
+    });
+}
+
+function editSEOKeyword(keywordId, serviceId) {
+    console.log('Editing SEO keyword:', keywordId);
+    
+    // Exit any existing edit mode first
+    exitSEOEditMode();
+    
+    const row = $(`tr[data-keyword-id="${keywordId}"]`);
+    const keywordText = row.find('td:first-child span').text();
+    const keywordTypeBadge = row.find('td:nth-child(2) span');
+    const searchVolume = row.find('td:nth-child(3)').text().replace(/[^0-9]/g, ''); // Extract only numbers
+    const primaryIcon = row.find('td:nth-child(4) span');
+    
+    // Get current keyword type from the badge classes
+    let currentKeywordType = 'money';
+    if (keywordTypeBadge.hasClass('bg-green-100')) currentKeywordType = 'money';
+    else if (keywordTypeBadge.hasClass('bg-blue-100')) currentKeywordType = 'price';
+    else if (keywordTypeBadge.hasClass('bg-purple-100')) currentKeywordType = 'info';
+    else if (keywordTypeBadge.hasClass('bg-orange-100')) currentKeywordType = 'lsi';
+    
+    // Get current primary status
+    const isPrimary = primaryIcon.text() === '⭐';
+    
+    // Replace keyword text with input
+    row.find('td:first-child').html(`
+        <input type="text" class="edit-seo-keyword-input w-full px-2 py-1 border border-green-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500" 
+               value="${keywordText}" data-original="${keywordText}">
+    `);
+    
+    // Replace keyword type badge with select
+    const typeSelectHtml = `
+        <select class="edit-seo-keyword-type-select px-2 py-1 border border-green-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500 text-xs">
+            <option value="money" ${currentKeywordType === 'money' ? 'selected' : ''}>Money Keyword</option>
+            <option value="price" ${currentKeywordType === 'price' ? 'selected' : ''}>Pris Keyword</option>
+            <option value="info" ${currentKeywordType === 'info' ? 'selected' : ''}>Informations Keyword</option>
+            <option value="lsi" ${currentKeywordType === 'lsi' ? 'selected' : ''}>LSI Keyword</option>
+        </select>
+    `;
+    row.find('td:nth-child(2)').html(typeSelectHtml);
+    
+    // Replace search volume with input
+    row.find('td:nth-child(3)').html(`
+        <input type="number" class="edit-seo-search-volume-input w-full px-2 py-1 border border-green-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500" 
+               value="${searchVolume}" placeholder="0">
+    `);
+    
+    // Replace primary status with toggle checkbox
+    row.find('td:nth-child(4)').html(`
+        <div class="text-center">
+            <input type="checkbox" class="edit-seo-primary-checkbox form-checkbox h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded" 
+                   ${isPrimary ? 'checked' : ''}>
+        </div>
+    `);
+    
+    // Replace action buttons with save/cancel
+    row.find('td:last-child').html(`
+        <div class="flex items-center justify-end space-x-2">
+            <button class="save-seo-keyword-btn text-green-600 hover:text-green-800 p-1" data-keyword-id="${keywordId}" data-service-id="${serviceId}" title="Gem ændringer">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+            </button>
+            <button class="cancel-seo-edit-btn text-gray-600 hover:text-gray-800 p-1" data-keyword-id="${keywordId}" data-service-id="${serviceId}" title="Annuller">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+            </button>
+        </div>
+    `);
+    
+    // Add edit mode styling
+    row.addClass('edit-mode bg-green-50');
+    
+    // Store current edit keyword ID
+    window.currentSEOEditId = keywordId;
+    
+    // Focus on input
+    row.find('.edit-seo-keyword-input').focus().select();
+}
+
+function exitSEOEditMode(forceReload = false) {
+    if (window.currentSEOEditId) {
+        const row = $(`tr[data-keyword-id="${window.currentSEOEditId}"]`);
+        row.removeClass('edit-mode bg-green-50');
+        window.currentSEOEditId = null;
+        
+        // Only reload if forced (e.g., on cancel)
+        if (forceReload) {
+            const serviceId = row.closest('[data-service-id]').data('service-id');
+            if (serviceId) {
+                loadSEOKeywords(serviceId);
+            }
+        }
+    }
+}
+
+function updateSEOKeyword(keywordId, keywordText, keywordType, searchVolume, isPrimary, serviceId) {
+    console.log('Updating SEO keyword:', keywordId, keywordText, keywordType, searchVolume, isPrimary);
+    
+    $.ajax({
+        url: `/ajax/update-service-seo-keyword/${keywordId}/`,
+        type: 'POST',
+        data: {
+            keyword_text: keywordText,
+            keyword_type: keywordType,
+            search_volume: searchVolume || '',
+            is_primary: isPrimary
+        },
+        headers: {
+            'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+        },
+        success: function(response) {
+            console.log('Update SEO keyword response:', response);
+            if (response.success) {
+                showToast(response.message, 'success');
+                
+                // Update the row directly with new data
+                updateSEOKeywordRowInline(keywordId, response.keyword);
+                exitSEOEditMode();
+            } else {
+                showToast(response.error || 'Fejl ved opdatering af SEO keyword', 'error');
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Update SEO keyword error:', error);
+            showToast('Fejl ved opdatering af SEO keyword', 'error');
+        }
+    });
+}
+
+function updateSEOKeywordRowInline(keywordId, keywordData) {
+    const row = $(`tr[data-keyword-id="${keywordId}"]`);
+    if (row.length === 0) return;
+    
+    // Update keyword text
+    row.find('td:first-child').html(`<span class="font-medium text-gray-900">${keywordData.keyword_text}</span>`);
+    
+    // Update keyword type badge
+    const keywordTypeColors = {
+        'money': 'bg-green-100 text-green-800',
+        'price': 'bg-blue-100 text-blue-800', 
+        'info': 'bg-purple-100 text-purple-800',
+        'lsi': 'bg-orange-100 text-orange-800'
+    };
+    
+    const typeColor = keywordTypeColors[keywordData.keyword_type] || 'bg-gray-100 text-gray-800';
+    
+    row.find('td:nth-child(2)').html(`
+        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${typeColor}">
+            ${keywordData.keyword_type_display}
+        </span>
+    `);
+    
+    // Update search volume
+    const searchVolumeDisplay = keywordData.search_volume ? keywordData.search_volume.toLocaleString() : '-';
+    row.find('td:nth-child(3)').html(`<span class="text-gray-600">${searchVolumeDisplay}</span>`);
+    
+    // Update primary status
+    const primaryIcon = keywordData.is_primary ? '⭐' : '☆';
+    const primaryClass = keywordData.is_primary ? 'text-yellow-500' : 'text-gray-400';
+    
+    row.find('td:nth-child(4)').html(`
+        <span class="${primaryClass} text-lg">
+            ${primaryIcon}
+        </span>
+    `);
+    
+    // Restore action buttons
+    row.find('td:last-child').html(`
+        <div class="flex items-center justify-end space-x-2">
+            <button onclick="editSEOKeyword(${keywordData.id}, ${keywordData.service_id || 'serviceId'})" 
+                    class="text-gray-500 hover:text-green-600 p-1" title="Redigér keyword">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                </svg>
+            </button>
+            <button onclick="deleteSEOKeyword(${keywordData.id}, ${keywordData.service_id || 'serviceId'})" 
+                    class="text-gray-500 hover:text-red-600 p-1" title="Slet keyword">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M9 3V4H4V6H5V19C5 20.1 5.9 21 7 21H17C18.1 21 19 20.1 19 19V6H20V4H15V3H9ZM7 6H17V19H7V6ZM9 8V17H11V8H9ZM13 8V17H15V8H13Z"/>
+                </svg>
+            </button>
+        </div>
+    `);
+    
+    // Add brief highlight effect to show the update
+    row.addClass('bg-green-100 border-green-300');
+    setTimeout(() => {
+        row.removeClass('bg-green-100 border-green-300');
+    }, 1500);
+    
+    console.log('SEO keyword row updated inline:', keywordData);
+}
+
+function deleteSEOKeyword(keywordId, serviceId) {
+    if (confirm('Er du sikker på at du vil slette dette SEO keyword?')) {
+        $.ajax({
+            url: `/ajax/delete-service-seo-keyword/${keywordId}/`,
+            method: 'POST',
+            data: {
+                csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+            },
+            success: function(response) {
+                if (response.success) {
+                    showToast(response.message, 'success');
+                    // Reload SEO keywords to show updated list
+                    loadSEOKeywords(serviceId);
+                } else {
+                    showToast(response.error || 'Fejl ved sletning af SEO keyword', 'error');
+                }
+            },
+            error: function() {
+                showToast('Fejl ved sletning af SEO keyword', 'error');
+            }
+        });
+    }
+}
+
+// Industry expansion functionality
+function toggleIndustryExpansion(industryId) {
+    console.log('Toggling expansion for industry:', industryId);
+    
+    const industrySection = $(`.industry-section[data-industry-id="${industryId}"]`);
+    const servicesContent = $(`.services-content[data-industry-id="${industryId}"]`);
+    const expansionIcon = industrySection.find('.expansion-icon svg');
+    
+    if (servicesContent.is(':visible')) {
+        // Collapse
+        servicesContent.slideUp(300);
+        expansionIcon.removeClass('rotate-180');
+    } else {
+        // Expand
+        servicesContent.slideDown(300);
+        expansionIcon.addClass('rotate-180');
+    }
+}
+
+// Service expansion functionality
+function toggleServiceExpansion(serviceId, industryId) {
+    console.log('Toggling expansion for service:', serviceId);
+    
+    const serviceCard = $(`.service-card[data-service-id="${serviceId}"]`);
+    const keywordsContent = $(`.keywords-content[data-service-id="${serviceId}"]`);
+    
+    // Close any other open service
+    $(`.service-card`).not(serviceCard).removeClass('expanded');
+    $(`.keywords-content`).not(keywordsContent).hide();
+    
+    if (serviceCard.hasClass('expanded')) {
+        // Collapse
+        serviceCard.removeClass('expanded');
+        keywordsContent.slideUp(300);
+    } else {
+        // Expand
+        serviceCard.addClass('expanded');
+        
+        // Store current service industry ID for later use
+        window.currentServiceIndustryId = industryId;
+        
+        // Load keywords for this service
+        loadServiceKeywords(serviceId);
+        
+        // Show keywords content (it may already exist but be hidden)
+        setTimeout(() => {
+            const existingKeywordsContent = $(`.keywords-content[data-service-id="${serviceId}"]`);
+            if (existingKeywordsContent.length > 0) {
+                existingKeywordsContent.slideDown(300);
+                console.log(`Keywords content shown for service ${serviceId}`);
+            }
+        }, 100);
+    }
+}
+
+// Load service keywords functionality
+function loadServiceKeywords(serviceId) {
+    console.log('Loading keywords for service:', serviceId);
+    
+    // Check if keywords content already exists
+    let keywordsContent = $(`.keywords-content[data-service-id="${serviceId}"]`);
+    
+    if (keywordsContent.length === 0) {
+        // Create keywords content if it doesn't exist
+        const serviceCard = $(`.service-card[data-service-id="${serviceId}"]`);
+        const keywordsHtml = `
+            <div class="keywords-content keywords-section p-6" data-service-id="${serviceId}">
+                <!-- Keyword Tabs -->
+                <div class="keyword-tabs">
+                    <button class="keyword-tab ads active" data-tab="ads" onclick="switchKeywordTab(${serviceId}, 'ads')">
+                        📱 Google Ads Keywords
+                    </button>
+                    <button class="keyword-tab seo" data-tab="seo" onclick="switchKeywordTab(${serviceId}, 'seo')">
+                        🌐 SEO Keywords
+                    </button>
+                    <button class="keyword-tab negative" data-tab="negative" onclick="switchKeywordTab(${serviceId}, 'negative')">
+                        🚫 Negative Keywords
+                    </button>
+                </div>
+                
+                <!-- Tab Content -->
+                <div class="tab-content active" id="tab-content-ads-${serviceId}">
+                    <div class="p-6">
+                        <!-- Google Ads Keywords Add Form -->
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                            <h4 class="text-lg font-medium text-blue-800 mb-4 flex items-center">
+                                <span class="text-xl mr-2">📱</span>
+                                Tilføj Google Ads Keywords
+                            </h4>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <input type="text" placeholder="Google Ads keyword..." 
+                                       class="new-ads-keyword-text px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                       data-service-id="${serviceId}">
+                                <select class="new-ads-keyword-match-type px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        data-service-id="${serviceId}">
+                                    <option value="phrase" selected>Phrase Match</option>
+                                    <option value="exact">Exact Match</option>
+                                    <option value="broad">Broad Match</option>
+                                </select>
+                                <button class="add-ads-keyword-btn bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200"
+                                        data-service-id="${serviceId}"
+                                        onclick="addGoogleAdsKeyword(${serviceId})">
+                                    📱 Tilføj Google Ads Keyword
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Google Ads Keywords Display -->
+                        <div id="ads-keywords-content-${serviceId}">
+                            <p class="text-gray-500 text-center">Google Ads keywords indlæses...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="tab-content" id="tab-content-seo-${serviceId}">
+                    <div class="p-6">
+                        <!-- SEO Keywords Add Form -->
+                        <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                            <h4 class="text-lg font-medium text-green-800 mb-4 flex items-center">
+                                <span class="text-xl mr-2">🌐</span>
+                                Tilføj SEO Keywords
+                            </h4>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <input type="text" placeholder="SEO keyword..." 
+                                       class="new-seo-keyword-text px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                       data-service-id="${serviceId}">
+                                <select class="new-seo-keyword-type px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                        data-service-id="${serviceId}">
+                                    <option value="money" selected>Money Keyword</option>
+                                    <option value="price">Pris Keyword</option>
+                                    <option value="info">Informations Keyword</option>
+                                    <option value="lsi">LSI Keyword</option>
+                                </select>
+                                <input type="number" placeholder="Søgevolumen" 
+                                       class="new-seo-keyword-volume px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                       data-service-id="${serviceId}">
+                                <button class="add-seo-keyword-btn bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200"
+                                        data-service-id="${serviceId}"
+                                        onclick="addSEOKeyword(${serviceId})">
+                                    🌐 Tilføj SEO Keyword
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- SEO Keywords Display -->
+                        <div id="seo-keywords-table-${serviceId}">
+                            <p class="text-gray-500 text-center">SEO keywords indlæses...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="tab-content" id="tab-content-negative-${serviceId}">
+                    <div class="p-6">
+                        <div id="negative-keywords-content-${serviceId}">
+                            <p class="text-gray-500 text-center">Negative keywords indlæses...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Find the services grid container and append keywords content after it
+        const servicesGrid = serviceCard.closest('.services-grid');
+        servicesGrid.after(keywordsHtml);
+        keywordsContent = $(`.keywords-content[data-service-id="${serviceId}"]`);
+    }
+    
+    // Load Google Ads keywords by default
+    loadGoogleAdsKeywords(serviceId);
+}
+
+// Google Ads Keywords functionality
+function loadGoogleAdsKeywords(serviceId) {
+    console.log('Loading Google Ads keywords for service:', serviceId);
+    
+    $.ajax({
+        url: `/ajax/get-service-keywords/${serviceId}/`,
+        type: 'GET',
+        success: function(response) {
+            if (response.success) {
+                generateGoogleAdsKeywordsTable(serviceId, response.keywords);
+            } else {
+                showToast(response.error || 'Fejl ved indlæsning af Google Ads keywords', 'error');
+            }
+        },
+        error: function() {
+            showToast('Fejl ved indlæsning af Google Ads keywords', 'error');
+        }
+    });
+}
+
+function generateGoogleAdsKeywordsTable(serviceId, keywords) {
+    let html = '';
+    
+    if (keywords.length === 0) {
+        html = `
+            <div class="text-center py-12 text-blue-600">
+                <span class="text-4xl">📱</span>
+                <p class="mt-2 text-gray-600">Ingen Google Ads keywords endnu</p>
+                <p class="text-sm text-gray-500">Tilføj dit første keyword ovenfor</p>
+            </div>
+        `;
+    } else {
+        html = `
+            <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                <div class="bg-blue-50 px-6 py-3 border-b border-blue-200">
+                    <h5 class="font-semibold text-blue-800 flex items-center">
+                        <span class="text-lg mr-2">📱</span>
+                        Google Ads Keywords (${keywords.length})
+                    </h5>
+                </div>
+                
+                <div class="divide-y divide-gray-200">
+        `;
+        
+        html += `
+            <table class="w-full">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th class="text-left py-3 px-4 font-medium text-gray-900">Søgeord</th>
+                        <th class="text-left py-3 px-4 font-medium text-gray-900">Match Type</th>
+                        <th class="text-center py-3 px-4 font-medium text-gray-900">Primær</th>
+                        <th class="text-right py-3 px-4 font-medium text-gray-900">Handlinger</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+        `;
+        
+        keywords.forEach(keyword => {
+            const matchTypeColors = {
+                'exact': 'bg-purple-100 text-purple-800',
+                'phrase': 'bg-blue-100 text-blue-800', 
+                'broad': 'bg-green-100 text-green-800'
+            };
+            
+            const matchColor = matchTypeColors[keyword.match_type] || 'bg-gray-100 text-gray-800';
+            const primaryIcon = keyword.is_primary ? '⭐' : '☆';
+            const primaryClass = keyword.is_primary ? 'text-yellow-500' : 'text-gray-400';
+            
+            html += `
+                <tr class="hover:bg-gray-50 transition-colors duration-200" data-keyword-id="${keyword.id}">
+                    <td class="py-3 px-4">
+                        <span class="font-medium text-gray-900">${keyword.keyword_text}</span>
+                    </td>
+                    <td class="py-3 px-4">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${matchColor}">
+                            ${keyword.match_type_display}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                        <span class="${primaryClass} text-lg">
+                            ${primaryIcon}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4 text-right">
+                        <div class="flex items-center justify-end space-x-2">
+                            <button onclick="editGoogleAdsKeyword(${keyword.id}, ${serviceId})" 
+                                    class="text-gray-500 hover:text-blue-600 p-1" title="Redigér keyword">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                                </svg>
+                            </button>
+                            <button onclick="deleteGoogleAdsKeyword(${keyword.id}, ${serviceId})" 
+                                    class="text-gray-500 hover:text-red-600 p-1" title="Slet keyword">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M9 3V4H4V6H5V19C5 20.1 5.9 21 7 21H17C18.1 21 19 20.1 19 19V6H20V4H15V3H9ZM7 6H17V19H7V6ZM9 8V17H11V8H9ZM13 8V17H15V8H13Z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                </tbody>
+            </table>
+        `;
+        
+        html += `
+                </div>
+            </div>
+        `;
+    }
+    
+    $(`#ads-keywords-content-${serviceId}`).html(html);
+}
+
+function editGoogleAdsKeyword(keywordId, serviceId) {
+    console.log('Editing Google Ads keyword:', keywordId);
+    
+    // Exit any existing edit mode first
+    exitGoogleAdsEditMode();
+    
+    const row = $(`tr[data-keyword-id="${keywordId}"]`);
+    const keywordText = row.find('td:first-child span').text();
+    const matchTypeBadge = row.find('.inline-flex');
+    
+    // Get current match type from the badge classes
+    let currentMatchType = 'phrase';
+    if (matchTypeBadge.hasClass('bg-purple-100')) currentMatchType = 'exact';
+    else if (matchTypeBadge.hasClass('bg-blue-100')) currentMatchType = 'phrase';
+    else if (matchTypeBadge.hasClass('bg-green-100')) currentMatchType = 'broad';
+    
+    // Get current primary status
+    const primaryIcon = row.find('td:nth-child(3) span');
+    const isPrimary = primaryIcon.text() === '⭐';
+    
+    // Replace keyword text with input
+    row.find('td:first-child').html(`
+        <input type="text" class="edit-ads-keyword-input w-full px-2 py-1 border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500" 
+               value="${keywordText}" data-original="${keywordText}">
+    `);
+    
+    // Replace match type badge with select
+    const selectHtml = `
+        <select class="edit-ads-match-type-select px-2 py-1 border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs">
+            <option value="broad" ${currentMatchType === 'broad' ? 'selected' : ''}>Broad Match</option>
+            <option value="phrase" ${currentMatchType === 'phrase' ? 'selected' : ''}>Phrase Match</option>
+            <option value="exact" ${currentMatchType === 'exact' ? 'selected' : ''}>Exact Match</option>
+        </select>
+    `;
+    row.find('td:nth-child(2)').html(selectHtml);
+    
+    // Replace primary status with toggle checkbox
+    row.find('td:nth-child(3)').html(`
+        <input type="checkbox" class="edit-ads-primary-checkbox form-checkbox h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" 
+               ${isPrimary ? 'checked' : ''}>
+    `);
+    
+    // Replace action buttons with save/cancel
+    row.find('td:last-child').html(`
+        <div class="flex items-center justify-end space-x-2">
+            <button class="save-ads-keyword-btn text-green-600 hover:text-green-800 p-1" data-keyword-id="${keywordId}" data-service-id="${serviceId}" title="Gem ændringer">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+            </button>
+            <button class="cancel-ads-edit-btn text-gray-600 hover:text-gray-800 p-1" data-keyword-id="${keywordId}" data-service-id="${serviceId}" title="Annuller">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+            </button>
+        </div>
+    `);
+    
+    // Add edit mode styling
+    row.addClass('edit-mode bg-blue-50');
+    
+    // Store current edit keyword ID
+    window.currentGoogleAdsEditId = keywordId;
+    
+    // Focus on input
+    row.find('.edit-ads-keyword-input').focus().select();
+}
+
+function exitGoogleAdsEditMode(forceReload = false) {
+    if (window.currentGoogleAdsEditId) {
+        const row = $(`tr[data-keyword-id="${window.currentGoogleAdsEditId}"]`);
+        row.removeClass('edit-mode bg-blue-50');
+        window.currentGoogleAdsEditId = null;
+        
+        // Only reload if forced (e.g., on cancel)
+        if (forceReload) {
+            const serviceId = row.closest('[data-service-id]').data('service-id');
+            if (serviceId) {
+                loadGoogleAdsKeywords(serviceId);
+            }
+        }
+    }
+}
+
+function updateGoogleAdsKeyword(keywordId, keywordText, matchType, isPrimary, serviceId) {
+    console.log('Updating Google Ads keyword:', keywordId, keywordText, matchType, isPrimary);
+    
+    $.ajax({
+        url: `/ajax/update-service-keyword/${keywordId}/`,
+        type: 'POST',
+        data: {
+            keyword_text: keywordText,
+            match_type: matchType,
+            is_primary: isPrimary
+        },
+        headers: {
+            'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+        },
+        success: function(response) {
+            console.log('Update Google Ads keyword response:', response);
+            if (response.success) {
+                showToast(response.message, 'success');
+                
+                // Update the row directly with new data
+                updateGoogleAdsKeywordRowInline(keywordId, response.keyword);
+                exitGoogleAdsEditMode();
+            } else {
+                showToast(response.error || 'Fejl ved opdatering af Google Ads keyword', 'error');
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Update Google Ads keyword error:', error);
+            showToast('Fejl ved opdatering af Google Ads keyword', 'error');
+        }
+    });
+}
+
+function updateGoogleAdsKeywordRowInline(keywordId, keywordData) {
+    const row = $(`tr[data-keyword-id="${keywordId}"]`);
+    if (row.length === 0) return;
+    
+    // Update keyword text
+    row.find('td:first-child').html(`<span class="font-medium text-gray-900">${keywordData.keyword_text}</span>`);
+    
+    // Update match type badge
+    const matchTypeColors = {
+        'exact': 'bg-purple-100 text-purple-800',
+        'phrase': 'bg-blue-100 text-blue-800', 
+        'broad': 'bg-green-100 text-green-800'
+    };
+    
+    const matchColor = matchTypeColors[keywordData.match_type] || 'bg-gray-100 text-gray-800';
+    
+    row.find('td:nth-child(2)').html(`
+        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${matchColor}">
+            ${keywordData.match_type_display}
+        </span>
+    `);
+    
+    // Update primary status
+    const primaryIcon = keywordData.is_primary ? '⭐' : '☆';
+    const primaryClass = keywordData.is_primary ? 'text-yellow-500' : 'text-gray-400';
+    
+    row.find('td:nth-child(3)').html(`
+        <span class="${primaryClass} text-lg">
+            ${primaryIcon}
+        </span>
+    `);
+    
+    // Restore action buttons
+    row.find('td:last-child').html(`
+        <div class="flex items-center justify-end space-x-2">
+            <button onclick="editGoogleAdsKeyword(${keywordData.id}, ${keywordData.service_id || 'serviceId'})" 
+                    class="text-gray-500 hover:text-blue-600 p-1" title="Redigér keyword">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                </svg>
+            </button>
+            <button onclick="deleteGoogleAdsKeyword(${keywordData.id}, ${keywordData.service_id || 'serviceId'})" 
+                    class="text-gray-500 hover:text-red-600 p-1" title="Slet keyword">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M9 3V4H4V6H5V19C5 20.1 5.9 21 7 21H17C18.1 21 19 20.1 19 19V6H20V4H15V3H9ZM7 6H17V19H7V6ZM9 8V17H11V8H9ZM13 8V17H15V8H13Z"/>
+                </svg>
+            </button>
+        </div>
+    `);
+    
+    // Add brief highlight effect to show the update
+    row.addClass('bg-green-50 border-green-200');
+    setTimeout(() => {
+        row.removeClass('bg-green-50 border-green-200');
+    }, 1500);
+    
+    console.log('Google Ads keyword row updated inline:', keywordData);
+}
+
+function deleteGoogleAdsKeyword(keywordId, serviceId) {
+    if (confirm('Er du sikker på at du vil slette dette Google Ads keyword?')) {
+        $.ajax({
+            url: `/ajax/delete-service-keyword/${keywordId}/`,
+            method: 'POST',
+            data: {
+                csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+            },
+            success: function(response) {
+                if (response.success) {
+                    showToast(response.message, 'success');
+                    // Reload Google Ads keywords to show updated list
+                    loadGoogleAdsKeywords(serviceId);
+                } else {
+                    showToast(response.error || 'Fejl ved sletning af Google Ads keyword', 'error');
+                }
+            },
+            error: function() {
+                showToast('Fejl ved sletning af Google Ads keyword', 'error');
+            }
+        });
+    }
+}
+
+// Event handlers for Google Ads keyword editing
+$(document).on('click', '.save-ads-keyword-btn', function() {
+    const keywordId = $(this).data('keyword-id');
+    const serviceId = $(this).data('service-id');
+    const row = $(`tr[data-keyword-id="${keywordId}"]`);
+    
+    const keywordText = row.find('.edit-ads-keyword-input').val().trim();
+    const matchType = row.find('.edit-ads-match-type-select').val();
+    const isPrimary = row.find('.edit-ads-primary-checkbox').prop('checked');
+    
+    if (!keywordText) {
+        showToast('Keyword tekst må ikke være tom', 'error');
+        return;
+    }
+    
+    updateGoogleAdsKeyword(keywordId, keywordText, matchType, isPrimary, serviceId);
+});
+
+$(document).on('click', '.cancel-ads-edit-btn', function() {
+    exitGoogleAdsEditMode(true);  // Force reload on cancel
+});
+
+// Enter key to save, Escape to cancel for Google Ads keywords
+$(document).on('keydown', '.edit-ads-keyword-input', function(e) {
+    if (e.key === 'Enter') {
+        $('.save-ads-keyword-btn').click();
+    } else if (e.key === 'Escape') {
+        exitGoogleAdsEditMode(true);  // Force reload on escape
+    }
+});
+
+// Event handlers for SEO keyword editing
+$(document).on('click', '.save-seo-keyword-btn', function() {
+    const keywordId = $(this).data('keyword-id');
+    const serviceId = $(this).data('service-id');
+    const row = $(`tr[data-keyword-id="${keywordId}"]`);
+    
+    const keywordText = row.find('.edit-seo-keyword-input').val().trim();
+    const keywordType = row.find('.edit-seo-keyword-type-select').val();
+    const searchVolume = row.find('.edit-seo-search-volume-input').val();
+    const isPrimary = row.find('.edit-seo-primary-checkbox').prop('checked');
+    
+    if (!keywordText) {
+        showToast('SEO keyword tekst må ikke være tom', 'error');
+        return;
+    }
+    
+    updateSEOKeyword(keywordId, keywordText, keywordType, searchVolume, isPrimary, serviceId);
+});
+
+$(document).on('click', '.cancel-seo-edit-btn', function() {
+    exitSEOEditMode(true);  // Force reload on cancel
+});
+
+// Enter key to save, Escape to cancel for SEO keywords
+$(document).on('keydown', '.edit-seo-keyword-input', function(e) {
+    if (e.key === 'Enter') {
+        $('.save-seo-keyword-btn').click();
+    } else if (e.key === 'Escape') {
+        exitSEOEditMode(true);  // Force reload on escape
+    }
+});
+
+// Enter key to add Google Ads keyword
+$(document).on('keypress', '.new-ads-keyword-text', function(e) {
+    if (e.which === 13) { // Enter key
+        const serviceId = $(this).data('service-id');
+        addGoogleAdsKeyword(serviceId);
+    }
+});
+
 // Make keyword functions globally available  
+window.toggleIndustryExpansion = toggleIndustryExpansion;
 window.toggleServiceExpansion = toggleServiceExpansion;
 window.loadServiceKeywords = loadServiceKeywords;
+window.switchKeywordTab = switchKeywordTab;
+window.addSEOKeyword = addSEOKeyword;
+window.addGoogleAdsKeyword = addGoogleAdsKeyword;
+window.loadGoogleAdsKeywords = loadGoogleAdsKeywords;
+window.editGoogleAdsKeyword = editGoogleAdsKeyword;
+window.deleteGoogleAdsKeyword = deleteGoogleAdsKeyword;
+window.loadNegativeKeywordLists = loadNegativeKeywordLists;
+window.searchNegativeKeywordLists = searchNegativeKeywordLists;
+window.connectNegativeList = connectNegativeList;
+window.disconnectNegativeList = disconnectNegativeList;
+window.editSEOKeyword = editSEOKeyword;
+window.deleteSEOKeyword = deleteSEOKeyword;
+
+// =================================================================
+// NEGATIVE KEYWORDS MANAGEMENT FUNCTIONS (BUTTON LAYOUT)
+// =================================================================
+
+function loadNegativeKeywordLists(serviceId) {
+    console.log('Loading negative keyword lists for service:', serviceId);
+    
+    $.ajax({
+        url: `/ajax/get-service-negative-lists/${serviceId}/`,
+        type: 'GET',
+        success: function(response) {
+            if (response.success) {
+                generateNegativeKeywordsContent(serviceId, response.service_name, response.connected_lists, response.available_lists);
+            } else {
+                showToast(response.error || 'Fejl ved indlæsning af negative keywords', 'error');
+            }
+        },
+        error: function() {
+            showToast('Fejl ved indlæsning af negative keywords', 'error');
+        }
+    });
+}
+
+function generateNegativeKeywordsContent(serviceId, serviceName, connectedLists, availableLists) {
+    console.log('Generating negative keywords content for service:', serviceId);
+    
+    let html = `
+        <div class="p-6">
+            <!-- Negative Keywords Header -->
+            <div class="mb-6 bg-red-50 p-4 rounded-lg border border-red-200">
+                <div class="flex items-center justify-between mb-4">
+                    <h4 class="text-lg font-medium text-red-900">🚫 Negative Keywords for "${serviceName}"</h4>
+                    <button class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 text-sm"
+                            onclick="showAddNegativeListModal(${serviceId})">
+                        ➕ Tilføj Liste
+                    </button>
+                </div>
+                <p class="text-sm text-red-700">Tilknyttede negative søgeordslister som vil blive anvendt i denne service</p>
+            </div>
+            
+            <!-- Connected Lists as Buttons -->
+            <div id="negative-lists-buttons-${serviceId}" class="mb-6">
+                <h5 class="font-medium text-gray-900 mb-3">Tilknyttede Lister</h5>
+                <div class="flex flex-wrap gap-2" id="connected-lists-${serviceId}">
+    `;
+    
+    if (connectedLists && connectedLists.length > 0) {
+        connectedLists.forEach(list => {
+            html += `
+                <div class="inline-flex items-center bg-red-100 text-red-800 px-3 py-2 rounded-lg text-sm font-medium border border-red-200 hover:bg-red-200 transition-colors duration-200">
+                    <span class="mr-2">🚫</span>
+                    <span class="mr-2">${list.name}</span>
+                    <span class="text-xs text-red-600 mr-2">(${list.keywords_count || 0})</span>
+                    <button onclick="disconnectNegativeList(${list.list_id}, ${serviceId})" 
+                            class="ml-1 text-red-600 hover:text-red-800 font-bold text-lg leading-none"
+                            title="Fjern negative søgeordsliste">
+                        ×
+                    </button>
+                </div>
+            `;
+        });
+    } else {
+        html += `
+            <div class="text-gray-500 text-sm italic">
+                Ingen negative søgeordslister tilknyttet endnu
+            </div>
+        `;
+    }
+    
+    html += `
+                </div>
+            </div>
+            
+            <!-- Available Lists -->
+            <div class="border-t border-gray-200 pt-6">
+                <h5 class="font-medium text-gray-900 mb-3">Tilgængelige Lister</h5>
+                <div class="flex flex-wrap gap-2" id="available-lists-${serviceId}">
+    `;
+    
+    if (availableLists && availableLists.length > 0) {
+        // Filter out already connected lists
+        const connectedIds = connectedLists ? connectedLists.map(list => list.list_id) : [];
+        const unconnectedLists = availableLists.filter(list => !connectedIds.includes(list.id));
+        
+        if (unconnectedLists.length > 0) {
+            unconnectedLists.forEach(list => {
+                html += `
+                    <button onclick="connectNegativeList(${list.id}, ${serviceId})" 
+                            class="inline-flex items-center bg-gray-100 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium border border-gray-300 hover:bg-gray-200 hover:border-red-300 hover:text-red-700 transition-all duration-200">
+                        <span class="mr-2">📋</span>
+                        <span class="mr-2">${list.name}</span>
+                        <span class="text-xs text-gray-600">(${list.keywords_count || 0})</span>
+                    </button>
+                `;
+            });
+        } else {
+            html += `
+                <div class="text-gray-500 text-sm italic">
+                    Alle tilgængelige lister er allerede tilknyttet
+                </div>
+            `;
+        }
+    } else {
+        html += `
+            <div class="text-gray-500 text-sm italic">
+                Ingen tilgængelige negative søgeordslister fundet
+            </div>
+        `;
+    }
+    
+    html += `
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Update the negative keywords tab content
+    $(`#tab-content-negative-${serviceId}`).html(html);
+}
+
+function showAddNegativeListModal(serviceId) {
+    console.log('Opening create negative keyword list modal for service:', serviceId);
+    
+    const formContent = `
+        <div class="space-y-6">
+            <!-- Header Section -->
+            <div class="bg-gradient-to-r from-red-100 to-pink-100 p-4 rounded-lg border border-red-200">
+                <h4 class="text-lg font-medium text-red-900 mb-2">📋 Opret Ny Negative Søgeordsliste</h4>
+                <p class="text-sm text-red-700">Opret en ny negative keyword liste og tilknyt den automatisk til denne service</p>
+            </div>
+            
+            <!-- Basic Information -->
+            <div class="space-y-4">
+                <h5 class="font-medium text-gray-900 border-b border-gray-200 pb-2">Grundlæggende Oplysninger</h5>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="negative-list-name" class="block text-sm font-medium text-gray-700 mb-2">Liste Navn *</label>
+                        <input type="text" id="negative-list-name" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                               placeholder="F.eks. Service-specifikke negative ord"
+                               maxlength="100">
+                    </div>
+                    
+                    <div>
+                        <label for="negative-list-category" class="block text-sm font-medium text-gray-700 mb-2">Kategori</label>
+                        <select id="negative-list-category" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent">
+                            <option value="general">Generel Negativ Liste</option>
+                            <option value="competitor">Konkurrent Negative</option>
+                            <option value="service_specific" selected>Service Specifik</option>
+                            <option value="location_based">Lokationsbaseret</option>
+                            <option value="brand_protection">Brand Beskyttelse</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div>
+                    <label for="negative-list-description" class="block text-sm font-medium text-gray-700 mb-2">Beskrivelse</label>
+                    <textarea id="negative-list-description" rows="3"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                              placeholder="Beskriv formålet med denne negative søgeordsliste..."
+                              maxlength="500"></textarea>
+                </div>
+            </div>
+            
+            <!-- Visual Settings -->
+            <div class="space-y-4">
+                <h5 class="font-medium text-gray-900 border-b border-gray-200 pb-2">Visuelle Indstillinger</h5>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="negative-list-icon" class="block text-sm font-medium text-gray-700 mb-2">Ikon</label>
+                        <input type="text" id="negative-list-icon" value="🚫"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                               placeholder="🚫" maxlength="10">
+                    </div>
+                    
+                    <div>
+                        <label for="negative-list-color" class="block text-sm font-medium text-gray-700 mb-2">Farve</label>
+                        <input type="color" id="negative-list-color" value="#DC2626"
+                               class="w-16 h-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Initial Keywords Section -->
+            <div class="space-y-4">
+                <h5 class="font-medium text-gray-900 border-b border-gray-200 pb-2">Indledende Søgeord (Valgfrit)</h5>
+                <p class="text-sm text-gray-600">Du kan tilføje søgeord nu eller senere i Negative Keywords Manager</p>
+                
+                <div>
+                    <label for="initial-keywords" class="block text-sm font-medium text-gray-700 mb-2">Negative Søgeord</label>
+                    <textarea id="initial-keywords" rows="4"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                              placeholder="Indtast søgeord, et per linje eller kommasepareret:&#10;gratis&#10;billig&#10;job, stilling&#10;diy, gør det selv"></textarea>
+                    <p class="text-xs text-gray-500 mt-1">Skriv et søgeord per linje eller adskil med kommaer</p>
+                </div>
+            </div>
+            
+            <input type="hidden" id="target-service-id" value="${serviceId}">
+        </div>
+    `;
+    
+    openSlidePanel(
+        'Opret Negative Søgeordsliste',
+        'Opret en ny liste og tilknyt den til denne service',
+        formContent,
+        function() { createNegativeListAndConnect(); }
+    );
+    
+    // Focus på navn feltet
+    setTimeout(() => {
+        document.getElementById('negative-list-name')?.focus();
+    }, 300);
+}
+
+function createNegativeListAndConnect() {
+    const name = $('#negative-list-name').val().trim();
+    const description = $('#negative-list-description').val().trim();
+    const category = $('#negative-list-category').val();
+    const icon = $('#negative-list-icon').val().trim() || '🚫';
+    const color = $('#negative-list-color').val() || '#DC2626';
+    const initialKeywords = $('#initial-keywords').val().trim();
+    const serviceId = $('#target-service-id').val();
+    
+    if (!name) {
+        showToast('Indtast venligst et navn til listen', 'error');
+        $('#negative-list-name').focus();
+        return;
+    }
+    
+    // Create the negative keyword list
+    $.ajax({
+        url: '/ajax/create-negative-keyword-list/',
+        method: 'POST',
+        data: {
+            name: name,
+            description: description,
+            category: category,
+            icon: icon,
+            color: color,
+            initial_keywords: initialKeywords,
+            csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+        },
+        success: function(response) {
+            if (response.success) {
+                console.log('Negative list created:', response.list_id);
+                
+                // Automatically connect the new list to the service
+                connectNegativeList(response.list_id, serviceId);
+                
+                closeSlidePanel();
+                showToast(`Negative søgeordsliste "${name}" oprettet og tilknyttet succesfuldt!`, 'success');
+            } else {
+                showToast(response.error || 'Fejl ved oprettelse af liste', 'error');
+            }
+        },
+        error: function() {
+            showToast('Fejl ved oprettelse af negative søgeordsliste', 'error');
+        }
+    });
+}
+
+function disconnectNegativeList(listId, serviceId) {
+    console.log('Disconnecting negative list:', listId, 'from service:', serviceId);
+    
+    if (!confirm('Er du sikker på at du vil fjerne denne negative søgeordsliste fra servicen?')) {
+        return;
+    }
+    
+    $.ajax({
+        url: `/ajax/disconnect-negative-list/${listId}/`,
+        method: 'POST',
+        data: {
+            service_id: serviceId,
+            csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+        },
+        success: function(response) {
+            if (response.success) {
+                showToast(response.message, 'success');
+                // Reload the negative keywords tab to show updated lists
+                loadNegativeKeywordLists(serviceId);
+            } else {
+                showToast(response.error || 'Fejl ved fjernelse af liste', 'error');
+            }
+        },
+        error: function() {
+            showToast('Fejl ved fjernelse af negative søgeordsliste', 'error');
+        }
+    });
+}
+
+// =================================================================
+// INDUSTRY KEYWORDS MANAGEMENT FUNCTIONS
+// =================================================================
+
 
 </script>
 

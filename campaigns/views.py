@@ -1524,19 +1524,28 @@ def create_negative_keyword_list_ajax(request):
             if not name:
                 return JsonResponse({'success': False, 'error': 'Liste navn er påkrævet'})
             
+            # Get user for creation - use authenticated user or demo user as fallback  
+            if request.user.is_authenticated:
+                created_by = request.user
+            else:
+                # Fallback to demo user for testing
+                from django.contrib.auth.models import User
+                created_by = User.objects.get(username='demo')
+            
             # Check if name already exists for this user
             if NegativeKeywordList.objects.filter(
                 name__iexact=name, 
-                created_by=request.user
+                created_by=created_by
             ).exists():
                 return JsonResponse({'success': False, 'error': 'En liste med dette navn eksisterer allerede'})
             
             # Get industry if provided
             industry = None
-            if industry_id and industry_id != '':
+            if industry_id and industry_id.strip() and industry_id.strip() != '':
                 try:
-                    industry = Industry.objects.get(id=industry_id)
-                except Industry.DoesNotExist:
+                    industry_id_int = int(industry_id.strip())
+                    industry = Industry.objects.get(id=industry_id_int)
+                except (ValueError, Industry.DoesNotExist):
                     return JsonResponse({'success': False, 'error': 'Ugyldig branche valgt'})
             
             keyword_list = NegativeKeywordList.objects.create(
@@ -1546,20 +1555,45 @@ def create_negative_keyword_list_ajax(request):
                 industry=industry,
                 icon=icon,
                 color=color,
-                is_active=is_active,
-                created_by=request.user,
+                is_active=is_active or True,  # Default to active
+                created_by=created_by,
                 auto_apply_to_industries=[]
             )
             
+            # Handle initial keywords if provided
+            from .models import NegativeKeyword
+            initial_keywords = request.POST.get('initial_keywords', '').strip()
+            keywords_added = 0
+            
+            if initial_keywords:
+                # Split by newlines and commas
+                import re
+                keywords_list = re.split(r'[,\n]+', initial_keywords)
+                keywords_list = [k.strip().lower() for k in keywords_list if k.strip()]
+                
+                for keyword_text in keywords_list:
+                    if keyword_text:
+                        # Check if keyword already exists in this list
+                        if not keyword_list.negative_keywords.filter(keyword_text__iexact=keyword_text).exists():
+                            NegativeKeyword.objects.create(
+                                keyword_list=keyword_list,
+                                keyword_text=keyword_text,
+                                match_type='broad',  # Default match type
+                                created_by=created_by
+                            )
+                            keywords_added += 1
+            
             return JsonResponse({
                 'success': True,
+                'list_id': keyword_list.id,  # Return list_id as expected by JS
+                'message': f'Liste "{name}" oprettet succesfuldt' + (f' med {keywords_added} søgeord' if keywords_added > 0 else ''),
                 'list': {
                     'id': keyword_list.id,
                     'name': keyword_list.name,
                     'category': keyword_list.category,
                     'description': keyword_list.description,
                     'is_active': keyword_list.is_active,
-                    'keywords_count': 0
+                    'keywords_count': keywords_added
                 }
             })
             
@@ -2441,12 +2475,18 @@ def industry_manager(request):
     """Industry Manager - administrer brancher, services og keywords"""
     
     # Get all industries with their related services and keywords
-    from .models import IndustryService, ServiceKeyword, IndustryHeadline
+    from .models import IndustryService, ServiceKeyword, IndustryHeadline, NegativeKeywordList
     
     industries = Industry.objects.all().prefetch_related(
         'industry_services__service_keywords',
+        'industry_services__service_negative_keyword_lists',
         'industry_headlines'
     ).order_by('name')
+    
+    # No filtering needed since we use hard delete for services
+    
+    # Get all active negative keyword lists for service forms
+    negative_keyword_lists = NegativeKeywordList.objects.filter(is_active=True).order_by('name')
     
     # Calculate statistics for each industry
     for industry in industries:
@@ -2454,6 +2494,7 @@ def industry_manager(request):
     
     context = {
         'industries': industries,
+        'negative_keyword_lists': negative_keyword_lists,
         'total_industries': industries.count(),
         'total_services': IndustryService.objects.count(),
         'total_keywords': ServiceKeyword.objects.count(),
@@ -2523,7 +2564,6 @@ def get_industry_services_ajax(request, industry_id):
                     'name': service.name,
                     'description': service.description or '',
                     'keyword_count': keyword_count,
-                    'icon': service.icon or '⚙️',
                 })
             
             return JsonResponse({
@@ -2566,7 +2606,6 @@ def get_service_keywords_ajax(request, service_id):
                     'id': service.id,
                     'name': service.name,
                     'description': service.description,
-                    'icon': service.icon,
                     'color': service.color,
                 },
                 'keywords': keywords_data,
@@ -2767,59 +2806,6 @@ def create_industry_ajax(request):
     return JsonResponse({'success': False, 'error': 'Invalid request method'})
 
 
-@csrf_exempt
-def create_service_ajax(request):
-    """Create a new service under an industry"""
-    if request.method == 'POST':
-        try:
-            from .models import IndustryService
-            from django.contrib.auth.models import User
-            
-            industry_id = request.POST.get('industry_id')
-            name = request.POST.get('name', '').strip()
-            description = request.POST.get('description', '').strip()
-            icon = request.POST.get('icon', '⚙️').strip()
-            color = request.POST.get('color', '#8B5CF6').strip()
-            
-            if not industry_id or not name:
-                return JsonResponse({'success': False, 'error': 'Branche og navn er påkrævet'})
-            
-            industry = Industry.objects.get(id=industry_id)
-            
-            # Check if service already exists in this industry
-            if IndustryService.objects.filter(industry=industry, name__iexact=name).exists():
-                return JsonResponse({'success': False, 'error': f'Service "{name}" eksisterer allerede i denne branche'})
-            
-            # Get or create demo user
-            user, created = User.objects.get_or_create(
-                username='demo_user',
-                defaults={'email': 'demo@example.com', 'first_name': 'Demo', 'last_name': 'User'}
-            )
-            
-            # Create service
-            service = IndustryService.objects.create(
-                industry=industry,
-                name=name,
-                description=description,
-                icon=icon,
-                color=color,
-                created_by=user
-            )
-            
-            return JsonResponse({
-                'success': True,
-                'message': f'Service "{name}" blev oprettet!',
-                'service_id': service.id
-            })
-            
-        except Industry.DoesNotExist:
-            return JsonResponse({'success': False, 'error': 'Branche ikke fundet'})
-        except Exception as e:
-            return JsonResponse({'success': False, 'error': str(e)})
-    
-    return JsonResponse({'success': False, 'error': 'Invalid request method'})
-
-
 # Edit industry and service functions
 @csrf_exempt
 def edit_industry_ajax(request, industry_id):
@@ -2939,11 +2925,12 @@ def edit_service_ajax(request, service_id):
                     'id': service.id,
                     'name': service.name,
                     'description': service.description or '',
-                    'icon': service.icon or '⚙️',
                     'color': service.color or '#8B5CF6',
+                    'service_type': service.service_type or 'service',
                     'is_active': service.is_active,
                     'industry_id': service.industry.id,
-                    'industry_name': service.industry.name
+                    'industry_name': service.industry.name,
+                    'negative_keyword_lists': list(service.service_negative_keyword_lists.values_list('id', flat=True))
                 }
             })
         
@@ -2951,8 +2938,8 @@ def edit_service_ajax(request, service_id):
             # Update service
             name = request.POST.get('name', '').strip()
             description = request.POST.get('description', '').strip()
-            icon = request.POST.get('icon', '⚙️').strip()
             color = request.POST.get('color', '#8B5CF6').strip()
+            service_type = request.POST.get('service_type', 'service').strip()
             is_active = request.POST.get('is_active') == 'true'
             
             if not name:
@@ -2970,10 +2957,26 @@ def edit_service_ajax(request, service_id):
             # Update service
             service.name = name
             service.description = description
-            service.icon = icon
             service.color = color
+            service.service_type = service_type
             service.is_active = is_active
             service.save()
+            
+            # Handle negative keyword lists updates
+            negative_lists = request.POST.getlist('negative_keyword_lists')
+            from .models import NegativeKeywordList
+            
+            # Clear existing connections
+            service.service_negative_keyword_lists.clear()
+            
+            # Add new connections
+            if negative_lists:
+                for list_id in negative_lists:
+                    try:
+                        negative_list = NegativeKeywordList.objects.get(id=list_id, is_active=True)
+                        service.service_negative_keyword_lists.add(negative_list)
+                    except NegativeKeywordList.DoesNotExist:
+                        continue  # Skip invalid list IDs
             
             return JsonResponse({
                 'success': True,
@@ -2998,8 +3001,8 @@ def create_service_ajax(request):
             industry_id = request.POST.get('industry_id')
             name = request.POST.get('name', '').strip()
             description = request.POST.get('description', '').strip()
-            icon = request.POST.get('icon', '⚙️').strip()
             color = request.POST.get('color', '#8B5CF6').strip()
+            service_type = request.POST.get('service_type', 'service').strip()
             
             if not name:
                 return JsonResponse({'success': False, 'error': 'Service navn er påkrævet'})
@@ -3013,8 +3016,7 @@ def create_service_ajax(request):
             # Check if service name already exists for this industry
             if IndustryService.objects.filter(
                 industry=industry,
-                name__iexact=name,
-                is_active=True
+                name__iexact=name
             ).exists():
                 return JsonResponse({'success': False, 'error': 'En service med dette navn eksisterer allerede for denne branche'})
             
@@ -3030,11 +3032,22 @@ def create_service_ajax(request):
                 industry=industry,
                 name=name,
                 description=description,
-                icon=icon,
                 color=color,
+                service_type=service_type,
                 is_active=True,
                 created_by=created_by
             )
+            
+            # Handle negative keyword lists if provided
+            negative_lists = request.POST.getlist('negative_keyword_lists')
+            if negative_lists:
+                from .models import NegativeKeywordList
+                for list_id in negative_lists:
+                    try:
+                        negative_list = NegativeKeywordList.objects.get(id=list_id, is_active=True)
+                        service.service_negative_keyword_lists.add(negative_list)
+                    except NegativeKeywordList.DoesNotExist:
+                        continue  # Skip invalid list IDs
             
             return JsonResponse({
                 'success': True,
@@ -3043,7 +3056,6 @@ def create_service_ajax(request):
                     'id': service.id,
                     'name': service.name,
                     'description': service.description,
-                    'icon': service.icon,
                     'color': service.color,
                     'keywords_count': 0
                 }
@@ -3055,51 +3067,6 @@ def create_service_ajax(request):
     return JsonResponse({'success': False, 'error': 'Invalid request method'})
 
 
-@csrf_exempt
-def edit_service_ajax(request, service_id):
-    """AJAX endpoint to edit existing service"""
-    if request.method == 'POST':
-        try:
-            service = get_object_or_404(IndustryService, id=service_id)
-            
-            name = request.POST.get('name', '').strip()
-            description = request.POST.get('description', '').strip()
-            icon = request.POST.get('icon', '⚙️').strip()
-            color = request.POST.get('color', '#8B5CF6').strip()
-            is_active_field = request.POST.get('is_active')
-            
-            if not name:
-                return JsonResponse({'success': False, 'error': 'Service navn er påkrævet'})
-            
-            # Check if service name already exists for this industry (excluding current service)
-            if IndustryService.objects.filter(
-                industry=service.industry,
-                name__iexact=name,
-                is_active=True
-            ).exclude(id=service_id).exists():
-                return JsonResponse({'success': False, 'error': 'En service med dette navn eksisterer allerede for denne branche'})
-            
-            # Preserve existing is_active if not explicitly sent (slide panel compatibility)
-            is_active = service.is_active if is_active_field is None else is_active_field == 'true'
-            
-            service.name = name
-            service.description = description
-            service.icon = icon
-            service.color = color
-            service.is_active = is_active
-            service.save()
-            
-            return JsonResponse({
-                'success': True,
-                'message': f'Service "{name}" blev opdateret!'
-            })
-            
-        except IndustryService.DoesNotExist:
-            return JsonResponse({'success': False, 'error': 'Service ikke fundet'})
-        except Exception as e:
-            return JsonResponse({'success': False, 'error': str(e)})
-    
-    return JsonResponse({'success': False, 'error': 'Invalid request method'})
 
 
 @csrf_exempt
@@ -3110,13 +3077,15 @@ def delete_service_ajax(request, service_id):
             service = get_object_or_404(IndustryService, id=service_id)
             service_name = service.name
             
-            # Set is_active to False instead of hard deletion to preserve referential integrity
-            service.is_active = False
-            service.save()
+            # Hard delete - Django handles CASCADE automatically for:
+            # - ServiceKeyword (service keywords)  
+            # - ServiceSEOKeyword (SEO keywords)
+            # - ServiceNegativeKeywordList (negative keyword connections)
+            service.delete()
             
             return JsonResponse({
                 'success': True,
-                'message': f'Service "{service_name}" blev slettet!'
+                'message': f'Service "{service_name}" blev permanent slettet!'
             })
             
         except Exception as e:
@@ -3288,3 +3257,952 @@ def delete_service_keyword_ajax(request, keyword_id):
             return JsonResponse({'success': False, 'error': str(e)})
     
     return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+
+
+# =================================================================
+# SEO KEYWORDS AJAX VIEWS
+# =================================================================
+
+def get_service_seo_keywords_ajax(request, service_id):
+    """Get SEO keywords for a specific service"""
+    if request.method == "GET":
+        try:
+            from .models import IndustryService, ServiceSEOKeyword
+            
+            service = IndustryService.objects.get(id=service_id)
+            keywords = service.seo_keywords.all().order_by("-is_primary", "keyword_type", "-search_volume", "keyword_text")
+            
+            keywords_data = []
+            for keyword in keywords:
+                keywords_data.append({
+                    "id": keyword.id,
+                    "keyword_text": keyword.keyword_text,
+                    "search_volume": keyword.search_volume,
+                    "keyword_type": keyword.keyword_type,
+                    "keyword_type_display": keyword.get_keyword_type_display(),
+                    "is_primary": keyword.is_primary,
+                    "target_url": keyword.target_url,
+                    "current_ranking": keyword.current_ranking,
+                    "notes": keyword.notes,
+                    "added_at": keyword.added_at.strftime("%Y-%m-%d %H:%M"),
+                })
+            
+            return JsonResponse({
+                "success": True,
+                "service": {
+                    "id": service.id,
+                    "name": service.name,
+                    "description": service.description,
+                    "color": service.color,
+                },
+                "keywords": keywords_data,
+                "keywords_count": len(keywords_data),
+            })
+            
+        except IndustryService.DoesNotExist:
+            return JsonResponse({"success": False, "error": "Service not found"})
+        except Exception as e:
+            print(f"Error in get_service_seo_keywords_ajax: {str(e)}")
+            return JsonResponse({"success": False, "error": str(e)})
+    
+    return JsonResponse({"success": False, "error": "Invalid request method"})
+
+
+def add_service_seo_keyword_ajax(request, service_id):
+    """Add SEO keyword to a service"""
+    if request.method == "POST":
+        try:
+            from .models import IndustryService, ServiceSEOKeyword
+            
+            service = IndustryService.objects.get(id=service_id)
+            
+            keyword_text = request.POST.get("keyword_text", "").strip()
+            search_volume = request.POST.get("search_volume")
+            keyword_type = request.POST.get("keyword_type", "money")
+            is_primary = request.POST.get("is_primary") == "true"
+            target_url = request.POST.get("target_url", "").strip()
+            current_ranking = request.POST.get("current_ranking")
+            notes = request.POST.get("notes", "").strip()
+            
+            if not keyword_text:
+                return JsonResponse({"success": False, "error": "Keyword text is required"})
+            
+            # Check for duplicates
+            if ServiceSEOKeyword.objects.filter(service=service, keyword_text__iexact=keyword_text).exists():
+                return JsonResponse({"success": False, "error": f"SEO keyword \"{keyword_text}\" already exists for this service"})
+            
+            # Create keyword
+            keyword = ServiceSEOKeyword.objects.create(
+                service=service,
+                keyword_text=keyword_text,
+                search_volume=int(search_volume) if search_volume else None,
+                keyword_type=keyword_type,
+                is_primary=is_primary,
+                target_url=target_url or "",
+                current_ranking=int(current_ranking) if current_ranking else None,
+                notes=notes
+            )
+            
+            return JsonResponse({
+                "success": True,
+                "message": f"SEO keyword \"{keyword_text}\" added successfully!",
+                "keyword": {
+                    "id": keyword.id,
+                    "keyword_text": keyword.keyword_text,
+                    "search_volume": keyword.search_volume,
+                    "keyword_type": keyword.keyword_type,
+                    "keyword_type_display": keyword.get_keyword_type_display(),
+                    "is_primary": keyword.is_primary,
+                }
+            })
+            
+        except IndustryService.DoesNotExist:
+            return JsonResponse({"success": False, "error": "Service not found"})
+        except ValueError as e:
+            return JsonResponse({"success": False, "error": "Invalid number format"})
+        except Exception as e:
+            print(f"Error in add_service_seo_keyword_ajax: {str(e)}")
+            return JsonResponse({"success": False, "error": str(e)})
+    
+    return JsonResponse({"success": False, "error": "Invalid request method"})
+
+
+@csrf_exempt
+def update_service_seo_keyword_ajax(request, keyword_id):
+    """Update SEO keyword for a service"""
+    if request.method == "POST":
+        try:
+            from .models import ServiceSEOKeyword
+            
+            keyword = ServiceSEOKeyword.objects.get(id=keyword_id)
+            
+            keyword_text = request.POST.get("keyword_text", "").strip()
+            search_volume = request.POST.get("search_volume")
+            keyword_type = request.POST.get("keyword_type", "money")
+            is_primary = request.POST.get("is_primary") == "true"
+            target_url = request.POST.get("target_url", "").strip()
+            current_ranking = request.POST.get("current_ranking")
+            notes = request.POST.get("notes", "").strip()
+            
+            if not keyword_text:
+                return JsonResponse({"success": False, "error": "Keyword text is required"})
+            
+            # Check for duplicates (excluding current keyword)
+            if ServiceSEOKeyword.objects.filter(
+                service=keyword.service, 
+                keyword_text__iexact=keyword_text
+            ).exclude(id=keyword_id).exists():
+                return JsonResponse({"success": False, "error": f"SEO keyword \"{keyword_text}\" already exists for this service"})
+            
+            # Update keyword
+            keyword.keyword_text = keyword_text
+            keyword.search_volume = int(search_volume) if search_volume else None
+            keyword.keyword_type = keyword_type
+            keyword.is_primary = is_primary
+            keyword.target_url = target_url or ""
+            keyword.current_ranking = int(current_ranking) if current_ranking else None
+            keyword.notes = notes
+            keyword.save()
+            
+            return JsonResponse({
+                "success": True,
+                "message": f"SEO keyword \"{keyword_text}\" updated successfully!",
+                "keyword": {
+                    "id": keyword.id,
+                    "keyword_text": keyword.keyword_text,
+                    "search_volume": keyword.search_volume,
+                    "keyword_type": keyword.keyword_type,
+                    "keyword_type_display": keyword.get_keyword_type_display(),
+                    "is_primary": keyword.is_primary,
+                }
+            })
+            
+        except ServiceSEOKeyword.DoesNotExist:
+            return JsonResponse({"success": False, "error": "SEO keyword not found"})
+        except ValueError as e:
+            return JsonResponse({"success": False, "error": "Invalid number format"})
+        except Exception as e:
+            print(f"Error in update_service_seo_keyword_ajax: {str(e)}")
+            return JsonResponse({"success": False, "error": str(e)})
+    
+    return JsonResponse({"success": False, "error": "Invalid request method"})
+
+
+@csrf_exempt
+def delete_service_seo_keyword_ajax(request, keyword_id):
+    """Delete SEO keyword from a service"""
+    if request.method == "POST":
+        try:
+            from .models import ServiceSEOKeyword
+            
+            keyword = ServiceSEOKeyword.objects.get(id=keyword_id)
+            keyword_text = keyword.keyword_text
+            
+            keyword.delete()
+            
+            return JsonResponse({
+                "success": True,
+                "message": f"SEO keyword \"{keyword_text}\" deleted successfully!"
+            })
+            
+        except ServiceSEOKeyword.DoesNotExist:
+            return JsonResponse({"success": False, "error": "SEO keyword not found"})
+        except Exception as e:
+            print(f"Error in delete_service_seo_keyword_ajax: {str(e)}")
+            return JsonResponse({"success": False, "error": str(e)})
+    
+    return JsonResponse({"success": False, "error": "Invalid request method"})
+
+
+# =================================================================
+# NEGATIVE KEYWORDS INTEGRATION VIEWS
+# =================================================================
+
+@csrf_exempt
+def search_negative_keyword_lists_ajax(request):
+    """Search available negative keyword lists"""
+    if request.method == "GET":
+        try:
+            from .models import NegativeKeywordList
+            
+            query = request.GET.get('query', '').strip()
+            industry_id = request.GET.get('industry_id')
+            
+            # Base queryset - only active lists
+            lists = NegativeKeywordList.objects.filter(is_active=True)
+            
+            # Filter by query if provided
+            if query:
+                from django.db import models as django_models
+                lists = lists.filter(
+                    django_models.Q(name__icontains=query) |
+                    django_models.Q(description__icontains=query) |
+                    django_models.Q(category__icontains=query)
+                )
+            
+            # Filter by industry if provided
+            if industry_id:
+                from .models import Industry
+                try:
+                    industry = Industry.objects.get(id=industry_id)
+                    lists = lists.filter(
+                        django_models.Q(industry=industry) |
+                        django_models.Q(auto_apply_to_industries__contains=[industry_id]) |
+                        django_models.Q(industry__isnull=True)  # Include general lists
+                    )
+                except Industry.DoesNotExist:
+                    pass
+            
+            # Prepare response data
+            lists_data = []
+            for keyword_list in lists.order_by('name'):
+                lists_data.append({
+                    'id': keyword_list.id,
+                    'name': keyword_list.name,
+                    'category': keyword_list.category,
+                    'category_display': keyword_list.get_category_display(),
+                    'description': keyword_list.description or '',
+                    'keywords_count': keyword_list.keywords_count,
+                    'icon': keyword_list.icon or '📋',
+                    'color': keyword_list.color or '#8B5CF6',
+                    'industry_name': keyword_list.industry.name if keyword_list.industry else 'Alle brancher',
+                    'created_at': keyword_list.created_at.strftime('%Y-%m-%d')
+                })
+            
+            return JsonResponse({
+                'success': True,
+                'lists': lists_data,
+                'total_count': len(lists_data),
+                'query': query
+            })
+            
+        except Exception as e:
+            print(f"Error in search_negative_keyword_lists_ajax: {str(e)}")
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+
+@csrf_exempt
+def get_service_negative_lists_ajax(request, service_id):
+    """Get negative keyword lists connected to a service"""
+    if request.method == "GET":
+        try:
+            from .models import IndustryService, ServiceNegativeKeywordList
+            
+            service = IndustryService.objects.get(id=service_id)
+            
+            # Get connected lists through the junction table
+            connections = ServiceNegativeKeywordList.objects.filter(
+                service=service, 
+                is_active=True
+            ).select_related('negative_list')
+            
+            lists_data = []
+            for connection in connections:
+                keyword_list = connection.negative_list
+                lists_data.append({
+                    'connection_id': connection.id,
+                    'list_id': keyword_list.id,
+                    'name': keyword_list.name,
+                    'category': keyword_list.category,
+                    'category_display': keyword_list.get_category_display(),
+                    'description': keyword_list.description or '',
+                    'keywords_count': keyword_list.keywords_count,
+                    'icon': keyword_list.icon or '📋',
+                    'color': keyword_list.color or '#8B5CF6',
+                    'connected_at': connection.connected_at.strftime('%Y-%m-%d'),
+                })
+            
+            return JsonResponse({
+                'success': True,
+                'service': {
+                    'id': service.id,
+                    'name': service.name,
+                    'industry_name': service.industry.name
+                },
+                'lists': lists_data,
+                'lists_count': len(lists_data)
+            })
+            
+        except IndustryService.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Service not found'})
+        except Exception as e:
+            print(f"Error in get_service_negative_lists_ajax: {str(e)}")
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+
+@csrf_exempt
+def connect_negative_list_to_service_ajax(request, service_id):
+    """Connect a negative keyword list to a service"""
+    if request.method == "POST":
+        try:
+            from .models import IndustryService, NegativeKeywordList, ServiceNegativeKeywordList
+            
+            service = IndustryService.objects.get(id=service_id)
+            list_id = request.POST.get('list_id')
+            
+            if not list_id:
+                return JsonResponse({'success': False, 'error': 'List ID is required'})
+            
+            negative_list = NegativeKeywordList.objects.get(id=list_id)
+            
+            # Check if already connected
+            connection, created = ServiceNegativeKeywordList.objects.get_or_create(
+                service=service,
+                negative_list=negative_list,
+                defaults={'is_active': True}
+            )
+            
+            if created:
+                message = f'Negative keyword liste "{negative_list.name}" blev tilkoblet til "{service.name}"'
+            else:
+                # Reactivate if was disabled
+                connection.is_active = True
+                connection.save()
+                message = f'Negative keyword liste "{negative_list.name}" blev genaktiveret for "{service.name}"'
+            
+            return JsonResponse({
+                'success': True,
+                'message': message,
+                'connection': {
+                    'connection_id': connection.id,
+                    'list_id': negative_list.id,
+                    'name': negative_list.name,
+                    'category': negative_list.category,
+                    'keywords_count': negative_list.keywords_count,
+                    'icon': negative_list.icon,
+                    'color': negative_list.color
+                }
+            })
+            
+        except IndustryService.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Service not found'})
+        except NegativeKeywordList.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Negative keyword list not found'})
+        except Exception as e:
+            print(f"Error in connect_negative_list_to_service_ajax: {str(e)}")
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+
+@csrf_exempt
+def disconnect_negative_list_from_service_ajax(request, connection_id):
+    """Disconnect a negative keyword list from a service"""
+    if request.method == "POST":
+        try:
+            from .models import ServiceNegativeKeywordList
+            
+            connection = ServiceNegativeKeywordList.objects.get(id=connection_id)
+            list_name = connection.negative_list.name
+            service_name = connection.service.name
+            
+            # Soft delete by setting is_active to False
+            connection.is_active = False
+            connection.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Negative keyword liste "{list_name}" blev frakoblet fra "{service_name}"'
+            })
+            
+        except ServiceNegativeKeywordList.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Connection not found'})
+        except Exception as e:
+            print(f"Error in disconnect_negative_list_from_service_ajax: {str(e)}")
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+
+
+# =================================================================
+# INDUSTRY KEYWORDS MANAGEMENT VIEWS  
+# =================================================================
+
+@csrf_exempt
+def get_industry_keywords_ajax(request, industry_id):
+    """Get Google Ads keywords for an industry"""
+    if request.method == "GET":
+        try:
+            from .models import Industry, IndustryKeyword
+            
+            industry = Industry.objects.get(id=industry_id)
+            keywords = IndustryKeyword.objects.filter(industry=industry).order_by('-is_primary', 'keyword_text')
+            
+            keywords_data = []
+            for keyword in keywords:
+                keywords_data.append({
+                    "id": keyword.id,
+                    "keyword_text": keyword.keyword_text,
+                    "match_type": keyword.match_type,
+                    "match_type_display": keyword.get_match_type_display(),
+                    "is_primary": keyword.is_primary,
+                    "inherited_by_services": keyword.inherited_by_services,
+                    "notes": keyword.notes,
+                    "added_at": keyword.added_at.strftime('%Y-%m-%d')
+                })
+            
+            return JsonResponse({
+                "success": True,
+                "industry": {
+                    "id": industry.id,
+                    "name": industry.name
+                },
+                "keywords": keywords_data,
+                "keywords_count": len(keywords_data)
+            })
+            
+        except Industry.DoesNotExist:
+            return JsonResponse({"success": False, "error": "Industry not found"})
+        except Exception as e:
+            print(f"Error in get_industry_keywords_ajax: {str(e)}")
+            return JsonResponse({"success": False, "error": str(e)})
+    
+    return JsonResponse({"success": False, "error": "Invalid request method"})
+
+
+@csrf_exempt
+def add_industry_keyword_ajax(request, industry_id):
+    """Add Google Ads keyword to an industry"""
+    if request.method == "POST":
+        try:
+            from .models import Industry, IndustryKeyword
+            
+            industry = Industry.objects.get(id=industry_id)
+            
+            keyword_text = request.POST.get("keyword_text", "").strip()
+            match_type = request.POST.get("match_type", "phrase")
+            is_primary = request.POST.get("is_primary") == "true"
+            inherited_by_services = request.POST.get("inherited_by_services", "true") == "true"
+            notes = request.POST.get("notes", "").strip()
+            
+            if not keyword_text:
+                return JsonResponse({"success": False, "error": "Keyword text is required"})
+            
+            # Check for duplicates
+            if IndustryKeyword.objects.filter(industry=industry, keyword_text__iexact=keyword_text, match_type=match_type).exists():
+                return JsonResponse({"success": False, "error": f"Google Ads keyword \"{keyword_text}\" with {match_type} match type already exists for this industry"})
+            
+            # Create keyword
+            keyword = IndustryKeyword.objects.create(
+                industry=industry,
+                keyword_text=keyword_text,
+                match_type=match_type,
+                is_primary=is_primary,
+                inherited_by_services=inherited_by_services,
+                notes=notes
+            )
+            
+            return JsonResponse({
+                "success": True,
+                "message": f"Google Ads keyword \"{keyword_text}\" added successfully to industry!",
+                "keyword": {
+                    "id": keyword.id,
+                    "keyword_text": keyword.keyword_text,
+                    "match_type": keyword.match_type,
+                    "match_type_display": keyword.get_match_type_display(),
+                    "is_primary": keyword.is_primary,
+                    "inherited_by_services": keyword.inherited_by_services
+                }
+            })
+            
+        except Industry.DoesNotExist:
+            return JsonResponse({"success": False, "error": "Industry not found"})
+        except Exception as e:
+            print(f"Error in add_industry_keyword_ajax: {str(e)}")
+            return JsonResponse({"success": False, "error": str(e)})
+    
+    return JsonResponse({"success": False, "error": "Invalid request method"})
+
+
+@csrf_exempt
+def update_industry_keyword_ajax(request, keyword_id):
+    """Update an industry Google Ads keyword"""
+    if request.method == "POST":
+        try:
+            from .models import IndustryKeyword
+            
+            keyword = IndustryKeyword.objects.get(id=keyword_id)
+            
+            keyword_text = request.POST.get("keyword_text", "").strip()
+            match_type = request.POST.get("match_type", keyword.match_type)
+            is_primary = request.POST.get("is_primary") == "true"
+            inherited_by_services = request.POST.get("inherited_by_services", str(keyword.inherited_by_services).lower()) == "true"
+            
+            if not keyword_text:
+                return JsonResponse({"success": False, "error": "Keyword text is required"})
+            
+            # Check for duplicates (excluding current keyword)
+            if IndustryKeyword.objects.filter(
+                industry=keyword.industry, 
+                keyword_text__iexact=keyword_text, 
+                match_type=match_type
+            ).exclude(id=keyword_id).exists():
+                return JsonResponse({"success": False, "error": f"Google Ads keyword \"{keyword_text}\" with {match_type} match type already exists for this industry"})
+            
+            # Update keyword
+            keyword.keyword_text = keyword_text
+            keyword.match_type = match_type
+            keyword.is_primary = is_primary
+            keyword.inherited_by_services = inherited_by_services
+            keyword.save()
+            
+            return JsonResponse({
+                "success": True,
+                "message": f"Google Ads keyword \"{keyword_text}\" updated successfully!",
+                "keyword": {
+                    "id": keyword.id,
+                    "keyword_text": keyword.keyword_text,
+                    "match_type": keyword.match_type,
+                    "match_type_display": keyword.get_match_type_display(),
+                    "is_primary": keyword.is_primary,
+                    "inherited_by_services": keyword.inherited_by_services
+                }
+            })
+            
+        except IndustryKeyword.DoesNotExist:
+            return JsonResponse({"success": False, "error": "Keyword not found"})
+        except Exception as e:
+            print(f"Error in update_industry_keyword_ajax: {str(e)}")
+            return JsonResponse({"success": False, "error": str(e)})
+    
+    return JsonResponse({"success": False, "error": "Invalid request method"})
+
+
+@csrf_exempt
+def delete_industry_keyword_ajax(request, keyword_id):
+    """Delete an industry Google Ads keyword"""
+    if request.method == "POST":
+        try:
+            from .models import IndustryKeyword
+            
+            keyword = IndustryKeyword.objects.get(id=keyword_id)
+            keyword_text = keyword.keyword_text
+            industry_name = keyword.industry.name
+            
+            keyword.delete()
+            
+            return JsonResponse({
+                "success": True,
+                "message": f"Google Ads keyword \"{keyword_text}\" deleted successfully from industry \"{industry_name}\"!"
+            })
+            
+        except IndustryKeyword.DoesNotExist:
+            return JsonResponse({"success": False, "error": "Keyword not found"})
+        except Exception as e:
+            print(f"Error in delete_industry_keyword_ajax: {str(e)}")
+            return JsonResponse({"success": False, "error": str(e)})
+    
+    return JsonResponse({"success": False, "error": "Invalid request method"})
+
+
+@csrf_exempt
+def get_industry_seo_keywords_ajax(request, industry_id):
+    """Get SEO keywords for an industry"""
+    if request.method == "GET":
+        try:
+            from .models import Industry, IndustrySEOKeyword
+            
+            industry = Industry.objects.get(id=industry_id)
+            keywords = IndustrySEOKeyword.objects.filter(industry=industry).order_by('-is_primary', 'search_volume', 'keyword_text')
+            
+            keywords_data = []
+            for keyword in keywords:
+                keywords_data.append({
+                    "id": keyword.id,
+                    "keyword_text": keyword.keyword_text,
+                    "search_volume": keyword.search_volume,
+                    "keyword_type": keyword.keyword_type,
+                    "keyword_type_display": keyword.get_keyword_type_display(),
+                    "is_primary": keyword.is_primary,
+                    "inherited_by_services": keyword.inherited_by_services,
+                    "notes": keyword.notes,
+                    "added_at": keyword.added_at.strftime('%Y-%m-%d')
+                })
+            
+            return JsonResponse({
+                "success": True,
+                "industry": {
+                    "id": industry.id,
+                    "name": industry.name
+                },
+                "keywords": keywords_data,
+                "keywords_count": len(keywords_data)
+            })
+            
+        except Industry.DoesNotExist:
+            return JsonResponse({"success": False, "error": "Industry not found"})
+        except Exception as e:
+            print(f"Error in get_industry_seo_keywords_ajax: {str(e)}")
+            return JsonResponse({"success": False, "error": str(e)})
+    
+    return JsonResponse({"success": False, "error": "Invalid request method"})
+
+
+@csrf_exempt
+def add_industry_seo_keyword_ajax(request, industry_id):
+    """Add SEO keyword to an industry"""
+    if request.method == "POST":
+        try:
+            from .models import Industry, IndustrySEOKeyword
+            
+            industry = Industry.objects.get(id=industry_id)
+            
+            keyword_text = request.POST.get("keyword_text", "").strip()
+            search_volume = request.POST.get("search_volume")
+            keyword_type = request.POST.get("keyword_type", "money")
+            is_primary = request.POST.get("is_primary") == "true"
+            inherited_by_services = request.POST.get("inherited_by_services", "true") == "true"
+            notes = request.POST.get("notes", "").strip()
+            
+            if not keyword_text:
+                return JsonResponse({"success": False, "error": "Keyword text is required"})
+            
+            # Check for duplicates
+            if IndustrySEOKeyword.objects.filter(industry=industry, keyword_text__iexact=keyword_text).exists():
+                return JsonResponse({"success": False, "error": f"SEO keyword \"{keyword_text}\" already exists for this industry"})
+            
+            # Create keyword
+            keyword = IndustrySEOKeyword.objects.create(
+                industry=industry,
+                keyword_text=keyword_text,
+                search_volume=int(search_volume) if search_volume else None,
+                keyword_type=keyword_type,
+                is_primary=is_primary,
+                inherited_by_services=inherited_by_services,
+                notes=notes
+            )
+            
+            return JsonResponse({
+                "success": True,
+                "message": f"SEO keyword \"{keyword_text}\" added successfully to industry!",
+                "keyword": {
+                    "id": keyword.id,
+                    "keyword_text": keyword.keyword_text,
+                    "search_volume": keyword.search_volume,
+                    "keyword_type": keyword.keyword_type,
+                    "keyword_type_display": keyword.get_keyword_type_display(),
+                    "is_primary": keyword.is_primary,
+                    "inherited_by_services": keyword.inherited_by_services
+                }
+            })
+            
+        except Industry.DoesNotExist:
+            return JsonResponse({"success": False, "error": "Industry not found"})
+        except Exception as e:
+            print(f"Error in add_industry_seo_keyword_ajax: {str(e)}")
+            return JsonResponse({"success": False, "error": str(e)})
+    
+    return JsonResponse({"success": False, "error": "Invalid request method"})
+
+
+@csrf_exempt
+def update_industry_seo_keyword_ajax(request, keyword_id):
+    """Update an industry SEO keyword"""
+    if request.method == "POST":
+        try:
+            from .models import IndustrySEOKeyword
+            
+            keyword = IndustrySEOKeyword.objects.get(id=keyword_id)
+            
+            keyword_text = request.POST.get("keyword_text", "").strip()
+            search_volume = request.POST.get("search_volume")
+            keyword_type = request.POST.get("keyword_type", keyword.keyword_type)
+            is_primary = request.POST.get("is_primary") == "true"
+            inherited_by_services = request.POST.get("inherited_by_services", str(keyword.inherited_by_services).lower()) == "true"
+            
+            if not keyword_text:
+                return JsonResponse({"success": False, "error": "Keyword text is required"})
+            
+            # Check for duplicates (excluding current keyword)
+            if IndustrySEOKeyword.objects.filter(
+                industry=keyword.industry, 
+                keyword_text__iexact=keyword_text
+            ).exclude(id=keyword_id).exists():
+                return JsonResponse({"success": False, "error": f"SEO keyword \"{keyword_text}\" already exists for this industry"})
+            
+            # Update keyword
+            keyword.keyword_text = keyword_text
+            keyword.search_volume = int(search_volume) if search_volume else None
+            keyword.keyword_type = keyword_type
+            keyword.is_primary = is_primary
+            keyword.inherited_by_services = inherited_by_services
+            keyword.save()
+            
+            return JsonResponse({
+                "success": True,
+                "message": f"SEO keyword \"{keyword_text}\" updated successfully!",
+                "keyword": {
+                    "id": keyword.id,
+                    "keyword_text": keyword.keyword_text,
+                    "search_volume": keyword.search_volume,
+                    "keyword_type": keyword.keyword_type,
+                    "keyword_type_display": keyword.get_keyword_type_display(),
+                    "is_primary": keyword.is_primary,
+                    "inherited_by_services": keyword.inherited_by_services
+                }
+            })
+            
+        except IndustrySEOKeyword.DoesNotExist:
+            return JsonResponse({"success": False, "error": "Keyword not found"})
+        except Exception as e:
+            print(f"Error in update_industry_seo_keyword_ajax: {str(e)}")
+            return JsonResponse({"success": False, "error": str(e)})
+    
+    return JsonResponse({"success": False, "error": "Invalid request method"})
+
+
+@csrf_exempt
+def delete_industry_seo_keyword_ajax(request, keyword_id):
+    """Delete an industry SEO keyword"""
+    if request.method == "POST":
+        try:
+            from .models import IndustrySEOKeyword
+            
+            keyword = IndustrySEOKeyword.objects.get(id=keyword_id)
+            keyword_text = keyword.keyword_text
+            industry_name = keyword.industry.name
+            
+            keyword.delete()
+            
+            return JsonResponse({
+                "success": True,
+                "message": f"SEO keyword \"{keyword_text}\" deleted successfully from industry \"{industry_name}\"!"
+            })
+            
+        except IndustrySEOKeyword.DoesNotExist:
+            return JsonResponse({"success": False, "error": "Keyword not found"})
+        except Exception as e:
+            print(f"Error in delete_industry_seo_keyword_ajax: {str(e)}")
+            return JsonResponse({"success": False, "error": str(e)})
+    
+    return JsonResponse({"success": False, "error": "Invalid request method"})
+
+
+@csrf_exempt
+def get_service_negative_lists_ajax(request, service_id):
+    """Get negative keyword lists for a specific service"""
+    if request.method == "GET":
+        try:
+            from .models import IndustryService, NegativeKeywordList
+            
+            service = IndustryService.objects.get(id=service_id)
+            
+            # Get all available negative keyword lists
+            available_lists = NegativeKeywordList.objects.filter(is_active=True).order_by('name')
+            
+            # Get connected negative keyword lists for this service
+            connected_lists = []
+            for connection in service.service_negative_keyword_lists.all():
+                connected_lists.append({
+                    'list_id': connection.id,
+                    'connection_id': connection.id,  # For M2M, this would be different
+                    'name': connection.name,
+                    'description': connection.description,
+                    'keywords_count': connection.negative_keywords.count(),
+                    'category': connection.category,
+                    'category_display': connection.get_category_display(),
+                    'connected_at': connection.created_at.strftime('%d/%m/%Y') if hasattr(connection, 'created_at') else 'N/A'
+                })
+            
+            # Prepare available lists data
+            available_lists_data = []
+            for neg_list in available_lists:
+                available_lists_data.append({
+                    'id': neg_list.id,
+                    'name': neg_list.name,
+                    'description': neg_list.description,
+                    'keywords_count': neg_list.negative_keywords.count(),
+                    'category': neg_list.category,
+                    'category_display': neg_list.get_category_display(),
+                    'icon': getattr(neg_list, 'icon', '📋'),
+                    'color': getattr(neg_list, 'color', '#8B5CF6'),
+                    'industry_name': getattr(neg_list.industry, 'name', 'Generel') if hasattr(neg_list, 'industry') and neg_list.industry else 'Generel'
+                })
+            
+            return JsonResponse({
+                "success": True,
+                "service_name": service.name,
+                "connected_lists": connected_lists,
+                "available_lists": available_lists_data
+            })
+            
+        except IndustryService.DoesNotExist:
+            return JsonResponse({"success": False, "error": "Service not found"})
+        except Exception as e:
+            print(f"Error in get_service_negative_lists_ajax: {str(e)}")
+            return JsonResponse({"success": False, "error": str(e)})
+    
+    return JsonResponse({"success": False, "error": "Invalid request method"})
+
+
+@csrf_exempt
+def connect_negative_list_to_service_ajax(request, service_id):
+    """Connect a negative keyword list to a service"""
+    if request.method == "POST":
+        try:
+            from .models import IndustryService, NegativeKeywordList
+            
+            service = IndustryService.objects.get(id=service_id)
+            list_id = request.POST.get('list_id')
+            
+            if not list_id:
+                return JsonResponse({"success": False, "error": "List ID is required"})
+            
+            negative_list = NegativeKeywordList.objects.get(id=list_id)
+            
+            # Check if already connected
+            if service.service_negative_keyword_lists.filter(id=list_id).exists():
+                return JsonResponse({"success": False, "error": f"Liste '{negative_list.name}' er allerede tilknyttet denne service"})
+            
+            # Connect the list
+            service.service_negative_keyword_lists.add(negative_list)
+            
+            return JsonResponse({
+                "success": True,
+                "message": f"Negative keyword liste '{negative_list.name}' tilknyttet succesfuldt til '{service.name}'"
+            })
+            
+        except IndustryService.DoesNotExist:
+            return JsonResponse({"success": False, "error": "Service not found"})
+        except NegativeKeywordList.DoesNotExist:
+            return JsonResponse({"success": False, "error": "Negative keyword list not found"})
+        except Exception as e:
+            print(f"Error in connect_negative_list_to_service_ajax: {str(e)}")
+            return JsonResponse({"success": False, "error": str(e)})
+    
+    return JsonResponse({"success": False, "error": "Invalid request method"})
+
+
+@csrf_exempt
+def disconnect_negative_list_from_service_ajax(request, connection_id):
+    """Disconnect a negative keyword list from a service"""
+    if request.method == "POST":
+        try:
+            from .models import IndustryService, NegativeKeywordList
+            
+            service_id = request.POST.get('service_id')
+            if not service_id:
+                return JsonResponse({"success": False, "error": "Service ID is required"})
+            
+            service = IndustryService.objects.get(id=service_id)
+            
+            # For M2M relationship, connection_id is actually the list_id
+            negative_list = NegativeKeywordList.objects.get(id=connection_id)
+            
+            # Check if connected
+            if not service.service_negative_keyword_lists.filter(id=connection_id).exists():
+                return JsonResponse({"success": False, "error": f"Liste '{negative_list.name}' er ikke tilknyttet denne service"})
+            
+            # Disconnect the list
+            service.service_negative_keyword_lists.remove(negative_list)
+            
+            return JsonResponse({
+                "success": True,
+                "message": f"Negative keyword liste '{negative_list.name}' fjernet fra '{service.name}'"
+            })
+            
+        except IndustryService.DoesNotExist:
+            return JsonResponse({"success": False, "error": "Service not found"})
+        except NegativeKeywordList.DoesNotExist:
+            return JsonResponse({"success": False, "error": "Negative keyword list not found"})
+        except Exception as e:
+            print(f"Error in disconnect_negative_list_from_service_ajax: {str(e)}")
+            return JsonResponse({"success": False, "error": str(e)})
+    
+    return JsonResponse({"success": False, "error": "Invalid request method"})
+
+
+@csrf_exempt
+def search_negative_keyword_lists_ajax(request):
+    """Search negative keyword lists"""
+    if request.method == "GET":
+        try:
+            from django.db import models
+            from .models import NegativeKeywordList
+            
+            query = request.GET.get('q', '').strip()
+            
+            if not query or len(query) < 2:
+                return JsonResponse({
+                    "success": True,
+                    "lists": []
+                })
+            
+            # Search in name, description and category
+            lists = NegativeKeywordList.objects.filter(
+                models.Q(name__icontains=query) |
+                models.Q(description__icontains=query) |
+                models.Q(category__icontains=query),
+                is_active=True
+            ).order_by('name')[:20]  # Limit to 20 results
+            
+            lists_data = []
+            for neg_list in lists:
+                lists_data.append({
+                    'id': neg_list.id,
+                    'name': neg_list.name,
+                    'description': neg_list.description,
+                    'keywords_count': neg_list.negative_keywords.count(),
+                    'category': neg_list.category,
+                    'category_display': neg_list.get_category_display(),
+                    'icon': getattr(neg_list, 'icon', '📋'),
+                    'color': getattr(neg_list, 'color', '#8B5CF6'),
+                    'industry_name': getattr(neg_list.industry, 'name', 'Generel') if hasattr(neg_list, 'industry') and neg_list.industry else 'Generel'
+                })
+            
+            return JsonResponse({
+                "success": True,
+                "lists": lists_data
+            })
+            
+        except Exception as e:
+            print(f"Error in search_negative_keyword_lists_ajax: {str(e)}")
+            return JsonResponse({"success": False, "error": str(e)})
+    
+    return JsonResponse({"success": False, "error": "Invalid request method"})

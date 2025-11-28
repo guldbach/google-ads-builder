@@ -75,10 +75,35 @@ urlpatterns = [
     path('ajax/add-service-keyword/', views.add_service_keyword_ajax, name='add_service_keyword_ajax'),
     path('ajax/update-service-keyword/<int:keyword_id>/', views.update_service_keyword_ajax, name='update_service_keyword_ajax'),
     path('ajax/delete-service-keyword/<int:keyword_id>/', views.delete_service_keyword_ajax, name='delete_service_keyword_ajax'),
+    
+    # SEO Keywords AJAX URLs
+    path('ajax/get-service-seo-keywords/<int:service_id>/', views.get_service_seo_keywords_ajax, name='get_service_seo_keywords_ajax'),
+    path('ajax/add-service-seo-keyword/<int:service_id>/', views.add_service_seo_keyword_ajax, name='add_service_seo_keyword_ajax'),
+    path('ajax/update-service-seo-keyword/<int:keyword_id>/', views.update_service_seo_keyword_ajax, name='update_service_seo_keyword_ajax'),
+    path('ajax/delete-service-seo-keyword/<int:keyword_id>/', views.delete_service_seo_keyword_ajax, name='delete_service_seo_keyword_ajax'),
+    
+    # Negative Keywords Integration AJAX URLs
+    path('ajax/search-negative-keyword-lists/', views.search_negative_keyword_lists_ajax, name='search_negative_keyword_lists_ajax'),
+    path('ajax/get-service-negative-lists/<int:service_id>/', views.get_service_negative_lists_ajax, name='get_service_negative_lists_ajax'),
+    path('ajax/connect-negative-list/<int:service_id>/', views.connect_negative_list_to_service_ajax, name='connect_negative_list_to_service_ajax'),
+    path('ajax/disconnect-negative-list/<int:connection_id>/', views.disconnect_negative_list_from_service_ajax, name='disconnect_negative_list_from_service_ajax'),
+    
     path('ajax/create-industry/', views.create_industry_ajax, name='create_industry_ajax'),
     path('ajax/create-service/', views.create_service_ajax, name='create_service_ajax'),
     path('ajax/edit-industry/<int:industry_id>/', views.edit_industry_ajax, name='edit_industry_ajax'),
     path('ajax/edit-service/<int:service_id>/', views.edit_service_ajax, name='edit_service_ajax'),
     path('ajax/delete-service/<int:service_id>/', views.delete_service_ajax, name='delete_service_ajax'),
     path('ajax/delete-industry/<int:industry_id>/', views.delete_industry_ajax, name='delete_industry_ajax'),
+    
+    # Industry Keywords AJAX URLs  
+    path('ajax/get-industry-keywords/<int:industry_id>/', views.get_industry_keywords_ajax, name='get_industry_keywords_ajax'),
+    path('ajax/add-industry-keyword/<int:industry_id>/', views.add_industry_keyword_ajax, name='add_industry_keyword_ajax'),
+    path('ajax/update-industry-keyword/<int:keyword_id>/', views.update_industry_keyword_ajax, name='update_industry_keyword_ajax'),
+    path('ajax/delete-industry-keyword/<int:keyword_id>/', views.delete_industry_keyword_ajax, name='delete_industry_keyword_ajax'),
+    
+    # Industry SEO Keywords AJAX URLs
+    path('ajax/get-industry-seo-keywords/<int:industry_id>/', views.get_industry_seo_keywords_ajax, name='get_industry_seo_keywords_ajax'),
+    path('ajax/add-industry-seo-keyword/<int:industry_id>/', views.add_industry_seo_keyword_ajax, name='add_industry_seo_keyword_ajax'),
+    path('ajax/update-industry-seo-keyword/<int:keyword_id>/', views.update_industry_seo_keyword_ajax, name='update_industry_seo_keyword_ajax'),
+    path('ajax/delete-industry-seo-keyword/<int:keyword_id>/', views.delete_industry_seo_keyword_ajax, name='delete_industry_seo_keyword_ajax'),
 ]
