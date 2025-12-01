@@ -1562,26 +1562,42 @@ def create_negative_keyword_list_ajax(request):
             
             # Handle initial keywords if provided
             from .models import NegativeKeyword
+            import json
             initial_keywords = request.POST.get('initial_keywords', '').strip()
             keywords_added = 0
-            
+
             if initial_keywords:
-                # Split by newlines and commas
-                import re
-                keywords_list = re.split(r'[,\n]+', initial_keywords)
-                keywords_list = [k.strip().lower() for k in keywords_list if k.strip()]
-                
-                for keyword_text in keywords_list:
-                    if keyword_text:
-                        # Check if keyword already exists in this list
-                        if not keyword_list.negative_keywords.filter(keyword_text__iexact=keyword_text).exists():
-                            NegativeKeyword.objects.create(
-                                keyword_list=keyword_list,
-                                keyword_text=keyword_text,
-                                match_type='broad',  # Default match type
-                                created_by=created_by
-                            )
-                            keywords_added += 1
+                # Try to parse as JSON first (from industry_manager)
+                try:
+                    keywords_data = json.loads(initial_keywords)
+                    if isinstance(keywords_data, list):
+                        for kw in keywords_data:
+                            keyword_text = kw.get('keyword_text', '').strip().lower() if isinstance(kw, dict) else str(kw).strip().lower()
+                            match_type = kw.get('match_type', 'broad') if isinstance(kw, dict) else 'broad'
+
+                            if keyword_text:  # Only create if keyword text is not empty
+                                if not keyword_list.negative_keywords.filter(keyword_text__iexact=keyword_text).exists():
+                                    NegativeKeyword.objects.create(
+                                        keyword_list=keyword_list,
+                                        keyword_text=keyword_text,
+                                        match_type=match_type
+                                    )
+                                    keywords_added += 1
+                except json.JSONDecodeError:
+                    # Fallback: Split by newlines and commas (plain text input)
+                    import re
+                    keywords_list = re.split(r'[,\n]+', initial_keywords)
+                    keywords_list = [k.strip().lower() for k in keywords_list if k.strip()]
+
+                    for keyword_text in keywords_list:
+                        if keyword_text:  # Only create if keyword text is not empty
+                            if not keyword_list.negative_keywords.filter(keyword_text__iexact=keyword_text).exists():
+                                NegativeKeyword.objects.create(
+                                    keyword_list=keyword_list,
+                                    keyword_text=keyword_text,
+                                    match_type='broad'
+                                )
+                                keywords_added += 1
             
             return JsonResponse({
                 'success': True,
@@ -1812,10 +1828,10 @@ def delete_negative_keyword_list_ajax(request, list_id):
     """AJAX endpoint to delete an entire negative keyword list"""
     if request.method == 'POST':
         try:
+            # Get the list by ID only (no user filter for demo/anonymous users)
             keyword_list = get_object_or_404(
-                NegativeKeywordList, 
-                id=list_id,
-                created_by=request.user
+                NegativeKeywordList,
+                id=list_id
             )
             
             # Count keywords before deletion
@@ -1841,10 +1857,10 @@ def edit_negative_keyword_list_ajax(request, list_id):
     """AJAX endpoint to edit negative keyword list"""
     if request.method == 'POST':
         try:
+            # Get the list by ID only (no user filter for demo/anonymous users)
             keyword_list = get_object_or_404(
-                NegativeKeywordList, 
-                id=list_id,
-                created_by=request.user
+                NegativeKeywordList,
+                id=list_id
             )
             
             # Update fields
@@ -1894,10 +1910,10 @@ def get_negative_keyword_list_ajax(request, list_id):
     """AJAX endpoint to get negative keyword list data"""
     if request.method == 'GET':
         try:
+            # Get the list by ID only (no user filter for demo/anonymous users)
             keyword_list = get_object_or_404(
-                NegativeKeywordList, 
-                id=list_id,
-                created_by=request.user
+                NegativeKeywordList,
+                id=list_id
             )
             
             return JsonResponse({
@@ -1915,6 +1931,54 @@ def get_negative_keyword_list_ajax(request, list_id):
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
     
+    return JsonResponse({'success': False, 'error': 'Invalid method'})
+
+
+@csrf_exempt
+def get_negative_keywords_for_list_ajax(request, list_id):
+    """AJAX endpoint to get all keywords for a negative keyword list"""
+    if request.method == 'GET':
+        try:
+            # Get the list (allow access for demo mode)
+            if request.user.is_authenticated:
+                keyword_list = get_object_or_404(
+                    NegativeKeywordList,
+                    id=list_id,
+                    created_by=request.user
+                )
+            else:
+                # Demo mode - allow access to any list
+                keyword_list = get_object_or_404(NegativeKeywordList, id=list_id)
+
+            # Get all keywords for this list
+            keywords = keyword_list.negative_keywords.all().order_by('-added_at')
+
+            keywords_data = []
+            for kw in keywords:
+                match_type_display = {
+                    'broad': 'Broad Match',
+                    'phrase': 'Phrase Match',
+                    'exact': 'Exact Match'
+                }.get(kw.match_type, kw.match_type.title())
+
+                keywords_data.append({
+                    'id': kw.id,
+                    'keyword_text': kw.keyword_text,
+                    'match_type': kw.match_type,
+                    'match_type_display': match_type_display,
+                    'added_at': kw.added_at.strftime('%d/%m %Y') if kw.added_at else ''
+                })
+
+            return JsonResponse({
+                'success': True,
+                'keywords': keywords_data,
+                'list_name': keyword_list.name,
+                'keywords_count': len(keywords_data)
+            })
+
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+
     return JsonResponse({'success': False, 'error': 'Invalid method'})
 
 

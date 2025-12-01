@@ -42,6 +42,7 @@ urlpatterns = [
     path('ajax/execute-excel-import/<int:list_id>/', views.execute_excel_import, name='execute_excel_import'),
     path('ajax/edit-negative-keyword-list/<int:list_id>/', views.edit_negative_keyword_list_ajax, name='edit_negative_keyword_list_ajax'),
     path('ajax/get-negative-keyword-list/<int:list_id>/', views.get_negative_keyword_list_ajax, name='get_negative_keyword_list_ajax'),
+    path('ajax/get-negative-keywords/<int:list_id>/', views.get_negative_keywords_for_list_ajax, name='get_negative_keywords_for_list_ajax'),
     path('download-negative-keywords-template/', views.download_negative_keywords_template, name='download_negative_keywords_template'),
     path('ajax/import-negative-keywords-excel/', views.import_negative_keywords_excel, name='import_negative_keywords_excel'),
     path('api/campaign/<int:campaign_id>/negative-keywords/', views.get_campaign_negative_keywords, name='get_campaign_negative_keywords'),

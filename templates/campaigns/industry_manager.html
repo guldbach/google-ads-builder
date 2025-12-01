@@ -1967,25 +1967,91 @@ function generateNegativeKeywordsContent(serviceId, serviceName) {
                 <div class="flex items-center justify-between mb-4">
                     <h4 class="text-lg font-medium text-red-900">🚫 Negative Keywords for "${serviceName}"</h4>
                     <button class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 text-sm"
-                            onclick="showAddNegativeListModal(${serviceId})">
-                        ➕ Tilføj Liste
+                            onclick="showAddNegativeListModal(${serviceId}, currentExpandedIndustry)">
+                        ➕ Opret Ny Liste
                     </button>
                 </div>
                 <p class="text-sm text-red-700">Tilknyttede negative søgeordslister som vil blive anvendt i denne service</p>
             </div>
-            
+
             <!-- Connected Lists as Buttons -->
             <div id="negative-lists-buttons-${serviceId}" class="mb-6">
+                <h5 class="font-medium text-gray-900 mb-3">Tilknyttede Lister</h5>
                 <div class="flex flex-wrap gap-2" id="connected-lists-${serviceId}">
                     <!-- Connected lists will be loaded here as buttons -->
                 </div>
                 <div class="text-center py-6 text-gray-500" id="no-lists-message-${serviceId}">
                     <span class="text-3xl">📋</span>
                     <p class="mt-2">Ingen negative søgeordslister tilknyttet endnu</p>
-                    <p class="text-sm">Klik "➕ Tilføj Liste" for at tilknytte negative søgeordslister</p>
+                    <p class="text-sm">Klik "➕ Opret Ny Liste" for at oprette en ny liste</p>
                 </div>
             </div>
-            
+
+            <!-- Keywords Content Section (shown when a list is selected) -->
+            <div id="negative-keywords-content-${serviceId}" class="hidden">
+                <div class="keywords-content border border-gray-200 rounded-lg" data-service-id="${serviceId}">
+                    <div class="border-b border-gray-200">
+                        <!-- Add New Keyword Form -->
+                        <div class="p-6 bg-gray-50 border-b border-gray-200">
+                            <div class="flex items-center justify-between mb-4">
+                                <h4 class="text-lg font-medium text-gray-900">➕ Tilføj Nye Keywords</h4>
+                                <button class="import-excel-btn bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center space-x-2"
+                                        data-service-id="${serviceId}"
+                                        onclick="openImportExcelForService(${serviceId})"
+                                        title="Importer keywords fra Excel fil">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"></path>
+                                    </svg>
+                                    <span>Importer Excel</span>
+                                </button>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <input type="text"
+                                       placeholder="Negativt søgeord..."
+                                       class="new-keyword-text px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                       data-service-id="${serviceId}"
+                                       onkeypress="if(event.key==='Enter') addNegativeKeywordToService(${serviceId})">
+                                <select class="new-keyword-match-type px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                        data-service-id="${serviceId}">
+                                    <option value="broad">Broad Match</option>
+                                    <option value="phrase">Phrase Match</option>
+                                    <option value="exact">Exact Match</option>
+                                </select>
+                                <button class="add-keyword-btn bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200"
+                                        data-service-id="${serviceId}"
+                                        onclick="addNegativeKeywordToService(${serviceId})">
+                                    Tilføj
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Keywords Table -->
+                        <div class="keywords-list p-6" data-service-id="${serviceId}">
+                            <div class="overflow-x-auto">
+                                <table class="w-full">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="text-left py-3 px-4 font-medium text-gray-700">Søgeord</th>
+                                            <th class="text-left py-3 px-4 font-medium text-gray-700">Match Type</th>
+                                            <th class="text-right py-3 px-4 font-medium text-gray-700">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="negative-keywords-tbody-${serviceId}" class="divide-y divide-gray-200">
+                                        <!-- Keywords will be loaded here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div id="no-keywords-message-${serviceId}" class="text-center py-8 text-gray-500">
+                                <span class="text-3xl">📝</span>
+                                <p class="mt-2">Ingen negative keywords endnu</p>
+                                <p class="text-sm">Tilføj keywords ovenfor eller importer fra Excel</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Available Lists for Adding -->
             <div id="available-lists-container-${serviceId}" class="hidden bg-gray-50 p-4 rounded-lg border border-gray-200">
                 <h5 class="font-medium text-gray-900 mb-3">Tilgængelige lister:</h5>
@@ -2771,107 +2837,71 @@ function generateSEOKeywordsTable(serviceId, keywords) {
 }
 
 function generateNegativeKeywordsTable(serviceId, connectedLists, availableLists) {
-    let html = `
-        <!-- Connected Lists Section -->
-        <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <h5 class="font-semibold text-red-800 mb-3 flex items-center">
-                <span class="text-lg mr-2">🔗</span>
-                Tilkoblede Negative Keyword Lister (${connectedLists.length})
-            </h5>
-    `;
-    
-    if (connectedLists.length === 0) {
-        html += `
-            <p class="text-red-600 text-sm">Ingen negative keyword lister tilkoblet endnu.</p>
-        `;
-    } else {
-        html += `<div class="space-y-2">`;
+    // Update only the connected-lists and available-lists containers, not the whole content
+    // This preserves the keyword input form and table structure
+
+    let connectedHtml = '';
+
+    if (connectedLists && connectedLists.length > 0) {
         connectedLists.forEach(list => {
-            html += `
-                <div class="flex items-center justify-between bg-white p-3 rounded-lg border border-red-200">
-                    <div class="flex items-center space-x-3">
-                        <span class="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm" 
-                              style="background-color: ${list.color || '#8B5CF6'}">${list.icon || '📋'}</span>
-                        <div>
-                            <span class="font-medium text-gray-900">${list.name}</span>
-                            <span class="text-xs text-gray-500 ml-2">(${list.keywords_count} keywords)</span>
-                            <div class="text-xs text-gray-500">${list.category_display} • Tilkoblet ${list.connected_at}</div>
-                        </div>
-                    </div>
-                    <button onclick="disconnectNegativeList(${list.connection_id}, ${serviceId})" 
-                            class="text-red-600 hover:text-red-800 text-sm px-2 py-1 rounded hover:bg-red-100">
-                        Fjern
-                    </button>
-                </div>
+            connectedHtml += `
+                <button onclick="selectNegativeList(${list.list_id}, ${serviceId})"
+                        data-list-id="${list.list_id}"
+                        class="connected-list-btn inline-flex items-center bg-red-100 text-red-800 px-3 py-2 rounded-lg text-sm font-medium border border-red-200 hover:bg-red-200 transition-colors duration-200 cursor-pointer">
+                    <span class="mr-2">🚫</span>
+                    <span class="mr-2">${list.name}</span>
+                    <span class="text-xs text-red-600 mr-2">(${list.keywords_count || 0})</span>
+                    <span onclick="event.stopPropagation(); disconnectNegativeList(${list.connection_id}, ${serviceId})"
+                          class="ml-1 text-red-600 hover:text-red-800 font-bold text-lg leading-none"
+                          title="Fjern negative søgeordsliste">
+                        ×
+                    </span>
+                </button>
             `;
         });
-        html += `</div>`;
-    }
-    
-    html += `
-        </div>
-        
-        <!-- Available Lists Section -->
-        <div class="bg-white border border-gray-200 rounded-lg p-4">
-            <h5 class="font-semibold text-gray-800 mb-3 flex items-center">
-                <span class="text-lg mr-2">🔍</span>
-                Tilgængelige Negative Keyword Lister (${availableLists.length})
-            </h5>
-            
-            <div class="mb-4">
-                <input type="text" 
-                       id="negative-search-${serviceId}"
-                       placeholder="Søg efter navn, kategori eller beskrivelse..." 
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                       oninput="searchNegativeKeywordLists(${serviceId}, this.value)">
-            </div>
-            
-            <div id="available-negative-lists-${serviceId}" class="space-y-2 max-h-64 overflow-y-auto">
-    `;
-    
-    if (availableLists.length === 0) {
-        html += `
-            <p class="text-gray-500 text-sm text-center py-4">Ingen tilgængelige negative keyword lister fundet.</p>
-        `;
+        // Hide the no-lists message
+        $(`#no-lists-message-${serviceId}`).addClass('hidden');
     } else {
+        connectedHtml = '';
+        // Show the no-lists message
+        $(`#no-lists-message-${serviceId}`).removeClass('hidden');
+    }
+
+    $(`#connected-lists-${serviceId}`).html(connectedHtml);
+
+    // Update available lists
+    let availableHtml = '';
+
+    if (availableLists && availableLists.length > 0) {
         // Filter out already connected lists
-        const connectedIds = connectedLists.map(list => list.list_id);
+        const connectedIds = connectedLists ? connectedLists.map(list => list.list_id) : [];
         const unconnectedLists = availableLists.filter(list => !connectedIds.includes(list.id));
-        
-        if (unconnectedLists.length === 0) {
-            html += `
-                <p class="text-gray-500 text-sm text-center py-4">Alle tilgængelige lister er allerede tilkoblet.</p>
-            `;
-        } else {
+
+        if (unconnectedLists.length > 0) {
             unconnectedLists.forEach(list => {
-                html += `
-                    <div class="flex items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-200 hover:bg-gray-100">
-                        <div class="flex items-center space-x-3">
-                            <span class="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm" 
-                                  style="background-color: ${list.color || '#8B5CF6'}">${list.icon || '📋'}</span>
-                            <div>
-                                <span class="font-medium text-gray-900">${list.name}</span>
-                                <span class="text-xs text-gray-500 ml-2">(${list.keywords_count} keywords)</span>
-                                <div class="text-xs text-gray-500">${list.category_display} • ${list.industry_name}</div>
-                                ${list.description ? `<div class="text-xs text-gray-600 mt-1">${list.description}</div>` : ''}
-                            </div>
-                        </div>
-                        <button onclick="connectNegativeList(${list.id}, ${serviceId})" 
-                                class="bg-red-600 text-white px-3 py-1 rounded-lg hover:bg-red-700 text-sm">
-                            Tilkobl
-                        </button>
-                    </div>
+                availableHtml += `
+                    <button onclick="connectNegativeList(${list.id}, ${serviceId})"
+                            class="inline-flex items-center bg-gray-100 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium border border-gray-300 hover:bg-gray-200 hover:border-red-300 hover:text-red-700 transition-all duration-200">
+                        <span class="mr-2">📋</span>
+                        <span class="mr-2">${list.name}</span>
+                        <span class="text-xs text-gray-600">(${list.keywords_count || 0})</span>
+                    </button>
                 `;
             });
+            $(`#available-lists-container-${serviceId}`).removeClass('hidden');
+        } else {
+            $(`#available-lists-container-${serviceId}`).addClass('hidden');
         }
+    } else {
+        $(`#available-lists-container-${serviceId}`).addClass('hidden');
     }
-    
-    html += `
-            </div>
-        </div>
-    `;
-    
-    $(`#negative-keywords-content-${serviceId}`).html(html);
+
+    $(`#available-lists-${serviceId}`).html(availableHtml);
+
+    // Auto-select first connected list if available
+    if (connectedLists && connectedLists.length > 0) {
+        selectNegativeList(connectedLists[0].list_id, serviceId);
+    }
 }
 
 function connectNegativeList(listId, serviceId) {
@@ -3291,20 +3321,114 @@ function loadServiceKeywords(serviceId) {
                 
                 <div class="tab-content" id="tab-content-negative-${serviceId}">
                     <div class="p-6">
-                        <div id="negative-keywords-content-${serviceId}">
-                            <p class="text-gray-500 text-center">Negative keywords indlæses...</p>
+                        <!-- Negative Keywords Header -->
+                        <div class="mb-6 bg-red-50 p-4 rounded-lg border border-red-200">
+                            <div class="flex items-center justify-between mb-4">
+                                <h4 class="text-lg font-medium text-red-900" id="negative-header-title-${serviceId}">🚫 Negative Keywords</h4>
+                                <button class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 text-sm"
+                                        onclick="showAddNegativeListModal(${serviceId}, currentExpandedIndustry)">
+                                    ➕ Opret Ny Liste
+                                </button>
+                            </div>
+                            <p class="text-sm text-red-700">Tilknyttede negative søgeordslister som vil blive anvendt i denne service</p>
+                        </div>
+
+                        <!-- Connected Lists as Buttons -->
+                        <div id="negative-lists-buttons-${serviceId}" class="mb-6">
+                            <h5 class="font-medium text-gray-900 mb-3">Tilknyttede Lister</h5>
+                            <div class="flex flex-wrap gap-2" id="connected-lists-${serviceId}">
+                                <!-- Connected lists will be loaded here as buttons -->
+                            </div>
+                            <div class="text-center py-6 text-gray-500" id="no-lists-message-${serviceId}">
+                                <span class="text-3xl">📋</span>
+                                <p class="mt-2">Ingen negative søgeordslister tilknyttet endnu</p>
+                                <p class="text-sm">Klik "➕ Opret Ny Liste" for at oprette en ny liste</p>
+                            </div>
+                        </div>
+
+                        <!-- Keywords Content Section (shown when a list is selected) -->
+                        <div id="negative-keywords-content-${serviceId}" class="hidden">
+                            <div class="keywords-content border border-gray-200 rounded-lg" data-service-id="${serviceId}">
+                                <div class="border-b border-gray-200">
+                                    <!-- Add New Keyword Form -->
+                                    <div class="p-6 bg-gray-50 border-b border-gray-200">
+                                        <div class="flex items-center justify-between mb-4">
+                                            <h4 class="text-lg font-medium text-gray-900">➕ Tilføj Nye Keywords</h4>
+                                            <button class="import-excel-btn bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center space-x-2"
+                                                    data-service-id="${serviceId}"
+                                                    onclick="openImportExcelForService(${serviceId})"
+                                                    title="Importer keywords fra Excel fil">
+                                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"></path>
+                                                </svg>
+                                                <span>Importer Excel</span>
+                                            </button>
+                                        </div>
+
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            <input type="text"
+                                                   placeholder="Negativt søgeord..."
+                                                   class="new-keyword-text px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                                   data-service-id="${serviceId}"
+                                                   onkeypress="if(event.key==='Enter') addNegativeKeywordToService(${serviceId})">
+                                            <select class="new-keyword-match-type px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                                    data-service-id="${serviceId}">
+                                                <option value="broad">Broad Match</option>
+                                                <option value="phrase">Phrase Match</option>
+                                                <option value="exact">Exact Match</option>
+                                            </select>
+                                            <button class="add-keyword-btn bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200"
+                                                    data-service-id="${serviceId}"
+                                                    onclick="addNegativeKeywordToService(${serviceId})">
+                                                Tilføj
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Keywords Table -->
+                                    <div class="keywords-list p-6" data-service-id="${serviceId}">
+                                        <div class="overflow-x-auto">
+                                            <table class="w-full">
+                                                <thead class="bg-gray-50">
+                                                    <tr>
+                                                        <th class="text-left py-3 px-4 font-medium text-gray-700">Søgeord</th>
+                                                        <th class="text-left py-3 px-4 font-medium text-gray-700">Match Type</th>
+                                                        <th class="text-right py-3 px-4 font-medium text-gray-700">Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="negative-keywords-tbody-${serviceId}" class="divide-y divide-gray-200">
+                                                    <!-- Keywords will be loaded here -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <div id="no-keywords-message-${serviceId}" class="text-center py-8 text-gray-500">
+                                            <span class="text-3xl">📝</span>
+                                            <p class="mt-2">Ingen negative keywords endnu</p>
+                                            <p class="text-sm">Tilføj keywords ovenfor eller importer fra Excel</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Available Lists for Adding -->
+                        <div id="available-lists-container-${serviceId}" class="hidden bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <h5 class="font-medium text-gray-900 mb-3">Tilgængelige lister:</h5>
+                            <div id="available-lists-${serviceId}" class="flex flex-wrap gap-2">
+                                <!-- Available lists will be loaded here -->
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         `;
-        
+
         // Find the services grid container and append keywords content after it
         const servicesGrid = serviceCard.closest('.services-grid');
         servicesGrid.after(keywordsHtml);
         keywordsContent = $(`.keywords-content[data-service-id="${serviceId}"]`);
     }
-    
+
     // Load Google Ads keywords by default
     loadGoogleAdsKeywords(serviceId);
 }
@@ -3747,7 +3871,7 @@ function generateNegativeKeywordsContent(serviceId, serviceName, connectedLists,
                 <div class="flex items-center justify-between mb-4">
                     <h4 class="text-lg font-medium text-red-900">🚫 Negative Keywords for "${serviceName}"</h4>
                     <button class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 text-sm"
-                            onclick="showAddNegativeListModal(${serviceId})">
+                            onclick="showAddNegativeListModal(${serviceId}, currentExpandedIndustry)">
                         ➕ Tilføj Liste
                     </button>
                 </div>
@@ -3763,16 +3887,18 @@ function generateNegativeKeywordsContent(serviceId, serviceName, connectedLists,
     if (connectedLists && connectedLists.length > 0) {
         connectedLists.forEach(list => {
             html += `
-                <div class="inline-flex items-center bg-red-100 text-red-800 px-3 py-2 rounded-lg text-sm font-medium border border-red-200 hover:bg-red-200 transition-colors duration-200">
+                <button onclick="selectNegativeList(${list.list_id}, ${serviceId})"
+                        data-list-id="${list.list_id}"
+                        class="connected-list-btn inline-flex items-center bg-red-100 text-red-800 px-3 py-2 rounded-lg text-sm font-medium border border-red-200 hover:bg-red-200 transition-colors duration-200 cursor-pointer">
                     <span class="mr-2">🚫</span>
                     <span class="mr-2">${list.name}</span>
                     <span class="text-xs text-red-600 mr-2">(${list.keywords_count || 0})</span>
-                    <button onclick="disconnectNegativeList(${list.list_id}, ${serviceId})" 
-                            class="ml-1 text-red-600 hover:text-red-800 font-bold text-lg leading-none"
-                            title="Fjern negative søgeordsliste">
+                    <span onclick="event.stopPropagation(); disconnectNegativeList(${list.list_id}, ${serviceId})"
+                          class="ml-1 text-red-600 hover:text-red-800 font-bold text-lg leading-none"
+                          title="Fjern negative søgeordsliste">
                         ×
-                    </button>
-                </div>
+                    </span>
+                </button>
             `;
         });
     } else {
@@ -3827,15 +3953,88 @@ function generateNegativeKeywordsContent(serviceId, serviceName, connectedLists,
     html += `
                 </div>
             </div>
+
+            <!-- Keywords Content Section (shown when a list is selected) -->
+            <div id="negative-keywords-content-${serviceId}" class="hidden">
+                <div class="keywords-content border border-gray-200 rounded-lg" data-service-id="${serviceId}">
+                    <div class="border-b border-gray-200">
+                        <!-- Add New Keyword Form -->
+                        <div class="p-6 bg-gray-50 border-b border-gray-200">
+                            <div class="flex items-center justify-between mb-4">
+                                <h4 class="text-lg font-medium text-gray-900">➕ Tilføj Nye Keywords</h4>
+                                <button class="import-excel-btn bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center space-x-2"
+                                        data-service-id="${serviceId}"
+                                        onclick="openImportExcelForService(${serviceId})"
+                                        title="Importer keywords fra Excel fil">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"></path>
+                                    </svg>
+                                    <span>Importer Excel</span>
+                                </button>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <input type="text"
+                                       placeholder="Negativt søgeord..."
+                                       class="new-keyword-text px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                       data-service-id="${serviceId}"
+                                       onkeypress="if(event.key==='Enter') addNegativeKeywordToService(${serviceId})">
+                                <select class="new-keyword-match-type px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                        data-service-id="${serviceId}">
+                                    <option value="broad">Broad Match</option>
+                                    <option value="phrase">Phrase Match</option>
+                                    <option value="exact">Exact Match</option>
+                                </select>
+                                <button class="add-keyword-btn bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200"
+                                        data-service-id="${serviceId}"
+                                        onclick="addNegativeKeywordToService(${serviceId})">
+                                    Tilføj
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Keywords Table -->
+                        <div class="keywords-list p-6" data-service-id="${serviceId}">
+                            <div class="overflow-x-auto">
+                                <table class="w-full">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="text-left py-3 px-4 font-medium text-gray-700">Søgeord</th>
+                                            <th class="text-left py-3 px-4 font-medium text-gray-700">Match Type</th>
+                                            <th class="text-right py-3 px-4 font-medium text-gray-700">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="negative-keywords-tbody-${serviceId}" class="divide-y divide-gray-200">
+                                        <!-- Keywords will be loaded here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div id="no-keywords-message-${serviceId}" class="text-center py-8 text-gray-500">
+                                <span class="text-3xl">📝</span>
+                                <p class="mt-2">Ingen negative keywords endnu</p>
+                                <p class="text-sm">Tilføj keywords ovenfor eller importer fra Excel</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     `;
-    
+
     // Update the negative keywords tab content
     $(`#tab-content-negative-${serviceId}`).html(html);
+
+    // Auto-select first connected list if available
+    if (connectedLists && connectedLists.length > 0) {
+        selectNegativeList(connectedLists[0].list_id, serviceId);
+    }
 }
 
-function showAddNegativeListModal(serviceId) {
-    console.log('Opening create negative keyword list modal for service:', serviceId);
+function showAddNegativeListModal(serviceId, industryId) {
+    console.log('Opening create negative keyword list modal for service:', serviceId, 'industry:', industryId);
+
+    // Use passed industryId or fall back to currentExpandedIndustry
+    const targetIndustryId = industryId || currentExpandedIndustry || '';
     
     const formContent = `
         <div class="space-y-6">
@@ -3900,24 +4099,62 @@ function showAddNegativeListModal(serviceId) {
                 </div>
             </div>
             
-            <!-- Initial Keywords Section -->
+            <!-- Initial Keywords Section (identisk med negative_keywords_manager) -->
             <div class="space-y-4">
-                <h5 class="font-medium text-gray-900 border-b border-gray-200 pb-2">Indledende Søgeord (Valgfrit)</h5>
-                <p class="text-sm text-gray-600">Du kan tilføje søgeord nu eller senere i Negative Keywords Manager</p>
-                
-                <div>
-                    <label for="initial-keywords" class="block text-sm font-medium text-gray-700 mb-2">Negative Søgeord</label>
-                    <textarea id="initial-keywords" rows="4"
-                              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                              placeholder="Indtast søgeord, et per linje eller kommasepareret:&#10;gratis&#10;billig&#10;job, stilling&#10;diy, gør det selv"></textarea>
-                    <p class="text-xs text-gray-500 mt-1">Skriv et søgeord per linje eller adskil med kommaer</p>
+                <h5 class="font-medium text-gray-900 border-b border-gray-200 pb-2">➕ Tilføj Negative Keywords</h5>
+                <p class="text-sm text-gray-600">Tilføj keywords til listen - én ad gangen med matchtype valg</p>
+
+                <!-- Add Keyword Form -->
+                <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <input type="text"
+                               id="initial-keyword-text"
+                               placeholder="Negativt søgeord..."
+                               class="new-keyword-text px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                               onkeypress="if(event.key==='Enter') addInitialKeyword()">
+                        <select id="initial-keyword-match-type"
+                                class="new-keyword-match-type px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent">
+                            <option value="broad">Broad Match</option>
+                            <option value="phrase">Phrase Match</option>
+                            <option value="exact">Exact Match</option>
+                        </select>
+                        <button type="button"
+                                class="add-keyword-btn bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200"
+                                onclick="addInitialKeyword()">
+                            Tilføj
+                        </button>
+                    </div>
                 </div>
+
+                <!-- Keywords Table -->
+                <div class="overflow-x-auto">
+                    <table class="w-full" id="initial-keywords-table">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="text-left py-3 px-4 font-medium text-gray-700">Søgeord</th>
+                                <th class="text-left py-3 px-4 font-medium text-gray-700">Match Type</th>
+                                <th class="text-right py-3 px-4 font-medium text-gray-700">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="initial-keywords-tbody" class="divide-y divide-gray-200">
+                            <!-- Keywords will be added here -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="no-initial-keywords-message" class="text-center py-4 text-gray-500">
+                    <span class="text-2xl">📝</span>
+                    <p class="mt-1 text-sm">Ingen keywords tilføjet endnu</p>
+                </div>
+
+                <!-- Hidden field to store keywords as JSON -->
+                <input type="hidden" id="initial-keywords-json" value="[]">
             </div>
             
             <input type="hidden" id="target-service-id" value="${serviceId}">
+            <input type="hidden" id="target-industry-id" value="${targetIndustryId}">
         </div>
     `;
-    
+
     openSlidePanel(
         'Opret Negative Søgeordsliste',
         'Opret en ny liste og tilknyt den til denne service',
@@ -3937,15 +4174,17 @@ function createNegativeListAndConnect() {
     const category = $('#negative-list-category').val();
     const icon = $('#negative-list-icon').val().trim() || '🚫';
     const color = $('#negative-list-color').val() || '#DC2626';
-    const initialKeywords = $('#initial-keywords').val().trim();
+    const initialKeywordsJson = $('#initial-keywords-json').val() || '[]';
+    const initialKeywords = JSON.parse(initialKeywordsJson);
     const serviceId = $('#target-service-id').val();
-    
+    const industryId = $('#target-industry-id').val() || currentExpandedIndustry || '';
+
     if (!name) {
         showToast('Indtast venligst et navn til listen', 'error');
         $('#negative-list-name').focus();
         return;
     }
-    
+
     // Create the negative keyword list
     $.ajax({
         url: '/ajax/create-negative-keyword-list/',
@@ -3956,7 +4195,8 @@ function createNegativeListAndConnect() {
             category: category,
             icon: icon,
             color: color,
-            initial_keywords: initialKeywords,
+            industry: industryId,  // Now sending industry ID for proper sync
+            initial_keywords: JSON.stringify(initialKeywords),
             csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
         },
         success: function(response) {
@@ -3977,6 +4217,283 @@ function createNegativeListAndConnect() {
         }
     });
 }
+
+// ==========================================
+// Initial Keywords Functions for Create List Modal
+// ==========================================
+
+function addInitialKeyword() {
+    const keywordText = $('#initial-keyword-text').val().trim();
+    const matchType = $('#initial-keyword-match-type').val();
+
+    if (!keywordText) {
+        showToast('Indtast venligst et keyword', 'error');
+        return;
+    }
+
+    // Get current keywords from JSON
+    let keywords = JSON.parse($('#initial-keywords-json').val() || '[]');
+
+    // Check for duplicates
+    const exists = keywords.some(k => k.keyword_text.toLowerCase() === keywordText.toLowerCase() && k.match_type === matchType);
+    if (exists) {
+        showToast('Dette keyword findes allerede med samme match type', 'warning');
+        return;
+    }
+
+    // Add keyword
+    const keywordId = Date.now(); // Temporary ID for UI
+    keywords.push({
+        id: keywordId,
+        keyword_text: keywordText,
+        match_type: matchType
+    });
+
+    // Update JSON
+    $('#initial-keywords-json').val(JSON.stringify(keywords));
+
+    // Add to table
+    addInitialKeywordToTable(keywordId, keywordText, matchType);
+
+    // Clear input and focus
+    $('#initial-keyword-text').val('').focus();
+
+    // Hide no keywords message
+    $('#no-initial-keywords-message').hide();
+
+    showToast('Keyword tilføjet', 'success');
+}
+
+function addInitialKeywordToTable(keywordId, keywordText, matchType) {
+    const matchTypeBadge = getMatchTypeBadgeHtml(matchType);
+
+    const row = `
+        <tr class="keyword-row hover:bg-gray-50 transition-colors duration-200" data-keyword-id="${keywordId}">
+            <td class="py-3 px-4"><span class="font-medium text-gray-900">${keywordText}</span></td>
+            <td class="py-3 px-4">${matchTypeBadge}</td>
+            <td class="py-3 px-4 text-right">
+                <div class="flex items-center justify-end space-x-2">
+                    <button class="delete-keyword-btn text-gray-500 hover:text-red-600 p-1"
+                            onclick="removeInitialKeyword(${keywordId})"
+                            title="Slet keyword">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"></path>
+                        </svg>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `;
+
+    $('#initial-keywords-tbody').append(row);
+}
+
+function removeInitialKeyword(keywordId) {
+    // Remove from JSON
+    let keywords = JSON.parse($('#initial-keywords-json').val() || '[]');
+    keywords = keywords.filter(k => k.id !== keywordId);
+    $('#initial-keywords-json').val(JSON.stringify(keywords));
+
+    // Remove from table
+    $(`tr[data-keyword-id="${keywordId}"]`).remove();
+
+    // Show no keywords message if empty
+    if (keywords.length === 0) {
+        $('#no-initial-keywords-message').show();
+    }
+
+    showToast('Keyword fjernet', 'info');
+}
+
+function getMatchTypeBadgeHtml(matchType) {
+    let badgeClass = '';
+    let displayText = '';
+
+    switch (matchType) {
+        case 'exact':
+            badgeClass = 'bg-purple-100 text-purple-800';
+            displayText = 'Exact Match';
+            break;
+        case 'phrase':
+            badgeClass = 'bg-blue-100 text-blue-800';
+            displayText = 'Phrase Match';
+            break;
+        case 'broad':
+        default:
+            badgeClass = 'bg-gray-100 text-gray-800';
+            displayText = 'Broad Match';
+            break;
+    }
+
+    return `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${badgeClass}" data-match-type="${matchType}">${displayText}</span>`;
+}
+
+// ==========================================
+// Negative Keywords Functions for Service Tab
+// ==========================================
+
+function addNegativeKeywordToService(serviceId) {
+    const keywordInput = $(`.new-keyword-text[data-service-id="${serviceId}"]`);
+    const matchTypeSelect = $(`.new-keyword-match-type[data-service-id="${serviceId}"]`);
+
+    const keywordText = keywordInput.val().trim();
+    const matchType = matchTypeSelect.val();
+
+    if (!keywordText) {
+        showToast('Indtast venligst et keyword', 'error');
+        return;
+    }
+
+    // Get the active list ID for this service
+    const activeListId = $(`#negative-keywords-content-${serviceId}`).data('active-list-id');
+
+    if (!activeListId) {
+        showToast('Vælg først en liste at tilføje keywords til', 'warning');
+        return;
+    }
+
+    // Send to server
+    $.ajax({
+        url: '/ajax/add-negative-keyword/',
+        method: 'POST',
+        data: {
+            list_id: activeListId,
+            keyword_text: keywordText,
+            match_type: matchType,
+            csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+        },
+        success: function(response) {
+            if (response.success) {
+                // Add to table
+                const row = generateNegativeKeywordRow(response.keyword);
+                $(`#negative-keywords-tbody-${serviceId}`).append(row);
+
+                // Clear input
+                keywordInput.val('').focus();
+
+                // Hide no keywords message
+                $(`#no-keywords-message-${serviceId}`).hide();
+
+                showToast('Keyword tilføjet', 'success');
+            } else {
+                showToast(response.error || 'Fejl ved tilføjelse af keyword', 'error');
+            }
+        },
+        error: function() {
+            showToast('Fejl ved tilføjelse af keyword', 'error');
+        }
+    });
+}
+
+function generateNegativeKeywordRow(keyword) {
+    const matchTypeBadge = getMatchTypeBadgeHtml(keyword.match_type);
+    // Handle both keyword_text (from loadNegativeKeywordsForList) and text (from add-negative-keyword AJAX)
+    const keywordText = keyword.keyword_text || keyword.text;
+
+    return `
+        <tr class="keyword-row hover:bg-gray-50 transition-colors duration-200" data-keyword-id="${keyword.id}">
+            <td class="py-3 px-4"><span class="font-medium text-gray-900">${keywordText}</span></td>
+            <td class="py-3 px-4">${matchTypeBadge}</td>
+            <td class="py-3 px-4 text-right">
+                <div class="flex items-center justify-end space-x-2">
+                    <button class="edit-keyword-btn text-gray-500 p-1 hover:text-purple-600"
+                            onclick="editNegativeKeyword(${keyword.id})"
+                            title="Redigér keyword">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"></path>
+                        </svg>
+                    </button>
+                    <button class="delete-keyword-btn text-gray-500 hover:text-red-600 p-1"
+                            onclick="deleteNegativeKeyword(${keyword.id})"
+                            title="Slet keyword">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"></path>
+                        </svg>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `;
+}
+
+function editNegativeKeyword(keywordId) {
+    // TODO: Implement edit functionality
+    showToast('Redigér funktionalitet kommer snart', 'info');
+}
+
+function deleteNegativeKeyword(keywordId) {
+    if (!confirm('Er du sikker på at du vil slette dette keyword?')) {
+        return;
+    }
+
+    $.ajax({
+        url: `/ajax/delete-negative-keyword/${keywordId}/`,
+        method: 'POST',
+        data: {
+            csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+        },
+        success: function(response) {
+            if (response.success) {
+                $(`tr[data-keyword-id="${keywordId}"]`).remove();
+                showToast('Keyword slettet', 'success');
+            } else {
+                showToast(response.error || 'Fejl ved sletning af keyword', 'error');
+            }
+        },
+        error: function() {
+            showToast('Fejl ved sletning af keyword', 'error');
+        }
+    });
+}
+
+function openImportExcelForService(serviceId) {
+    // TODO: Implement Excel import for service
+    showToast('Excel import funktionalitet kommer snart', 'info');
+}
+
+function selectNegativeList(listId, serviceId) {
+    // Store the active list ID
+    $(`#negative-keywords-content-${serviceId}`).data('active-list-id', listId);
+
+    // Show the keywords content section
+    $(`#negative-keywords-content-${serviceId}`).removeClass('hidden');
+
+    // Load keywords for this list
+    loadNegativeKeywordsForList(listId, serviceId);
+
+    // Highlight the selected list button
+    $(`#connected-lists-${serviceId} .connected-list-btn`).removeClass('ring-2 ring-red-500');
+    $(`#connected-lists-${serviceId} .connected-list-btn[data-list-id="${listId}"]`).addClass('ring-2 ring-red-500');
+}
+
+function loadNegativeKeywordsForList(listId, serviceId) {
+    $.ajax({
+        url: `/ajax/get-negative-keywords/${listId}/`,
+        method: 'GET',
+        success: function(response) {
+            if (response.success) {
+                const tbody = $(`#negative-keywords-tbody-${serviceId}`);
+                tbody.empty();
+
+                if (response.keywords && response.keywords.length > 0) {
+                    response.keywords.forEach(keyword => {
+                        tbody.append(generateNegativeKeywordRow(keyword));
+                    });
+                    $(`#no-keywords-message-${serviceId}`).hide();
+                } else {
+                    $(`#no-keywords-message-${serviceId}`).show();
+                }
+            }
+        },
+        error: function() {
+            console.error('Error loading keywords for list:', listId);
+        }
+    });
+}
+
+// ==========================================
+// Disconnect Negative List Function
+// ==========================================
 
 function disconnectNegativeList(listId, serviceId) {
     console.log('Disconnecting negative list:', listId, 'from service:', serviceId);
