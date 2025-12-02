@@ -117,9 +117,76 @@
 
 <!-- Wizard Content Container -->
 <div class="wizard-card p-8 mb-8">
-    
+
+    <!-- STEP 0: Purpose Selection -->
+    <div id="step-content-0" class="step-content animate-fade-in">
+        <div class="text-center mb-8">
+            <h2 class="text-3xl font-bold text-gray-900 mb-4">🎯 Vælg Formål</h2>
+            <p class="text-gray-600">Hvad skal Campaign Builder bruges til? Du kan vælge flere formål.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+            <!-- Virksomhedsbeskrivelse Prompt -->
+            <div class="selection-card p-6 rounded-xl border-2 purpose-card cursor-pointer" data-purpose="company_description">
+                <div class="flex items-start space-x-4">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-2xl shadow-lg">
+                        📝
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-1">Virksomhedsbeskrivelse Prompt</h3>
+                        <p class="text-sm text-gray-600">Generer info til ChatGPT prompt for virksomhedsbeskrivelse som kan bruges til prompting af tekst.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Google Ads Kampagner -->
+            <div class="selection-card p-6 rounded-xl border-2 purpose-card cursor-pointer" data-purpose="google_ads">
+                <div class="flex items-start space-x-4">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center text-2xl shadow-lg">
+                        📊
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-1">Google Ads Kampagner</h3>
+                        <p class="text-sm text-gray-600">Generer Google Ads kampagne-filer med budget strategi, ad templates og geo-targeting.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SEO Analyser -->
+            <div class="selection-card p-6 rounded-xl border-2 purpose-card cursor-pointer" data-purpose="seo">
+                <div class="flex items-start space-x-4">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-2xl shadow-lg">
+                        🔍
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-1">SEO Analyser</h3>
+                        <p class="text-sm text-gray-600">SEO analyser og metabeskrivelser til hjemmeside optimering.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Programmatic Byside -->
+            <div class="selection-card p-6 rounded-xl border-2 purpose-card cursor-pointer" data-purpose="programmatic">
+                <div class="flex items-start space-x-4">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-2xl shadow-lg">
+                        🌍
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-1">Programmatic Byside</h3>
+                        <p class="text-sm text-gray-600">Geo-kampagne med byside setup + WordPress upload fil til WP All Import.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Selected purposes summary -->
+        <div id="selected-purposes-summary" class="mt-8 text-center" style="display: none;">
+            <p class="text-sm text-gray-500">Valgte formål: <span id="purposes-count" class="font-semibold text-purple-600">0</span></p>
+        </div>
+    </div>
+
     <!-- STEP 1: Industry & Service Selection -->
-    <div id="step-content-1" class="step-content animate-fade-in">
+    <div id="step-content-1" class="step-content" style="display: none;">
         <div class="text-center mb-8">
             <h2 class="text-3xl font-bold text-gray-900 mb-4">🏢 Vælg Brancher og Services</h2>
             <p class="text-gray-600">Du kan vælge flere brancher og kombinere deres services</p>
@@ -130,7 +197,7 @@
             <h3 class="text-xl font-semibold text-gray-900 mb-4">📋 Vælg Brancher (flere muligt)</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {% for industry in industries %}
-                <div class="selection-card p-4 rounded-lg border-2 industry-card" data-industry-id="{{ industry.id }}">
+                <div class="selection-card p-4 rounded-lg border-2 industry-card" data-industry-id="{{ industry.id }}" data-requires-auth="{{ industry.requires_authorization|yesno:'true,false' }}">
                     <div class="flex items-center space-x-3">
                         <div class="w-10 h-10 rounded-lg flex items-center justify-center text-xl" style="background-color: {{ industry.color }}20;">
                             {{ industry.icon }}
@@ -145,6 +212,22 @@
                             </div>
                         </div>
                     </div>
+                    <!-- Authorization question (hidden by default, shown when selected) -->
+                    {% if industry.requires_authorization %}
+                    <div class="auth-question mt-3 pt-3 border-t border-gray-200" style="display: none;">
+                        <p class="text-sm font-medium text-gray-700 mb-2">Er virksomheden autoriseret?</p>
+                        <div class="flex space-x-4">
+                            <label class="flex items-center cursor-pointer">
+                                <input type="radio" name="auth-{{ industry.id }}" value="true" class="auth-radio mr-2 text-purple-600 focus:ring-purple-500">
+                                <span class="text-sm text-gray-700">Ja, autoriseret</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer">
+                                <input type="radio" name="auth-{{ industry.id }}" value="false" class="auth-radio mr-2 text-purple-600 focus:ring-purple-500">
+                                <span class="text-sm text-gray-700">Nej</span>
+                            </label>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
                 {% empty %}
                 <div class="col-span-full text-center py-8">
@@ -163,15 +246,36 @@
         </div>
     </div>
 
-    <!-- STEP 2: USP and Negative Keywords Selection -->
+    <!-- STEP 2: USP Selection -->
     <div id="step-content-2" class="step-content" style="display: none;">
         <div class="text-center mb-8">
-            <h2 class="text-3xl font-bold text-gray-900 mb-4">⭐ USPs og Negative Keywords</h2>
+            <h2 class="text-3xl font-bold text-gray-900 mb-4">⭐ USPs</h2>
         </div>
-        
+
+        <!-- Custom USPs Section -->
+        <div class="mb-8 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-200">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-semibold text-gray-900 flex items-center">
+                    <span class="w-8 h-8 rounded-lg mr-3 flex items-center justify-center text-white bg-gradient-to-r from-purple-600 to-pink-600">➕</span>
+                    Tilføj egne USPs
+                </h3>
+            </div>
+            <div class="flex gap-3 mb-4">
+                <input type="text" id="custom-usp-input" class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="Indtast din egen USP...">
+                <button type="button" id="add-custom-usp-btn" class="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:shadow-lg transition-all duration-200 flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    Tilføj
+                </button>
+            </div>
+            <div id="custom-usps-container" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <!-- Custom USPs will be added here -->
+            </div>
+            <p class="text-xs text-gray-500 mt-3">Tilføj virksomhedens unikke salgsargumenter som ikke findes i listen nedenfor</p>
+        </div>
+
         <!-- USP Selection -->
         <div class="mb-8">
-            <h3 class="text-xl font-semibold text-gray-900 mb-4">⭐ Vælg USPs</h3>
+            <h3 class="text-xl font-semibold text-gray-900 mb-4">⭐ Vælg USPs fra listen</h3>
             <div class="space-y-6">
                 {% for category in usp_categories %}
                 <div class="bg-gray-50 rounded-lg p-6">
@@ -184,10 +288,11 @@
                     </h4>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {% for usp in category.usptemplate_set.all %}
-                        <div class="flex items-center p-3 bg-white rounded-lg border">
-                            <input type="checkbox" class="checkbox-custom usp-checkbox" data-usp-id="{{ usp.id }}" data-is-cta="{{ usp.is_cta|yesno:'true,false' }}">
+                        <div class="flex items-start p-3 bg-white rounded-lg border usp-item" data-usp-id="{{ usp.id }}">
+                            <input type="checkbox" class="checkbox-custom usp-checkbox mt-1" data-usp-id="{{ usp.id }}" data-is-cta="{{ usp.is_cta|yesno:'true,false' }}" data-original-text="{{ usp.text }}">
                             <div class="flex-1" style="padding-left: 10px;">
-                                <p class="font-medium text-gray-900">{{ usp.text }}</p>
+                                <p class="font-medium text-gray-900 usp-display-text">{{ usp.text }}</p>
+                                <input type="text" class="usp-edit-input w-full px-2 py-1 border border-purple-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm" style="display: none;" value="{{ usp.text }}">
                                 {% if usp.is_cta %}
                                 <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mt-1">
                                     CTA
@@ -205,40 +310,37 @@
                 {% endfor %}
             </div>
         </div>
-        
-        <!-- Negative Keywords Selection -->
-        <div class="mb-8">
-            <h3 class="text-xl font-semibold text-gray-900 mb-4">🚫 Negative Søgeordslister</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {% for keyword_list in negative_keyword_lists %}
-                <div class="selection-card p-4 rounded-lg border-2 negative-keyword-card" data-list-id="{{ keyword_list.id }}">
-                    <div class="flex items-start space-x-3">
-                        <div class="w-10 h-10 rounded-lg flex items-center justify-center text-xl" style="background-color: {{ keyword_list.color }}20;">
-                            {{ keyword_list.icon }}
-                        </div>
-                        <div class="flex-1">
-                            <h4 class="font-medium text-gray-900">{{ keyword_list.name }}</h4>
-                            <p class="text-sm text-gray-500 mb-2">{{ keyword_list.description|truncatechars:50 }}</p>
-                            <div class="flex items-center space-x-2">
-                                <span class="category-badge bg-blue-100 text-blue-800">{{ keyword_list.keywords_count }} keywords</span>
-                                {% if keyword_list.category %}
-                                <span class="category-badge bg-gray-100 text-gray-600">{{ keyword_list.get_category_display }}</span>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {% empty %}
-                <div class="col-span-full text-center py-8">
-                    <p class="text-gray-500">Ingen negative søgeordslister tilgængelige.</p>
-                </div>
-                {% endfor %}
+    </div>
+
+    <!-- STEP 3: Company Description Info (for Virksomhedsbeskrivelse purpose) -->
+    <div id="step-content-3" class="step-content" style="display: none;">
+        <div class="text-center mb-8">
+            <h2 class="text-3xl font-bold text-gray-900 mb-4">📝 Virksomhedsinformation</h2>
+            <p class="text-gray-600">Udfyld information om virksomheden til ChatGPT prompt generering</p>
+        </div>
+
+        <div class="max-w-2xl mx-auto space-y-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Firmanavn *</label>
+                <input type="text" id="company-name" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="Indtast firmanavn">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Generel information om virksomheden og dens værdisæt *</label>
+                <textarea id="core-competencies" rows="4" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="Beskriv virksomheden, dens historie, værdier og hvad der gør den unik..."></textarea>
+                <p class="text-xs text-gray-500 mt-1">Fortæl om virksomhedens baggrund, værdier og særlige kendetegn</p>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Målgruppe *</label>
+                <textarea id="target-audience" rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="F.eks. boligejere i København mellem 30-55 år, der søger pålidelig håndværkerservice til renovering og vedligeholdelse af deres hjem"></textarea>
+                <p class="text-xs text-gray-500 mt-1">Beskriv den primære målgruppe - hvem er kunderne, hvor bor de, og hvad søger de?</p>
             </div>
         </div>
     </div>
 
-    <!-- STEP 3: Budget Strategy and Ad Templates -->
-    <div id="step-content-3" class="step-content" style="display: none;">
+    <!-- STEP 4: Budget Strategy and Ad Templates (for Google Ads purpose) -->
+    <div id="step-content-4" class="step-content" style="display: none;">
         <div class="text-center mb-8">
             <h2 class="text-3xl font-bold text-gray-900 mb-4">💰 Budget Strategi og Ad Templates</h2>
         </div>
@@ -342,12 +444,12 @@
         </div>
     </div>
 
-    <!-- STEP 4: Geographic Targeting -->
-    <div id="step-content-4" class="step-content" style="display: none;">
+    <!-- STEP 5: Geographic Targeting (for Google Ads purpose) -->
+    <div id="step-content-5" class="step-content" style="display: none;">
         <div class="text-center mb-8">
             <h2 class="text-3xl font-bold text-gray-900 mb-4">🌍 Geografisk Målretning</h2>
         </div>
-        
+
         <!-- Geographic Regions Selection -->
         <div class="mb-8">
             <h3 class="text-xl font-semibold text-gray-900 mb-4">🗺️ Vælg Geografiske Regioner</h3>
@@ -376,29 +478,118 @@
         </div>
     </div>
 
-    <!-- STEP 5: Preview and Export -->
-    <div id="step-content-5" class="step-content" style="display: none;">
+    <!-- STEP 6: SEO Info (for SEO purpose) -->
+    <div id="step-content-6" class="step-content" style="display: none;">
         <div class="text-center mb-8">
-            <h2 class="text-3xl font-bold text-gray-900 mb-4">👀 Forhåndsvisning og Eksport</h2>
+            <h2 class="text-3xl font-bold text-gray-900 mb-4">🔍 SEO Information</h2>
+            <p class="text-gray-600">Udfyld information til SEO analyse og metabeskrivelser</p>
         </div>
-        
+
+        <div class="max-w-2xl mx-auto space-y-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Website URL *</label>
+                <input type="url" id="seo-website-url" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="https://www.example.dk">
+                <p class="text-xs text-gray-500 mt-1">Den hjemmeside der skal analyseres</p>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Fokus Keywords *</label>
+                <textarea id="seo-focus-keywords" rows="4" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="vvs installation&#10;blikkenslager københavn&#10;akut vvs"></textarea>
+                <p class="text-xs text-gray-500 mt-1">Ét keyword per linje - de vigtigste søgeord for virksomheden</p>
+            </div>
+
+            <div class="bg-blue-50 rounded-lg p-4">
+                <h4 class="font-medium text-blue-900 mb-2">💡 Tip til fokus keywords</h4>
+                <ul class="text-sm text-blue-800 space-y-1">
+                    <li>• Inkluder geografiske termer (by, område)</li>
+                    <li>• Brug både korte og lange søgeord</li>
+                    <li>• Tænk på hvad dine kunder søger på</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- STEP 7: Programmatic Byside Setup -->
+    <div id="step-content-7" class="step-content" style="display: none;">
+        <div class="text-center mb-8">
+            <h2 class="text-3xl font-bold text-gray-900 mb-4">🌍 Programmatic Byside Setup</h2>
+            <p class="text-gray-600">Konfigurer geo-kampagne og WordPress upload</p>
+        </div>
+
+        <div class="space-y-8">
+            <!-- City Selection -->
+            <div class="bg-gray-50 rounded-lg p-6">
+                <h3 class="text-xl font-semibold text-gray-900 mb-4">🏙️ Vælg Byer</h3>
+                <p class="text-sm text-gray-600 mb-4">Vælg de byer der skal inkluderes i geo-kampagnen</p>
+
+                <div class="mb-4">
+                    <input type="text" id="city-search" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="Søg efter by...">
+                </div>
+
+                <div id="programmatic-cities-container" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-64 overflow-y-auto">
+                    {% for region in geographic_regions %}
+                        {% for city in region.cities.all %}
+                        <label class="flex items-center p-2 bg-white rounded border cursor-pointer hover:bg-purple-50 city-checkbox-label">
+                            <input type="checkbox" class="city-checkbox mr-2" data-city-name="{{ city.name }}" data-city-slug="{{ city.slug }}">
+                            <span class="text-sm">{{ city.name }}</span>
+                        </label>
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+
+                <div class="mt-4 flex items-center justify-between">
+                    <span class="text-sm text-gray-500">Valgte byer: <span id="selected-cities-count" class="font-semibold text-purple-600">0</span></span>
+                    <button type="button" onclick="selectAllCities()" class="text-sm text-purple-600 hover:text-purple-700 font-medium">Vælg alle</button>
+                </div>
+            </div>
+
+            <!-- Headline Templates -->
+            <div class="bg-gray-50 rounded-lg p-6">
+                <h3 class="text-xl font-semibold text-gray-900 mb-4">📰 Headline Templates</h3>
+                <p class="text-sm text-gray-600 mb-4">Definer headline templates med placeholders: <code class="bg-gray-200 px-1 rounded">{SERVICE}</code>, <code class="bg-gray-200 px-1 rounded">{BYNAVN}</code></p>
+
+                <div id="headline-templates-container" class="space-y-3">
+                    <div class="headline-template-row flex items-center space-x-2">
+                        <input type="text" class="headline-template-input flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="{SERVICE} i {BYNAVN}" maxlength="30">
+                        <span class="text-xs text-gray-500 w-12 text-right char-count">0/30</span>
+                    </div>
+                </div>
+                <button type="button" onclick="addHeadlineTemplate()" class="mt-3 text-sm text-purple-600 hover:text-purple-700 font-medium">+ Tilføj headline</button>
+            </div>
+
+            <!-- Description Templates -->
+            <div class="bg-gray-50 rounded-lg p-6">
+                <h3 class="text-xl font-semibold text-gray-900 mb-4">📝 Description Templates</h3>
+                <p class="text-sm text-gray-600 mb-4">Definer description templates med placeholders</p>
+
+                <div id="description-templates-container" class="space-y-3">
+                    <div class="description-template-row flex items-center space-x-2">
+                        <textarea class="description-template-input flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="Professionel {SERVICE} i {BYNAVN}. Ring nu for gratis tilbud!" rows="2" maxlength="90"></textarea>
+                        <span class="text-xs text-gray-500 w-12 text-right char-count">0/90</span>
+                    </div>
+                </div>
+                <button type="button" onclick="addDescriptionTemplate()" class="mt-3 text-sm text-purple-600 hover:text-purple-700 font-medium">+ Tilføj description</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- STEP 8: Summary and Export -->
+    <div id="step-content-8" class="step-content" style="display: none;">
+        <div class="text-center mb-8">
+            <h2 class="text-3xl font-bold text-gray-900 mb-4">📋 Opsummering og Generering</h2>
+            <p class="text-gray-600">Gennemgå dine valg og generer output</p>
+        </div>
+
         <!-- Campaign Summary -->
         <div id="campaign-summary" class="space-y-6">
             <!-- Summary content will be generated dynamically -->
         </div>
-        
-        <!-- Export Options -->
+
+        <!-- Export Options based on selected purposes -->
         <div class="mt-8 border-t pt-8">
-            <h3 class="text-xl font-semibold text-gray-900 mb-4">📤 Eksport Indstillinger</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <button class="btn-primary p-6 rounded-lg text-left" onclick="exportCampaign('google_ads')">
-                    <h4 class="font-medium text-white mb-2">Google Ads Editor</h4>
-                    <p class="text-purple-100 text-sm">Eksportér til Google Ads Editor CSV format</p>
-                </button>
-                <button class="btn-secondary p-6 rounded-lg text-left" onclick="exportCampaign('preview')">
-                    <h4 class="font-medium text-white mb-2">Preview Kampagne</h4>
-                    <p class="text-blue-100 text-sm">Se detaljeret forhåndsvisning af kampagnen</p>
-                </button>
+            <h3 class="text-xl font-semibold text-gray-900 mb-4">📤 Generer Output</h3>
+            <div id="export-options-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Export options will be generated dynamically based on selected purposes -->
             </div>
         </div>
     </div>
@@ -418,20 +609,155 @@
     </button>
 </div>
 
+<!-- Authorization Modal -->
+<div id="authorization-modal" class="fixed inset-0 flex items-center justify-center" style="z-index: 2147483647; display: none;">
+    <!-- Backdrop -->
+    <div class="absolute inset-0 bg-black bg-opacity-50"></div>
+    <!-- Modal content - centreret -->
+    <div class="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 p-6">
+        <div class="flex items-center space-x-3 mb-4">
+            <div class="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                </svg>
+            </div>
+            <div>
+                <h3 class="text-xl font-bold text-gray-900">Autorisation påkrævet</h3>
+                <p class="text-sm text-gray-500">Bekræft autorisations-status</p>
+            </div>
+        </div>
+        <p class="text-gray-600 mb-6">For at sikre korrekte annoncetekster, bekræft venligst om virksomheden er autoriseret:</p>
+        <div id="authorization-questions" class="space-y-4">
+            <!-- Dynamically generated questions -->
+        </div>
+        <div class="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
+            <button id="auth-modal-cancel" class="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium transition-colors">
+                Annuller
+            </button>
+            <button id="auth-modal-confirm" class="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                Fortsæt
+            </button>
+        </div>
+    </div>
+</div>
 
 <script>
 // Wizard State Management
-let currentStep = 1;
-let maxSteps = 5;
+let currentStep = 0;  // Start at step 0 (purpose selection)
 let campaignConfig = {
+    selected_purposes: [],  // ['company_description', 'google_ads', 'seo', 'programmatic']
     industry_ids: [],  // Changed from industry_id to support multiple industries
     service_ids: [],
     usp_ids: [],
+    usp_custom_texts: {},  // {usp_id: "custom text"} for edited USPs
+    custom_usps: [],  // Array of custom USP texts added by user
     negative_keyword_list_ids: [],
     budget_strategy_id: null,
     ad_template_id: null,
-    geographic_region_ids: []
+    geographic_region_ids: [],
+    industry_authorizations: {},  // {industry_id: true/false} for industries requiring authorization
+    // Purpose-specific data
+    company_info: {
+        company_name: '',
+        core_competencies: '',
+        target_audience: ''
+    },
+    seo_info: {
+        website_url: '',
+        focus_keywords: []
+    },
+    programmatic_info: {
+        selected_cities: [],
+        headline_templates: [],
+        description_templates: []
+    }
 };
+
+// Purpose definitions
+const PURPOSES = {
+    company_description: {
+        id: 'company_description',
+        name: 'Virksomhedsbeskrivelse Prompt',
+        icon: '📝',
+        description: 'Generer info til ChatGPT prompt for virksomhedsbeskrivelse',
+        steps: ['company_info']
+    },
+    google_ads: {
+        id: 'google_ads',
+        name: 'Google Ads Kampagner',
+        icon: '📊',
+        description: 'Generer Google Ads kampagne-filer',
+        steps: ['budget_strategy', 'geo_targeting']
+    },
+    seo: {
+        id: 'seo',
+        name: 'SEO Analyser',
+        icon: '🔍',
+        description: 'SEO analyser og metabeskrivelser',
+        steps: ['seo_info']
+    },
+    programmatic: {
+        id: 'programmatic',
+        name: 'Programmatic Byside',
+        icon: '🌍',
+        description: 'Geo-kampagne + WordPress upload fil',
+        steps: ['programmatic_setup']
+    }
+};
+
+// Get visible steps based on selected purposes
+function getVisibleSteps() {
+    // Base steps: 0 (purpose), 1 (industry/services), 2 (USPs)
+    let steps = [0, 1, 2];
+
+    // Add purpose-specific steps
+    if (campaignConfig.selected_purposes.includes('company_description')) {
+        steps.push(3);  // Company info step
+    }
+    if (campaignConfig.selected_purposes.includes('google_ads')) {
+        steps.push(4);  // Budget strategy step
+        steps.push(5);  // Geo targeting step
+    }
+    if (campaignConfig.selected_purposes.includes('seo')) {
+        steps.push(6);  // SEO info step
+    }
+    if (campaignConfig.selected_purposes.includes('programmatic')) {
+        steps.push(7);  // Programmatic setup step
+    }
+
+    // Always add summary step at the end
+    steps.push(8);
+
+    return steps;
+}
+
+// Get total number of visible steps
+function getMaxSteps() {
+    return getVisibleSteps().length;
+}
+
+// Get the next visible step
+function getNextVisibleStep(current) {
+    const visibleSteps = getVisibleSteps();
+    const currentIndex = visibleSteps.indexOf(current);
+    if (currentIndex >= 0 && currentIndex < visibleSteps.length - 1) {
+        return visibleSteps[currentIndex + 1];
+    }
+    return current;
+}
+
+// Get the previous visible step
+function getPrevVisibleStep(current) {
+    const visibleSteps = getVisibleSteps();
+    const currentIndex = visibleSteps.indexOf(current);
+    if (currentIndex > 0) {
+        return visibleSteps[currentIndex - 1];
+    }
+    return current;
+}
+
+// Track which industries require authorization
+let industriesRequiringAuth = {};  // {industry_id: industry_name}
 
 // Initialize wizard
 $(document).ready(function() {
@@ -441,31 +767,87 @@ $(document).ready(function() {
 
 // Setup event listeners
 function setupEventListeners() {
-    // Industry selection (multiple)
-    $('.industry-card').on('click', function() {
+    // Purpose selection (multiple)
+    $('.purpose-card').on('click', function() {
         $(this).toggleClass('selected');
-        
+
+        const purposeId = $(this).data('purpose');
+        if ($(this).hasClass('selected')) {
+            if (!campaignConfig.selected_purposes.includes(purposeId)) {
+                campaignConfig.selected_purposes.push(purposeId);
+            }
+        } else {
+            campaignConfig.selected_purposes = campaignConfig.selected_purposes.filter(p => p !== purposeId);
+        }
+
+        // Update purposes count
+        const count = campaignConfig.selected_purposes.length;
+        $('#purposes-count').text(count);
+        if (count > 0) {
+            $('#selected-purposes-summary').show();
+        } else {
+            $('#selected-purposes-summary').hide();
+        }
+
+        console.log('Selected purposes:', campaignConfig.selected_purposes);
+    });
+
+    // Industry selection (multiple)
+    $('.industry-card').on('click', function(e) {
+        // Don't toggle if clicking on radio button or label
+        if ($(e.target).hasClass('auth-radio') || $(e.target).closest('label').length > 0) {
+            return;
+        }
+
+        $(this).toggleClass('selected');
+
         const industryId = $(this).data('industry-id');
-        
+        const requiresAuth = $(this).data('requires-auth') === true || $(this).data('requires-auth') === 'true';
+        const authQuestion = $(this).find('.auth-question');
+
         if ($(this).hasClass('selected')) {
             // Add industry to selection
             if (!campaignConfig.industry_ids.includes(industryId)) {
                 campaignConfig.industry_ids.push(industryId);
             }
+
+            // Show auth question if this industry requires it
+            if (requiresAuth) {
+                authQuestion.slideDown(200);
+                // Pre-fill if we have a previous answer
+                const existingAnswer = campaignConfig.industry_authorizations[industryId];
+                if (existingAnswer !== undefined) {
+                    $(this).find(`input[name="auth-${industryId}"][value="${existingAnswer}"]`).prop('checked', true);
+                }
+            }
         } else {
             // Remove industry from selection
             campaignConfig.industry_ids = campaignConfig.industry_ids.filter(id => id !== industryId);
+            // Hide auth question and clear selection
+            authQuestion.slideUp(200);
+            $(this).find('.auth-radio').prop('checked', false);
+            // Remove authorization answer
+            delete campaignConfig.industry_authorizations[industryId];
         }
-        
+
         // Load services for all selected industries
         loadServicesForSelectedIndustries();
-        
+
         // Show services section if any industries are selected
         if (campaignConfig.industry_ids.length > 0) {
             $('#services-section').show();
         } else {
             $('#services-section').hide();
         }
+    });
+
+    // Handle authorization radio button changes
+    $(document).on('change', '.auth-radio', function() {
+        const card = $(this).closest('.industry-card');
+        const industryId = card.data('industry-id');
+        const isAuthorized = $(this).val() === 'true';
+        campaignConfig.industry_authorizations[industryId] = isAuthorized;
+        console.log('Authorization updated:', industryId, isAuthorized);
     });
     
     // Service selection (multiple)
@@ -484,16 +866,37 @@ function setupEventListeners() {
         // Step validation is handled in nextStep() function
     });
     
-    // USP selection
+    // USP selection with inline editing
     $('.usp-checkbox').on('change', function() {
         const uspId = parseInt($(this).data('usp-id'));
+        const uspItem = $(this).closest('.usp-item');
+        const displayText = uspItem.find('.usp-display-text');
+        const editInput = uspItem.find('.usp-edit-input');
+
         if ($(this).is(':checked')) {
             if (!campaignConfig.usp_ids.includes(uspId)) {
                 campaignConfig.usp_ids.push(uspId);
             }
+            // Show edit input, hide display text
+            displayText.hide();
+            editInput.show().focus();
+            // Store custom text
+            campaignConfig.usp_custom_texts[uspId] = editInput.val();
         } else {
             campaignConfig.usp_ids = campaignConfig.usp_ids.filter(id => id !== uspId);
+            // Hide edit input, show display text
+            editInput.hide();
+            displayText.show();
+            // Remove custom text
+            delete campaignConfig.usp_custom_texts[uspId];
         }
+    });
+
+    // Update custom text when editing
+    $(document).on('input', '.usp-edit-input', function() {
+        const uspItem = $(this).closest('.usp-item');
+        const uspId = parseInt(uspItem.data('usp-id'));
+        campaignConfig.usp_custom_texts[uspId] = $(this).val();
     });
     
     // Negative keyword list selection
@@ -527,7 +930,7 @@ function setupEventListeners() {
     // Geographic region selection (multiple)
     $('.geographic-region-card').on('click', function() {
         $(this).toggleClass('selected');
-        
+
         const regionId = $(this).data('region-id');
         if ($(this).hasClass('selected')) {
             if (!campaignConfig.geographic_region_ids.includes(regionId)) {
@@ -537,6 +940,150 @@ function setupEventListeners() {
             campaignConfig.geographic_region_ids = campaignConfig.geographic_region_ids.filter(id => id !== regionId);
         }
     });
+
+    // Custom USP - Add button click
+    $('#add-custom-usp-btn').on('click', function() {
+        addCustomUsp();
+    });
+
+    // Custom USP - Enter key in input
+    $('#custom-usp-input').on('keypress', function(e) {
+        if (e.which === 13) {
+            e.preventDefault();
+            addCustomUsp();
+        }
+    });
+
+    // Custom USP - Remove button (delegated)
+    $(document).on('click', '.remove-custom-usp', function() {
+        const index = $(this).data('index');
+        removeCustomUsp(index);
+    });
+
+    // Custom USP - Click to edit (delegated)
+    $(document).on('click', '.custom-usp-display-text', function() {
+        const item = $(this).closest('.custom-usp-item');
+        const displayText = item.find('.custom-usp-display-text');
+        const editInput = item.find('.custom-usp-edit-input');
+
+        displayText.hide();
+        editInput.show().focus().select();
+    });
+
+    // Custom USP - Save on blur or Enter (delegated)
+    $(document).on('blur', '.custom-usp-edit-input', function() {
+        saveCustomUspEdit($(this));
+    });
+
+    $(document).on('keypress', '.custom-usp-edit-input', function(e) {
+        if (e.which === 13) {
+            e.preventDefault();
+            $(this).blur();
+        }
+    });
+
+    // Custom USP - Cancel on Escape
+    $(document).on('keydown', '.custom-usp-edit-input', function(e) {
+        if (e.which === 27) {
+            const index = $(this).data('index');
+            const originalText = campaignConfig.custom_usps[index];
+            $(this).val(originalText);
+            $(this).blur();
+        }
+    });
+}
+
+// Add custom USP
+function addCustomUsp() {
+    const input = $('#custom-usp-input');
+    const text = input.val().trim();
+
+    if (!text) {
+        alert('Indtast venligst en USP tekst');
+        input.focus();
+        return;
+    }
+
+    // Check for duplicates
+    if (campaignConfig.custom_usps.includes(text)) {
+        alert('Denne USP er allerede tilføjet');
+        return;
+    }
+
+    // Add to config
+    campaignConfig.custom_usps.push(text);
+
+    // Clear input
+    input.val('');
+
+    // Render custom USPs
+    renderCustomUsps();
+
+    console.log('Custom USPs:', campaignConfig.custom_usps);
+}
+
+// Remove custom USP
+function removeCustomUsp(index) {
+    campaignConfig.custom_usps.splice(index, 1);
+    renderCustomUsps();
+    console.log('Custom USPs:', campaignConfig.custom_usps);
+}
+
+// Save custom USP edit
+function saveCustomUspEdit(input) {
+    const index = input.data('index');
+    const newText = input.val().trim();
+    const item = input.closest('.custom-usp-item');
+    const displayText = item.find('.custom-usp-display-text');
+
+    if (newText && newText !== campaignConfig.custom_usps[index]) {
+        // Check for duplicates (excluding current)
+        const otherUsps = campaignConfig.custom_usps.filter((_, i) => i !== index);
+        if (otherUsps.includes(newText)) {
+            alert('Denne USP tekst findes allerede');
+            input.val(campaignConfig.custom_usps[index]);
+        } else {
+            campaignConfig.custom_usps[index] = newText;
+            displayText.text(newText);
+            console.log('Custom USP updated:', campaignConfig.custom_usps);
+        }
+    } else if (!newText) {
+        // Revert to original if empty
+        input.val(campaignConfig.custom_usps[index]);
+    }
+
+    // Hide input, show text
+    input.hide();
+    displayText.show();
+}
+
+// Render custom USPs list
+function renderCustomUsps() {
+    const container = $('#custom-usps-container');
+    container.empty();
+
+    campaignConfig.custom_usps.forEach((usp, index) => {
+        const html = `
+            <div class="flex items-start p-3 bg-white rounded-lg border custom-usp-item" data-index="${index}">
+                <span class="w-5 h-5 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs flex items-center justify-center mt-0.5 flex-shrink-0">✓</span>
+                <div class="flex-1 px-2">
+                    <p class="font-medium text-gray-900 text-sm custom-usp-display-text cursor-pointer hover:text-purple-600" data-index="${index}">${escapeHtml(usp)}</p>
+                    <input type="text" class="custom-usp-edit-input w-full px-2 py-1 border border-purple-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm" style="display: none;" value="${escapeHtml(usp)}" data-index="${index}">
+                </div>
+                <button type="button" class="remove-custom-usp text-gray-400 hover:text-red-500 transition-colors flex-shrink-0" data-index="${index}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+        `;
+        container.append(html);
+    });
+}
+
+// Helper function to escape HTML
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 // Load services for all selected industries
@@ -571,19 +1118,37 @@ function loadServicesForSelectedIndustries() {
     $.when(...promises).done(function(...responses) {
         // Handle single or multiple responses
         const responseArray = campaignConfig.industry_ids.length === 1 ? [responses] : Array.from(responses);
-        
+
+        console.log('AJAX responses received:', responseArray);
+
         let allServices = [];
         let industryNames = [];
-        
+
+        // Clear industriesRequiringAuth for currently selected industries
+        // (will be repopulated below)
+        campaignConfig.industry_ids.forEach(id => {
+            delete industriesRequiringAuth[id];
+        });
+
         responseArray.forEach((response, index) => {
             const data = response[0]; // AJAX response is wrapped in array
-            if (data.success) {
+            const industryId = campaignConfig.industry_ids[index];
+            console.log(`Processing industry ${industryId}:`, data);
+
+            if (data && data.success) {
                 industryNames.push(data.industry_name);
                 data.services.forEach(service => {
                     // Add industry info to service for display
                     service.industry_name = data.industry_name;
                     allServices.push(service);
                 });
+
+                // Track if this industry requires authorization
+                console.log(`Industry ${industryId} requires_authorization:`, data.requires_authorization);
+                if (data.requires_authorization) {
+                    industriesRequiringAuth[industryId] = data.industry_name;
+                    console.log('Added to industriesRequiringAuth:', industriesRequiringAuth);
+                }
             }
         });
         
@@ -644,13 +1209,16 @@ function loadServicesForSelectedIndustries() {
 
 // Navigation functions
 function nextStep() {
-    if (currentStep < maxSteps) {
+    const visibleSteps = getVisibleSteps();
+    const lastStep = visibleSteps[visibleSteps.length - 1];
+
+    if (currentStep < lastStep) {
         if (validateCurrentStep()) {
-            currentStep++;
+            currentStep = getNextVisibleStep(currentStep);
             updateWizardState();
-            
-            // Special handling for final step
-            if (currentStep === maxSteps) {
+
+            // Special handling for final step (summary)
+            if (currentStep === 8) {
                 generateCampaignSummary();
             }
         }
@@ -658,8 +1226,8 @@ function nextStep() {
 }
 
 function previousStep() {
-    if (currentStep > 1) {
-        currentStep--;
+    if (currentStep > 0) {
+        currentStep = getPrevVisibleStep(currentStep);
         updateWizardState();
     }
 }
@@ -667,7 +1235,13 @@ function previousStep() {
 // Validate current step
 function validateCurrentStep() {
     switch(currentStep) {
-        case 1:
+        case 0:  // Purpose selection
+            if (campaignConfig.selected_purposes.length === 0) {
+                alert('Vælg venligst mindst ét formål før du fortsætter.');
+                return false;
+            }
+            return true;
+        case 1:  // Industry & Services
             if (campaignConfig.industry_ids.length === 0) {
                 alert('Vælg venligst mindst én branche før du fortsætter.');
                 return false;
@@ -676,26 +1250,106 @@ function validateCurrentStep() {
                 alert('Vælg mindst én service før du fortsætter.');
                 return false;
             }
+
+            // Check if all authorization questions are answered
+            const authRequired = getIndustriesRequiringAuthorization();
+            for (const ind of authRequired) {
+                if (campaignConfig.industry_authorizations[ind.id] === undefined) {
+                    alert(`Angiv venligst om virksomheden er autoriseret ${ind.name}`);
+                    // Scroll to the card and highlight
+                    const card = $(`.industry-card[data-industry-id="${ind.id}"]`);
+                    card[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    card.find('.auth-question').addClass('bg-red-50 border border-red-200 rounded p-2');
+                    setTimeout(() => {
+                        card.find('.auth-question').removeClass('bg-red-50 border border-red-200 rounded p-2');
+                    }, 3000);
+                    return false;
+                }
+            }
+
             return true;
-        case 2:
+        case 2:  // USPs
             if (campaignConfig.usp_ids.length === 0) {
                 alert('Vælg mindst én USP før du fortsætter.');
                 return false;
             }
             return true;
-        case 3:
-            if (!campaignConfig.budget_strategy_id) {
+        case 3:  // Company Info (for Virksomhedsbeskrivelse)
+            if (!$('#company-name').val().trim()) {
+                alert('Indtast venligst firmanavn.');
+                $('#company-name').focus();
+                return false;
+            }
+            if (!$('#core-competencies').val().trim()) {
+                alert('Indtast venligst kernekompetencer.');
+                $('#core-competencies').focus();
+                return false;
+            }
+            if (!$('#target-audience').val().trim()) {
+                alert('Indtast venligst målgruppe.');
+                $('#target-audience').focus();
+                return false;
+            }
+            // Save to config
+            campaignConfig.company_info.company_name = $('#company-name').val().trim();
+            campaignConfig.company_info.core_competencies = $('#core-competencies').val().trim();
+            campaignConfig.company_info.target_audience = $('#target-audience').val().trim();
+            return true;
+        case 4:  // Budget Strategy & Ad Templates (for Google Ads)
+            // Check if there are budget strategies available
+            const budgetCardsCount = $('.budget-strategy-card').length;
+            if (budgetCardsCount > 0 && !campaignConfig.budget_strategy_id) {
                 alert('Vælg en budget strategi før du fortsætter.');
                 return false;
             }
-            if (!campaignConfig.ad_template_id) {
+            // Check if there are ad templates available
+            const adTemplateCardsCount = $('.ad-template-card').length;
+            if (adTemplateCardsCount > 0 && !campaignConfig.ad_template_id) {
                 alert('Vælg et ad template før du fortsætter.');
                 return false;
             }
             return true;
-        case 4:
-            if (campaignConfig.geographic_region_ids.length === 0) {
+        case 5:  // Geo Targeting (for Google Ads)
+            // Check if there are regions available
+            const regionCardsCount = $('.geographic-region-card').length;
+            if (regionCardsCount > 0 && campaignConfig.geographic_region_ids.length === 0) {
                 alert('Vælg mindst én geografisk region før du fortsætter.');
+                return false;
+            }
+            return true;
+        case 6:  // SEO Info
+            if (!$('#seo-website-url').val().trim()) {
+                alert('Indtast venligst website URL.');
+                $('#seo-website-url').focus();
+                return false;
+            }
+            if (!$('#seo-focus-keywords').val().trim()) {
+                alert('Indtast venligst fokus keywords.');
+                $('#seo-focus-keywords').focus();
+                return false;
+            }
+            // Save to config
+            campaignConfig.seo_info.website_url = $('#seo-website-url').val().trim();
+            campaignConfig.seo_info.focus_keywords = $('#seo-focus-keywords').val().trim().split('\n').filter(k => k.trim());
+            return true;
+        case 7:  // Programmatic Byside
+            if (campaignConfig.programmatic_info.selected_cities.length === 0) {
+                alert('Vælg mindst én by før du fortsætter.');
+                return false;
+            }
+            // Collect headline and description templates
+            campaignConfig.programmatic_info.headline_templates = [];
+            $('.headline-template-input').each(function() {
+                const val = $(this).val().trim();
+                if (val) campaignConfig.programmatic_info.headline_templates.push(val);
+            });
+            campaignConfig.programmatic_info.description_templates = [];
+            $('.description-template-input').each(function() {
+                const val = $(this).val().trim();
+                if (val) campaignConfig.programmatic_info.description_templates.push(val);
+            });
+            if (campaignConfig.programmatic_info.headline_templates.length === 0) {
+                alert('Tilføj mindst én headline template.');
                 return false;
             }
             return true;
@@ -708,35 +1362,49 @@ function validateCurrentStep() {
 function updateWizardState() {
     // Hide all step content
     $('.step-content').hide();
-    
+
     // Show current step content
     $(`#step-content-${currentStep}`).show().addClass('animate-fade-in');
-    
-    // Step indicators removed - only progress bar remains
-    
+
+    // Get visible steps for progress calculation
+    const visibleSteps = getVisibleSteps();
+    const currentStepIndex = visibleSteps.indexOf(currentStep);
+    const maxSteps = visibleSteps.length;
+
     // Update progress bar
-    const progressPercent = (currentStep / maxSteps) * 100;
+    const progressPercent = ((currentStepIndex + 1) / maxSteps) * 100;
     $('#wizard-progress').css('width', `${progressPercent}%`);
-    
-    // Update step description
-    const stepDescriptions = [
-        'Vælg branche og services',
-        'USPs og keywords',
-        'Budget og templates',
-        'Geo-targeting',
-        'Preview og export'
-    ];
-    $('#current-step').text(currentStep);
-    $('#step-description').text(stepDescriptions[currentStep - 1]);
-    
+
+    // Step descriptions based on step number
+    const stepDescriptions = {
+        0: 'Vælg formål',
+        1: 'Brancher og services',
+        2: 'USPs',
+        3: 'Virksomhedsinformation',
+        4: 'Budget og templates',
+        5: 'Geo-targeting',
+        6: 'SEO information',
+        7: 'Programmatic byside',
+        8: 'Opsummering'
+    };
+
+    $('#current-step').text(currentStepIndex + 1);
+    $('#step-description').text(stepDescriptions[currentStep] || 'Step');
+
+    // Update progress text with total steps
+    $('p.text-sm.text-gray-500.mt-2').html(
+        `Step <span id="current-step">${currentStepIndex + 1}</span> of ${maxSteps} - <span id="step-description">${stepDescriptions[currentStep] || 'Step'}</span>`
+    );
+
     // Update navigation buttons
-    if (currentStep === 1) {
+    if (currentStep === 0) {
         $('#prev-btn').hide();
     } else {
         $('#prev-btn').show();
     }
-    
-    if (currentStep === maxSteps) {
+
+    const lastStep = visibleSteps[visibleSteps.length - 1];
+    if (currentStep === lastStep) {
         $('#next-btn').hide();
         $('#create-campaign-btn').show();
     } else {
@@ -748,39 +1416,126 @@ function updateWizardState() {
 // Generate campaign summary for final step
 function generateCampaignSummary() {
     const summaryContainer = $('#campaign-summary');
-    
-    const summaryHtml = `
+    const exportContainer = $('#export-options-container');
+
+    // Build summary HTML based on selected purposes
+    let summaryHtml = `
+        <div class="bg-white rounded-lg p-6 border border-gray-200 mb-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">🎯 Valgte Formål</h3>
+            <div class="flex flex-wrap gap-2">
+                ${campaignConfig.selected_purposes.map(p => {
+                    const purpose = PURPOSES[p];
+                    return `<span class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-medium">${purpose.icon} ${purpose.name}</span>`;
+                }).join('')}
+            </div>
+        </div>
+
         <div class="bg-white rounded-lg p-6 border border-gray-200">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">📋 Kampagne Oversigt</h3>
-            
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">📋 Konfiguration</h3>
+
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <h4 class="font-medium text-gray-900 mb-2">🏢 Brancher & Services</h4>
                     <p class="text-sm text-gray-600 mb-1">Brancher: ${campaignConfig.industry_ids.length} valgt</p>
                     <p class="text-sm text-gray-600">Services: ${campaignConfig.service_ids.length} valgt</p>
                 </div>
-                
+
                 <div>
-                    <h4 class="font-medium text-gray-900 mb-2">⭐ USPs & Negative Keywords</h4>
-                    <p class="text-sm text-gray-600 mb-1">USPs: ${campaignConfig.usp_ids.length} valgt</p>
-                    <p class="text-sm text-gray-600">Negative lister: ${campaignConfig.negative_keyword_list_ids.length} valgt</p>
+                    <h4 class="font-medium text-gray-900 mb-2">⭐ USPs</h4>
+                    <p class="text-sm text-gray-600">USPs: ${campaignConfig.usp_ids.length} valgt</p>
                 </div>
-                
+    `;
+
+    // Add purpose-specific summaries
+    if (campaignConfig.selected_purposes.includes('company_description')) {
+        summaryHtml += `
                 <div>
-                    <h4 class="font-medium text-gray-900 mb-2">💰 Budget & Templates</h4>
+                    <h4 class="font-medium text-gray-900 mb-2">📝 Virksomhedsinfo</h4>
+                    <p class="text-sm text-gray-600 mb-1">Firma: ${campaignConfig.company_info.company_name || 'Ikke udfyldt'}</p>
+                    <p class="text-sm text-gray-600">Målgruppe: ${campaignConfig.company_info.target_audience ? 'Udfyldt' : 'Ikke udfyldt'}</p>
+                </div>
+        `;
+    }
+
+    if (campaignConfig.selected_purposes.includes('google_ads')) {
+        summaryHtml += `
+                <div>
+                    <h4 class="font-medium text-gray-900 mb-2">💰 Google Ads</h4>
                     <p class="text-sm text-gray-600 mb-1">Budget strategi: ${campaignConfig.budget_strategy_id ? 'Valgt' : 'Ikke valgt'}</p>
-                    <p class="text-sm text-gray-600">Ad template: ${campaignConfig.ad_template_id ? 'Valgt' : 'Ikke valgt'}</p>
-                </div>
-                
-                <div>
-                    <h4 class="font-medium text-gray-900 mb-2">🌍 Geo-targeting</h4>
+                    <p class="text-sm text-gray-600 mb-1">Ad template: ${campaignConfig.ad_template_id ? 'Valgt' : 'Ikke valgt'}</p>
                     <p class="text-sm text-gray-600">Regioner: ${campaignConfig.geographic_region_ids.length} valgt</p>
                 </div>
+        `;
+    }
+
+    if (campaignConfig.selected_purposes.includes('seo')) {
+        summaryHtml += `
+                <div>
+                    <h4 class="font-medium text-gray-900 mb-2">🔍 SEO</h4>
+                    <p class="text-sm text-gray-600 mb-1">Website: ${campaignConfig.seo_info.website_url || 'Ikke udfyldt'}</p>
+                    <p class="text-sm text-gray-600">Keywords: ${campaignConfig.seo_info.focus_keywords.length} stk</p>
+                </div>
+        `;
+    }
+
+    if (campaignConfig.selected_purposes.includes('programmatic')) {
+        summaryHtml += `
+                <div>
+                    <h4 class="font-medium text-gray-900 mb-2">🌍 Programmatic Byside</h4>
+                    <p class="text-sm text-gray-600 mb-1">Byer: ${campaignConfig.programmatic_info.selected_cities.length} valgt</p>
+                    <p class="text-sm text-gray-600 mb-1">Headlines: ${campaignConfig.programmatic_info.headline_templates.length} stk</p>
+                    <p class="text-sm text-gray-600">Descriptions: ${campaignConfig.programmatic_info.description_templates.length} stk</p>
+                </div>
+        `;
+    }
+
+    summaryHtml += `
             </div>
         </div>
     `;
-    
+
     summaryContainer.html(summaryHtml);
+
+    // Generate export buttons based on selected purposes
+    let exportHtml = '';
+
+    if (campaignConfig.selected_purposes.includes('company_description')) {
+        exportHtml += `
+            <button class="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 rounded-lg text-left hover:shadow-lg transition-all" onclick="generateCompanyPrompt()">
+                <h4 class="font-medium text-white mb-2">📝 Generer ChatGPT Prompt</h4>
+                <p class="text-blue-100 text-sm">Generér virksomhedsbeskrivelse prompt</p>
+            </button>
+        `;
+    }
+
+    if (campaignConfig.selected_purposes.includes('google_ads')) {
+        exportHtml += `
+            <button class="bg-gradient-to-r from-green-600 to-green-700 text-white p-6 rounded-lg text-left hover:shadow-lg transition-all" onclick="exportGoogleAdsCsv()">
+                <h4 class="font-medium text-white mb-2">📊 Google Ads Editor CSV</h4>
+                <p class="text-green-100 text-sm">Eksportér til Google Ads Editor format</p>
+            </button>
+        `;
+    }
+
+    if (campaignConfig.selected_purposes.includes('seo')) {
+        exportHtml += `
+            <button class="bg-gradient-to-r from-orange-600 to-orange-700 text-white p-6 rounded-lg text-left hover:shadow-lg transition-all" onclick="generateSeoReport()">
+                <h4 class="font-medium text-white mb-2">🔍 SEO Rapport</h4>
+                <p class="text-orange-100 text-sm">Generér SEO analyse og meta-forslag</p>
+            </button>
+        `;
+    }
+
+    if (campaignConfig.selected_purposes.includes('programmatic')) {
+        exportHtml += `
+            <button class="bg-gradient-to-r from-purple-600 to-purple-700 text-white p-6 rounded-lg text-left hover:shadow-lg transition-all" onclick="exportProgrammaticFiles()">
+                <h4 class="font-medium text-white mb-2">🌍 Programmatic Export</h4>
+                <p class="text-purple-100 text-sm">Google Ads CSV + WordPress Excel</p>
+            </button>
+        `;
+    }
+
+    exportContainer.html(exportHtml);
 }
 
 // Export functions
@@ -789,11 +1544,208 @@ function exportCampaign(format) {
     alert(`Eksporterer kampagne i ${format} format...`);
 }
 
+// Purpose-specific export functions
+function generateCompanyPrompt() {
+    console.log('Generating company description prompt...', campaignConfig.company_info);
+    alert('Genererer ChatGPT prompt... (Backend integration kommer i næste fase)');
+}
+
+function exportGoogleAdsCsv() {
+    console.log('Exporting Google Ads CSV...', campaignConfig);
+    alert('Eksporterer Google Ads CSV... (Backend integration kommer i næste fase)');
+}
+
+function generateSeoReport() {
+    console.log('Generating SEO report...', campaignConfig.seo_info);
+    alert('Genererer SEO rapport... (Backend integration kommer i næste fase)');
+}
+
+function exportProgrammaticFiles() {
+    console.log('Exporting programmatic files...', campaignConfig.programmatic_info);
+    alert('Eksporterer programmatic filer... (Backend integration kommer i næste fase)');
+}
+
 // Create campaign function
 function createCampaign() {
     console.log('Creating campaign with config:', campaignConfig);
-    alert('Kampagne oprettes... Dette vil blive implementeret i næste fase.');
+    alert('Kampagne oprettes... (Backend integration kommer i næste fase)');
 }
+
+// =====================================================
+// Programmatic Byside Helper Functions
+// =====================================================
+
+// City selection
+function selectAllCities() {
+    $('.city-checkbox').prop('checked', true).trigger('change');
+}
+
+// Update city count
+$(document).on('change', '.city-checkbox', function() {
+    const cityName = $(this).data('city-name');
+    const citySlug = $(this).data('city-slug');
+
+    if ($(this).is(':checked')) {
+        if (!campaignConfig.programmatic_info.selected_cities.find(c => c.name === cityName)) {
+            campaignConfig.programmatic_info.selected_cities.push({
+                name: cityName,
+                slug: citySlug
+            });
+        }
+    } else {
+        campaignConfig.programmatic_info.selected_cities = campaignConfig.programmatic_info.selected_cities.filter(c => c.name !== cityName);
+    }
+
+    $('#selected-cities-count').text(campaignConfig.programmatic_info.selected_cities.length);
+});
+
+// City search filter
+$(document).on('input', '#city-search', function() {
+    const searchTerm = $(this).val().toLowerCase();
+    $('.city-checkbox-label').each(function() {
+        const cityName = $(this).find('.city-checkbox').data('city-name').toLowerCase();
+        if (cityName.includes(searchTerm)) {
+            $(this).show();
+        } else {
+            $(this).hide();
+        }
+    });
+});
+
+// Add headline template
+function addHeadlineTemplate() {
+    const container = $('#headline-templates-container');
+    container.append(`
+        <div class="headline-template-row flex items-center space-x-2">
+            <input type="text" class="headline-template-input flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="{SERVICE} i {BYNAVN}" maxlength="30">
+            <span class="text-xs text-gray-500 w-12 text-right char-count">0/30</span>
+            <button type="button" onclick="$(this).closest('.headline-template-row').remove()" class="text-red-500 hover:text-red-700 p-1">✕</button>
+        </div>
+    `);
+}
+
+// Add description template
+function addDescriptionTemplate() {
+    const container = $('#description-templates-container');
+    container.append(`
+        <div class="description-template-row flex items-center space-x-2">
+            <textarea class="description-template-input flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="Professionel {SERVICE} i {BYNAVN}. Ring nu!" rows="2" maxlength="90"></textarea>
+            <span class="text-xs text-gray-500 w-12 text-right char-count">0/90</span>
+            <button type="button" onclick="$(this).closest('.description-template-row').remove()" class="text-red-500 hover:text-red-700 p-1">✕</button>
+        </div>
+    `);
+}
+
+// Update character counts for templates
+$(document).on('input', '.headline-template-input, .description-template-input', function() {
+    const maxLength = $(this).attr('maxlength');
+    const currentLength = $(this).val().length;
+    $(this).siblings('.char-count').text(`${currentLength}/${maxLength}`);
+
+    // Visual feedback for limit
+    if (currentLength >= maxLength) {
+        $(this).siblings('.char-count').addClass('text-red-500').removeClass('text-gray-500');
+    } else {
+        $(this).siblings('.char-count').removeClass('text-red-500').addClass('text-gray-500');
+    }
+});
+
+// =====================================================
+// Authorization Functions
+// =====================================================
+
+// Get industries that require authorization (always show modal, even if already answered)
+function getIndustriesRequiringAuthorization() {
+    return campaignConfig.industry_ids
+        .filter(id => industriesRequiringAuth[id])  // Only industries that require auth
+        // REMOVED: .filter(id => campaignConfig.industry_authorizations[id] === undefined)
+        // Modal skal ALTID vises så brugeren kan bekræfte/ændre sit valg
+        .map(id => ({ id: id, name: industriesRequiringAuth[id] }));
+}
+
+// Show authorization modal with pre-filled answers if they exist
+function showAuthorizationModal(industries) {
+    // BUGFIX: Flyt modal til body for at undgå overflow/position problemer
+    // Modalen er placeret inde i block content som er nested i en max-w container
+    // som forhindrer fixed positioning i at virke korrekt
+    const modal = document.getElementById('authorization-modal');
+    if (modal && modal.parentElement !== document.body) {
+        document.body.appendChild(modal);
+    }
+
+    const questionsHtml = industries.map(ind => {
+        // Tjek om der allerede er et svar for denne branche
+        const existingAnswer = campaignConfig.industry_authorizations[ind.id];
+        const yesChecked = existingAnswer === true ? 'checked' : '';
+        const noChecked = existingAnswer === false ? 'checked' : '';
+
+        return `
+            <div class="auth-question bg-gray-50 rounded-lg p-4" data-industry-id="${ind.id}">
+                <p class="font-medium text-gray-900 mb-3">Er virksomheden autoriseret ${ind.name}?</p>
+                <div class="flex space-x-4">
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="radio" name="auth-${ind.id}" value="true" class="auth-radio w-5 h-5 text-green-600 focus:ring-green-500" ${yesChecked}>
+                        <span class="text-green-700 font-medium">Ja, autoriseret</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="radio" name="auth-${ind.id}" value="false" class="auth-radio w-5 h-5 text-gray-600 focus:ring-gray-500" ${noChecked}>
+                        <span class="text-gray-700">Nej</span>
+                    </label>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    $('#authorization-questions').html(questionsHtml);
+
+    // Fjern hidden klasse OG sæt display: flex eksplicit for at tvinge visning
+    const $modal = $('#authorization-modal');
+    $modal.removeClass('hidden');
+    modal.style.display = 'flex';
+
+    console.log('showAuthorizationModal: Modal should now be visible');
+    console.log('- Modal classes:', modal.className);
+    console.log('- Modal display style:', modal.style.display);
+    console.log('- Modal computed display:', window.getComputedStyle(modal).display);
+
+    updateAuthModalConfirmButton();
+}
+
+// Update confirm button state based on whether all questions are answered
+function updateAuthModalConfirmButton() {
+    const totalQuestions = $('.auth-question').length;
+    const answeredQuestions = $('.auth-radio:checked').length;
+    const allAnswered = totalQuestions === answeredQuestions;
+    $('#auth-modal-confirm').prop('disabled', !allAnswered);
+}
+
+// Initialize authorization modal event handlers
+$(document).ready(function() {
+    // Update confirm button when radio changes
+    $(document).on('change', '.auth-radio', updateAuthModalConfirmButton);
+
+    // Cancel button
+    $('#auth-modal-cancel').on('click', function() {
+        $('#authorization-modal').addClass('hidden').css('display', 'none');
+    });
+
+    // Confirm button - save answers and continue
+    $('#auth-modal-confirm').on('click', function() {
+        // Save the answers
+        $('.auth-question').each(function() {
+            const industryId = $(this).data('industry-id');
+            const value = $(this).find('.auth-radio:checked').val() === 'true';
+            campaignConfig.industry_authorizations[industryId] = value;
+        });
+
+        // Close modal
+        $('#authorization-modal').addClass('hidden').css('display', 'none');
+
+        // Continue to next step
+        currentStep++;
+        updateWizardState();
+    });
+});
 </script>
 
 {% endblock %}

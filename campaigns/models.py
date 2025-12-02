@@ -24,7 +24,11 @@ class Industry(models.Model):
         help_text="Hex farve kode for branchen"
     )
     is_active = models.BooleanField(default=True)
-    
+    requires_authorization = models.BooleanField(
+        default=False,
+        help_text="Angiver om branchen kan kræve autorisation (f.eks. elektriker, VVS)"
+    )
+
     # Negative keyword list connections for campaign-level
     default_negative_keyword_lists = models.ManyToManyField(
         'NegativeKeywordList',
@@ -439,7 +443,14 @@ class Campaign(models.Model):
     default_bid = models.DecimalField(max_digits=8, decimal_places=2, default=15.00, help_text="Default CPC for ad groups")
     target_cpa = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True, help_text="Target CPA (if using Target CPA bidding)")
     target_roas = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Target ROAS (if using Target ROAS bidding)")
-    
+
+    # Industry authorization settings
+    industry_authorizations = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Dict med branche_id -> boolean for autorisations-status"
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

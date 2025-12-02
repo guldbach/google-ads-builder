@@ -2633,7 +2633,8 @@ def get_industry_services_ajax(request, industry_id):
             return JsonResponse({
                 'success': True,
                 'services': services_data,
-                'industry_name': industry.name
+                'industry_name': industry.name,
+                'requires_authorization': industry.requires_authorization
             })
         
         except Industry.DoesNotExist:
@@ -2848,6 +2849,9 @@ def create_industry_ajax(request):
             if Industry.objects.filter(name__iexact=name).exists():
                 return JsonResponse({'success': False, 'error': f'Branche "{name}" eksisterer allerede'})
             
+            # Parse requires_authorization
+            requires_authorization = request.POST.get('requires_authorization') == 'true'
+
             # Create industry
             industry = Industry.objects.create(
                 name=name,
@@ -2855,7 +2859,8 @@ def create_industry_ajax(request):
                 synonyms=synonyms,
                 icon=icon,
                 color=color,
-                is_active=True
+                is_active=True,
+                requires_authorization=requires_authorization
             )
             
             return JsonResponse({
@@ -2888,7 +2893,8 @@ def edit_industry_ajax(request, industry_id):
                     'synonyms': ', '.join(industry.synonyms) if industry.synonyms else '',
                     'icon': industry.icon or '🏢',
                     'color': industry.color or '#3B82F6',
-                    'is_active': industry.is_active
+                    'is_active': industry.is_active,
+                    'requires_authorization': industry.requires_authorization
                 }
             })
         
@@ -2902,7 +2908,10 @@ def edit_industry_ajax(request, industry_id):
             # Preserve existing is_active if not explicitly sent (slide panel compatibility)
             is_active_field = request.POST.get('is_active')
             is_active = industry.is_active if is_active_field is None else is_active_field == 'true'
-            
+            # Preserve existing requires_authorization if not explicitly sent
+            requires_auth_field = request.POST.get('requires_authorization')
+            requires_authorization = industry.requires_authorization if requires_auth_field is None else requires_auth_field == 'true'
+
             if not name:
                 return JsonResponse({'success': False, 'error': 'Navn er påkrævet'})
             
@@ -2930,6 +2939,7 @@ def edit_industry_ajax(request, industry_id):
             industry.icon = icon
             industry.color = color
             industry.is_active = is_active
+            industry.requires_authorization = requires_authorization
             industry.save()
             
             return JsonResponse({
