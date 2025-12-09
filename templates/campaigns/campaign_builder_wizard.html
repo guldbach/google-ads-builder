@@ -8,6 +8,10 @@
 <!-- Include jQuery -->
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 
+<!-- Include Leaflet for polygon-based geographic visualization -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
 <!-- Custom CSS for Multi-Step Wizard -->
 <style>
 
@@ -421,7 +425,8 @@
                 {% for region in geographic_regions %}
                 <div class="selection-card p-4 rounded-lg border-2 geographic-region-card"
                      data-region-id="{{ region.id }}"
-                     data-cities='[{% for city in region.cities.all %}{"name": "{{ city.city_name|escapejs }}"}{% if not forloop.last %}, {% endif %}{% endfor %}]'>
+                     data-region-name="{{ region.name|escapejs }}"
+                     data-cities='[{% for city in region.cities.all %}{"name": "{{ city.city_name|escapejs }}", "dawa_name": "{{ city.city_synonym|default:city.city_name|escapejs }}"}{% if not forloop.last %}, {% endif %}{% endfor %}]'>
                     <div class="flex items-start space-x-3">
                         <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center text-xl">
                             🏙️
@@ -440,6 +445,34 @@
                     <p class="text-gray-500">Ingen geografiske regioner tilgængelige. Opret regioner i <a href="{% url 'geographic_regions_manager' %}" class="text-purple-600 hover:text-purple-700 font-medium">Geographic Regions Manager</a>.</p>
                 </div>
                 {% endfor %}
+            </div>
+        </div>
+
+        <!-- Custom Geographic Selection via Map -->
+        <div class="mb-8 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl p-6 border border-green-200">
+            <h3 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                <span class="w-8 h-8 rounded-lg mr-3 flex items-center justify-center text-white bg-gradient-to-r from-green-600 to-blue-600">📍</span>
+                Vælg Område på Kort
+            </h3>
+            <p class="text-sm text-gray-600 mb-4">Tegn cirkler på kortet for at vælge specifikke områder med danske byer</p>
+
+            <div class="flex items-center gap-4">
+                <input type="text" id="geo-map-selected-cities" readonly
+                       class="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                       placeholder="Klik på knappen for at vælge områder...">
+                <button type="button" id="open-geo-map-btn"
+                        class="bg-gradient-to-r from-green-600 to-blue-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                    Vælg på Kort
+                </button>
+            </div>
+
+            <!-- Selected cities count -->
+            <div id="geo-map-summary" class="mt-3 text-sm text-gray-500" style="display: none;">
+                <span id="geo-map-city-count" class="font-semibold text-green-600">0</span> byer valgt
             </div>
         </div>
 
@@ -1577,12 +1610,19 @@ function setupEventListeners() {
         $(this).toggleClass('selected');
 
         const regionId = $(this).data('region-id');
+        const regionName = $(this).data('region-name');
+        const cities = $(this).data('cities') || [];
+
         if ($(this).hasClass('selected')) {
             if (!campaignConfig.geographic_region_ids.includes(regionId)) {
                 campaignConfig.geographic_region_ids.push(regionId);
             }
+            // Add region's cities to geo-map as a circle
+            addRegionToGeoMap(regionId, regionName, cities);
         } else {
             campaignConfig.geographic_region_ids = campaignConfig.geographic_region_ids.filter(id => id !== regionId);
+            // Remove region's circle from geo-map
+            removeRegionFromGeoMap(regionId);
         }
     });
 
@@ -6269,6 +6309,641 @@ function restoreKeywordDisplay(input, text) {
     keywordTextSpan.text(text);
     keywordItem.find('.keyword-actions').removeClass('hidden');
 }
+
+// ==========================================
+// GEOGRAPHIC MAP MODAL - DAWA + Google Maps
+// ==========================================
+
+// =============================================================================
+// LEAFLET POLYGON-BASED GEO MAP (replacing circle-based Google Maps approach)
+// =============================================================================
+
+var geoMap = null;  // Leaflet map instance
+var geoGeoJsonLayer = null;  // Layer containing all postal code polygons
+var geoPostalData = {};  // { postalCode: { geometry, navn, polygon } }
+var geoSelectedPostals = {};  // { postalCode: { source: 'region'|'typed'|'clicked'|'circle', polygon } }
+var geoCircleMode = false;  // Toggle for circle drawing mode
+var geoCircles = [];  // Array of Leaflet circles (for optional circle mode)
+var geoCircleDrawing = null;  // Current circle being drawn
+
+// Color scheme for different selection sources
+var GEO_COLORS = {
+    region: { fill: '#3B82F6', stroke: '#2563EB' },    // Blue - from region selection
+    typed: { fill: '#10B981', stroke: '#059669' },     // Green - manually typed
+    clicked: { fill: '#8B5CF6', stroke: '#7C3AED' },   // Purple - clicked on map
+    circle: { fill: '#F59E0B', stroke: '#D97706' },    // Orange - circle mode
+    hover: { fill: '#6366F1', stroke: '#4F46E5' },     // Indigo - hover state
+    default: { fill: '#E5E7EB', stroke: '#9CA3AF' }    // Gray - unselected
+};
+
+// Load DAWA GeoJSON data for all postal codes
+function loadDAWAGeoJSON() {
+    if (Object.keys(geoPostalData).length > 0) {
+        return Promise.resolve(geoPostalData);
+    }
+
+    console.log('Loading DAWA GeoJSON data...');
+    return $.ajax({
+        url: 'https://dawa.aws.dk/postnumre?format=geojson',
+        timeout: 30000,
+        dataType: 'json'
+    }).then(function(geojson) {
+        console.log('DAWA GeoJSON loaded:', geojson.features.length, 'postal codes');
+
+        // Build lookup by postal code
+        geojson.features.forEach(function(feature) {
+            var nr = feature.properties.nr;
+            geoPostalData[nr] = {
+                nr: nr,
+                navn: feature.properties.navn,
+                geometry: feature.geometry,
+                polygon: null  // Will be set when added to map
+            };
+        });
+
+        return geoPostalData;
+    }).catch(function(error) {
+        console.error('Error loading DAWA GeoJSON:', error);
+        alert('Kunne ikke hente postnummer-data. Prøv igen senere.');
+        throw error;
+    });
+}
+
+// Initialize Leaflet map with Danish postal code polygons
+function initGeoModal() {
+    var mapContainer = document.getElementById('geo-modal-map');
+    if (!mapContainer) {
+        console.error('geo-modal-map element not found');
+        return Promise.reject('Map container not found');
+    }
+
+    // If map already exists, just return
+    if (geoMap) {
+        geoMap.invalidateSize();
+        return Promise.resolve();
+    }
+
+    // Create Leaflet map centered on Denmark
+    geoMap = L.map('geo-modal-map', {
+        center: [55.670523, 12.583819],  // Copenhagen
+        zoom: 7,
+        minZoom: 5,
+        maxZoom: 18
+    });
+
+    // Add OpenStreetMap tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(geoMap);
+
+    // Load and display postal code polygons
+    return loadDAWAGeoJSON().then(function(postalData) {
+        // Create GeoJSON features array
+        var features = Object.values(postalData).map(function(postal) {
+            return {
+                type: 'Feature',
+                properties: { nr: postal.nr, navn: postal.navn },
+                geometry: postal.geometry
+            };
+        });
+
+        // Add GeoJSON layer with styling
+        geoGeoJsonLayer = L.geoJSON({ type: 'FeatureCollection', features: features }, {
+            style: getPolygonStyle,
+            onEachFeature: onEachPostalFeature
+        }).addTo(geoMap);
+
+        // Store polygon references
+        geoGeoJsonLayer.eachLayer(function(layer) {
+            var nr = layer.feature.properties.nr;
+            if (geoPostalData[nr]) {
+                geoPostalData[nr].polygon = layer;
+            }
+        });
+
+        console.log('Geo map initialized with', features.length, 'postal polygons');
+
+        // Sync any pre-selected regions
+        syncRegionsToMap();
+        updateGeoSelectionDisplay();
+    });
+}
+
+// Get style for a postal code polygon
+function getPolygonStyle(feature) {
+    var nr = feature.properties.nr;
+    var selected = geoSelectedPostals[nr];
+
+    if (selected) {
+        var colors = GEO_COLORS[selected.source] || GEO_COLORS.clicked;
+        return {
+            fillColor: colors.fill,
+            fillOpacity: 0.4,
+            color: colors.stroke,
+            weight: 2,
+            opacity: 0.8
+        };
+    }
+
+    return {
+        fillColor: GEO_COLORS.default.fill,
+        fillOpacity: 0.1,
+        color: GEO_COLORS.default.stroke,
+        weight: 1,
+        opacity: 0.5
+    };
+}
+
+// Attach events to each postal code polygon
+function onEachPostalFeature(feature, layer) {
+    var nr = feature.properties.nr;
+    var navn = feature.properties.navn;
+
+    // Tooltip showing postal code info
+    layer.bindTooltip(nr + ' ' + navn, { sticky: true });
+
+    // Hover effects
+    layer.on('mouseover', function(e) {
+        if (!geoSelectedPostals[nr]) {
+            layer.setStyle({
+                fillColor: GEO_COLORS.hover.fill,
+                fillOpacity: 0.3,
+                weight: 2
+            });
+        }
+    });
+
+    layer.on('mouseout', function(e) {
+        if (!geoSelectedPostals[nr]) {
+            layer.setStyle(getPolygonStyle(feature));
+        }
+    });
+
+    // Click to toggle selection
+    layer.on('click', function(e) {
+        if (geoCircleMode) return;  // Ignore clicks in circle mode
+
+        togglePostalSelection(nr, 'clicked');
+        L.DomEvent.stopPropagation(e);
+    });
+}
+
+// Toggle selection of a postal code
+function togglePostalSelection(postalCode, source) {
+    postalCode = String(postalCode);
+
+    if (geoSelectedPostals[postalCode]) {
+        // Deselect
+        delete geoSelectedPostals[postalCode];
+    } else {
+        // Select
+        geoSelectedPostals[postalCode] = { source: source };
+    }
+
+    // Update polygon style
+    if (geoPostalData[postalCode] && geoPostalData[postalCode].polygon) {
+        geoPostalData[postalCode].polygon.setStyle(
+            getPolygonStyle({ properties: { nr: postalCode } })
+        );
+    }
+
+    updateGeoSelectionDisplay();
+}
+
+// Select a postal code (without toggle)
+function selectPostal(postalCode, source) {
+    postalCode = String(postalCode);
+
+    if (!geoSelectedPostals[postalCode]) {
+        geoSelectedPostals[postalCode] = { source: source };
+
+        if (geoPostalData[postalCode] && geoPostalData[postalCode].polygon) {
+            geoPostalData[postalCode].polygon.setStyle(
+                getPolygonStyle({ properties: { nr: postalCode } })
+            );
+        }
+    }
+}
+
+// Deselect a postal code
+function deselectPostal(postalCode) {
+    postalCode = String(postalCode);
+
+    if (geoSelectedPostals[postalCode]) {
+        delete geoSelectedPostals[postalCode];
+
+        if (geoPostalData[postalCode] && geoPostalData[postalCode].polygon) {
+            geoPostalData[postalCode].polygon.setStyle(
+                getPolygonStyle({ properties: { nr: postalCode } })
+            );
+        }
+    }
+}
+
+// Add region's cities as selected postal codes (polygon-based)
+function addRegionToGeoMap(regionId, regionName, cities) {
+    if (!cities || cities.length === 0) return;
+
+    loadDAWAGeoJSON().then(function() {
+        cities.forEach(function(city) {
+            // Try to match by postal code from dawa_name or direct postal lookup
+            var postalCode = null;
+
+            // If city has a dawa_name that looks like a postal code
+            if (city.dawa_name && /^\d{4}$/.test(city.dawa_name)) {
+                postalCode = city.dawa_name;
+            } else {
+                // Search for matching postal code by name
+                for (var nr in geoPostalData) {
+                    if (geoPostalData[nr].navn.toLowerCase() === (city.dawa_name || city.name || '').toLowerCase()) {
+                        postalCode = nr;
+                        break;
+                    }
+                }
+            }
+
+            if (postalCode && geoPostalData[postalCode]) {
+                selectPostal(postalCode, 'region');
+            }
+        });
+
+        updateGeoSelectionDisplay();
+
+        // Pan to show selected area
+        fitMapToSelection();
+    });
+}
+
+// Remove region's postal codes from selection
+function removeRegionFromGeoMap(regionId) {
+    // For now, we need to track which postals came from which region
+    // This is simplified - in a full implementation you'd track regionId per postal
+    updateGeoSelectionDisplay();
+}
+
+// Fit map bounds to show all selected postal codes
+function fitMapToSelection() {
+    if (!geoMap) return;
+
+    var selectedPostals = Object.keys(geoSelectedPostals);
+    if (selectedPostals.length === 0) return;
+
+    var bounds = L.latLngBounds();
+    selectedPostals.forEach(function(nr) {
+        if (geoPostalData[nr] && geoPostalData[nr].polygon) {
+            bounds.extend(geoPostalData[nr].polygon.getBounds());
+        }
+    });
+
+    if (bounds.isValid()) {
+        geoMap.fitBounds(bounds, { padding: [20, 20] });
+    }
+}
+
+// Sync selected regions to map polygons
+function syncRegionsToMap() {
+    $('.geographic-region-card.selected').each(function() {
+        var regionId = $(this).data('region-id');
+        var regionName = $(this).data('region-name');
+        var cities = $(this).data('cities') || [];
+        addRegionToGeoMap(regionId, regionName, cities);
+    });
+}
+
+// Update the display of selected postal codes
+function updateGeoSelectionDisplay() {
+    var selectedList = [];
+
+    for (var nr in geoSelectedPostals) {
+        var postal = geoPostalData[nr];
+        if (postal) {
+            selectedList.push(nr + ' ' + postal.navn);
+        } else {
+            selectedList.push(nr);
+        }
+    }
+
+    selectedList.sort();
+
+    $('#geo-panel-selected-cities').val(selectedList.join('\n'));
+    $('#geo-panel-city-count').text(selectedList.length);
+}
+
+// Add postal codes from input field
+function addPostalCodesFromInput() {
+    var input = $('#geo-postal-input').val();
+    if (!input.trim()) return;
+
+    // Parse comma-separated postal codes
+    var codes = input.split(/[,\s]+/).map(function(s) { return s.trim(); }).filter(Boolean);
+
+    codes.forEach(function(code) {
+        if (/^\d{4}$/.test(code) && geoPostalData[code]) {
+            selectPostal(code, 'typed');
+        }
+    });
+
+    updateGeoSelectionDisplay();
+    $('#geo-postal-input').val('');
+
+    // Pan to show new selection
+    fitMapToSelection();
+}
+
+// Toggle circle drawing mode
+function toggleCircleMode() {
+    geoCircleMode = !geoCircleMode;
+
+    var btn = $('#toggle-circle-mode');
+    if (geoCircleMode) {
+        btn.addClass('bg-orange-100 border-orange-500');
+        btn.html('<span class="mr-1">✓</span> Cirkel-mode aktiv');
+
+        // Add click handler for circle creation
+        geoMap.on('click', onCircleModeClick);
+    } else {
+        btn.removeClass('bg-orange-100 border-orange-500');
+        btn.html('<span class="mr-1">⭕</span> Cirkel-tegning');
+
+        // Remove circle click handler
+        geoMap.off('click', onCircleModeClick);
+    }
+}
+
+// Handle click in circle mode
+function onCircleModeClick(e) {
+    if (!geoCircleMode) return;
+
+    var circle = L.circle(e.latlng, {
+        radius: 15000,  // 15km default
+        color: GEO_COLORS.circle.stroke,
+        fillColor: GEO_COLORS.circle.fill,
+        fillOpacity: 0.3,
+        weight: 2
+    }).addTo(geoMap);
+
+    // Add click to remove
+    circle.on('click', function() {
+        geoMap.removeLayer(circle);
+        geoCircles = geoCircles.filter(function(c) { return c !== circle; });
+        selectPostalsInCircles();
+    });
+
+    geoCircles.push(circle);
+    selectPostalsInCircles();
+}
+
+// Select all postal codes that fall within any circle
+function selectPostalsInCircles() {
+    // First, deselect all circle-sourced postals
+    for (var nr in geoSelectedPostals) {
+        if (geoSelectedPostals[nr].source === 'circle') {
+            deselectPostal(nr);
+        }
+    }
+
+    // Then check each postal code center against circles
+    geoCircles.forEach(function(circle) {
+        var center = circle.getLatLng();
+        var radius = circle.getRadius();
+
+        for (var nr in geoPostalData) {
+            var postal = geoPostalData[nr];
+            if (postal.polygon) {
+                var postalCenter = postal.polygon.getBounds().getCenter();
+                var distance = center.distanceTo(postalCenter);
+
+                if (distance <= radius) {
+                    selectPostal(nr, 'circle');
+                }
+            }
+        }
+    });
+
+    updateGeoSelectionDisplay();
+}
+
+// Clear all selections
+function clearAllGeoSelections() {
+    // Clear polygon selections
+    for (var nr in geoSelectedPostals) {
+        deselectPostal(nr);
+    }
+    geoSelectedPostals = {};
+
+    // Clear circles
+    geoCircles.forEach(function(circle) {
+        geoMap.removeLayer(circle);
+    });
+    geoCircles = [];
+
+    updateGeoSelectionDisplay();
+}
+
+// Panel open/close functions
+function openGeoMapPanel() {
+    $('#geo-map-panel-overlay').removeClass('hidden');
+    setTimeout(function() {
+        $('#geo-map-panel-overlay').removeClass('opacity-0');
+        $('#geo-map-panel').removeClass('translate-x-full');
+
+        // Initialize map after panel is visible
+        setTimeout(function() {
+            initGeoModal().then(function() {
+                // Map is ready
+            }).catch(function(err) {
+                console.error('Error initializing geo modal:', err);
+            });
+        }, 100);
+    }, 10);
+}
+
+function closeGeoMapPanel() {
+    $('#geo-map-panel').addClass('translate-x-full');
+    $('#geo-map-panel-overlay').addClass('opacity-0');
+    setTimeout(function() {
+        $('#geo-map-panel-overlay').addClass('hidden');
+    }, 300);
+}
+
+// Event handlers for geographic map panel
+$('#open-geo-map-btn').click(function() {
+    openGeoMapPanel();
+});
+
+$('#close-geo-map-panel').click(function() {
+    closeGeoMapPanel();
+});
+
+$('#geo-map-panel-overlay').click(function(e) {
+    if (e.target === this) closeGeoMapPanel();
+});
+
+$('#geo-add-postal-btn').click(function() {
+    addPostalCodesFromInput();
+});
+
+$('#geo-postal-input').keypress(function(e) {
+    if (e.which === 13) {
+        e.preventDefault();
+        addPostalCodesFromInput();
+    }
+});
+
+$('#toggle-circle-mode').click(function() {
+    toggleCircleMode();
+});
+
+$('#clear-geo-map-selection').click(function() {
+    clearAllGeoSelections();
+});
+
+$('#save-geo-map-selection').click(function() {
+    var selectedPostals = Object.keys(geoSelectedPostals);
+    var postalNames = selectedPostals.map(function(nr) {
+        return geoPostalData[nr] ? geoPostalData[nr].navn : nr;
+    });
+
+    // Update the display field in step 4
+    if (selectedPostals.length > 0) {
+        $('#geo-map-selected-cities').val(postalNames.join(', '));
+        $('#geo-map-summary').show();
+        $('#geo-map-city-count').text(selectedPostals.length);
+    } else {
+        $('#geo-map-selected-cities').val('');
+        $('#geo-map-summary').hide();
+    }
+
+    // Store in campaignConfig for later use
+    if (typeof campaignConfig !== 'undefined') {
+        campaignConfig.geo_map_targeting = {
+            postal_codes: selectedPostals,
+            postal_names: postalNames,
+            circles: geoCircles.map(function(c) {
+                return {
+                    lat: c.getLatLng().lat,
+                    lng: c.getLatLng().lng,
+                    radius: c.getRadius() / 1000
+                };
+            })
+        };
+        console.log('Geo targeting saved to campaignConfig:', campaignConfig.geo_map_targeting);
+    }
+
+    closeGeoMapPanel();
+});
 </script>
+
+<!-- Geographic Map Slide Panel -->
+<div id="geo-map-panel-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden opacity-0 transition-opacity duration-300">
+    <div id="geo-map-panel" class="fixed right-0 top-0 h-full w-[900px] bg-white shadow-2xl transform translate-x-full transition-transform duration-300 flex flex-col">
+        <!-- Panel Header -->
+        <div class="p-6 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-green-50 to-blue-50">
+            <div>
+                <h2 class="text-xl font-bold text-gray-900 flex items-center">
+                    <span class="mr-2">🌍</span> Geografisk Målretning
+                </h2>
+                <p class="text-sm text-gray-600">Vælg postnumre på kortet eller skriv dem manuelt</p>
+            </div>
+            <button type="button" id="close-geo-map-panel" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Panel Content -->
+        <div class="flex-1 overflow-y-auto p-6">
+            <!-- Map Container (Leaflet) -->
+            <div id="geo-modal-map" style="height: 450px; width: 100%;" class="border border-gray-300 rounded-lg mb-4"></div>
+
+            <!-- Postnummer Input -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Tilføj postnumre manuelt:
+                </label>
+                <div class="flex gap-2">
+                    <input type="text" id="geo-postal-input"
+                           class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                           placeholder="Indtast postnummer (f.eks. 2100, 2200, 2300)">
+                    <button type="button" id="geo-add-postal-btn"
+                            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                        Tilføj
+                    </button>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">Skriv et eller flere postnumre adskilt med komma</p>
+            </div>
+
+            <!-- Color Legend -->
+            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+                <h3 class="font-semibold text-gray-900 mb-2 flex items-center">
+                    <span class="mr-2">🎨</span> Farvekoder:
+                </h3>
+                <div class="grid grid-cols-2 gap-2 text-sm">
+                    <div class="flex items-center">
+                        <span class="w-4 h-4 rounded mr-2" style="background-color: #3B82F6;"></span>
+                        <span class="text-gray-700">Region-valgte postnumre</span>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="w-4 h-4 rounded mr-2" style="background-color: #10B981;"></span>
+                        <span class="text-gray-700">Manuelt indtastede</span>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="w-4 h-4 rounded mr-2" style="background-color: #8B5CF6;"></span>
+                        <span class="text-gray-700">Klikket på kort</span>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="w-4 h-4 rounded mr-2" style="background-color: #F59E0B;"></span>
+                        <span class="text-gray-700">Cirkel-tegning</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Instructions -->
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <h3 class="font-semibold text-blue-900 mb-2 flex items-center">
+                    <span class="mr-2">📍</span> Instruktioner:
+                </h3>
+                <ul class="text-sm text-blue-800 space-y-1">
+                    <li><strong>Klik</strong> på et postnummer-område for at vælge/fravælge</li>
+                    <li><strong>Skriv</strong> postnumre i feltet ovenfor for at tilføje dem</li>
+                    <li><strong>Hold Shift</strong> og klik for at vælge flere områder</li>
+                    <li>Region-valgte postnumre vises automatisk i blå</li>
+                </ul>
+            </div>
+
+            <!-- Selected Postal Codes Display -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Valgte postnumre (<span id="geo-panel-city-count" class="font-semibold text-green-600">0</span>):
+                </label>
+                <textarea id="geo-panel-selected-cities" readonly
+                          class="w-full h-24 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm"
+                          placeholder="Vælg postnumre på kortet eller skriv dem manuelt..."></textarea>
+            </div>
+        </div>
+
+        <!-- Panel Footer -->
+        <div class="p-6 border-t border-gray-200 flex justify-between">
+            <button type="button" id="clear-geo-map-selection"
+                    class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                Ryd alle valg
+            </button>
+            <div class="flex gap-3">
+                <button type="button" id="toggle-circle-mode"
+                        class="px-4 py-2 border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-50 transition-colors">
+                    <span class="mr-1">⭕</span> Cirkel-tegning
+                </button>
+                <button type="button" id="save-geo-map-selection"
+                        class="bg-gradient-to-r from-green-600 to-blue-600 text-white px-6 py-2 rounded-lg hover:shadow-lg transition-all duration-200">
+                    Gem valg
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Google Maps API Script -->
+<script async defer src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=Function.prototype"></script>
 
 {% endblock %}

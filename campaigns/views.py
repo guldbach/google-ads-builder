@@ -2601,6 +2601,7 @@ def campaign_builder_wizard(request):
         'budget_strategies': budget_strategies,
         'ad_templates': ad_templates,
         'geographic_regions': geographic_regions,
+        'google_maps_api_key': 'AIzaSyBDH6MTS0Hq0ISb0bNQjEAC14321pzM0jw',
     }
     
     return render(request, 'campaigns/campaign_builder_wizard.html', context)
