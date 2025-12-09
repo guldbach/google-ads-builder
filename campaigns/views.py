@@ -2591,8 +2591,8 @@ def campaign_builder_wizard(request):
     budget_strategies = BudgetStrategy.objects.filter(is_active=True).order_by('-is_default', 'name')
     ad_templates = AdTemplate.objects.filter(is_active=True).order_by('-is_default', 'name')
     
-    # Step 4: Geographic Regions
-    geographic_regions = GeographicRegion.objects.filter(is_active=True).order_by('name')
+    # Step 4: Geographic Regions (med prefetched cities)
+    geographic_regions = GeographicRegion.objects.filter(is_active=True).prefetch_related('cities').order_by('name')
     
     context = {
         'industries': industries,
@@ -2650,10 +2650,10 @@ def get_service_keywords_ajax(request, service_id):
     if request.method == 'GET':
         try:
             from .models import IndustryService, ServiceKeyword
-            
+
             service = IndustryService.objects.get(id=service_id)
             keywords = service.service_keywords.all().order_by('-is_primary', 'keyword_text')
-            
+
             keywords_data = []
             for keyword in keywords:
                 keywords_data.append({
@@ -2664,7 +2664,7 @@ def get_service_keywords_ajax(request, service_id):
                     'is_primary': keyword.is_primary,
                     'notes': keyword.notes,
                 })
-            
+
             return JsonResponse({
                 'success': True,
                 'service': {
@@ -2676,16 +2676,42 @@ def get_service_keywords_ajax(request, service_id):
                 'keywords': keywords_data,
                 'total_keywords': len(keywords_data)
             })
-            
+
         except IndustryService.DoesNotExist:
             return JsonResponse({'success': False, 'error': 'Service ikke fundet'})
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
-    
+
     return JsonResponse({'success': False, 'error': 'Invalid request method'})
 
 
-@csrf_exempt  
+def get_negative_keyword_lists_ajax(request):
+    """Get all negative keyword lists for Campaign Builder"""
+    if request.method == 'GET':
+        try:
+            lists = NegativeKeywordList.objects.all().order_by('name')
+
+            lists_data = []
+            for nk_list in lists:
+                lists_data.append({
+                    'id': nk_list.id,
+                    'name': nk_list.name,
+                    'description': nk_list.description or '',
+                    'keyword_count': nk_list.negative_keywords.count(),
+                })
+
+            return JsonResponse({
+                'success': True,
+                'lists': lists_data
+            })
+
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+
+@csrf_exempt
 def add_service_keyword_ajax(request):
     """Add a new keyword to a service"""
     if request.method == 'POST':
@@ -4278,5 +4304,42 @@ def search_negative_keyword_lists_ajax(request):
         except Exception as e:
             print(f"Error in search_negative_keyword_lists_ajax: {str(e)}")
             return JsonResponse({"success": False, "error": str(e)})
-    
+
     return JsonResponse({"success": False, "error": "Invalid request method"})
+
+
+@csrf_exempt
+def generate_descriptions_ajax(request):
+    """AJAX endpoint til AI-genererede beskrivelser."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'})
+
+    try:
+        data = json.loads(request.body)
+        service_name = data.get('service_name', '')
+        industry_name = data.get('industry_name', '')
+        usps = data.get('usps', [])
+        keywords = data.get('keywords', [])
+
+        from ai_integration.services import DescriptionGenerator
+        generator = DescriptionGenerator()
+        descriptions = generator.generate_descriptions(
+            service_name, industry_name, usps, keywords
+        )
+
+        return JsonResponse({
+            'success': True,
+            'descriptions': descriptions
+        })
+
+    except ValueError as e:
+        # API key not configured
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })

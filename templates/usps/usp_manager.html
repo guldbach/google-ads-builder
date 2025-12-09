@@ -122,7 +122,7 @@
                                           style="background-color: {{ category.color }};">
                                         {{ usp.priority_rank }}
                                     </span>
-                                    <h4 class="text-lg font-semibold text-gray-900 cursor-pointer toggle-details" data-usp-id="{{ usp.id }}">
+                                    <h4 class="text-lg font-semibold text-gray-900 cursor-pointer toggle-details usp-title-text" data-usp-id="{{ usp.id }}" data-original-text="{{ usp.text }}">
                                         {{ usp.text }}
                                         <svg class="w-4 h-4 inline-block ml-2 text-gray-400 toggle-icon transition-transform" fill="currentColor" viewBox="0 0 24 24">
                                             <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
@@ -279,6 +279,58 @@ function getCookie(name) {
 
 const csrftoken = getCookie('csrftoken');
 
+// =====================================================
+// USP Variable Display Functions
+// =====================================================
+
+// Parse USP text and identify variables with format {VARIABEL:default}
+function parseUspVariables(text) {
+    const regex = /\{([A-ZÆØÅ0-9_]+)(?::([^}]*))?\}/g;
+    const variables = [];
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+        variables.push({
+            fullMatch: match[0],
+            name: match[1],
+            defaultValue: match[2] || '',
+            startIndex: match.index,
+            endIndex: match.index + match[0].length
+        });
+    }
+    return variables;
+}
+
+// Get USP display text with default values substituted (plain text, no variable syntax)
+function getUspDisplayText(text) {
+    const variables = parseUspVariables(text);
+    if (variables.length === 0) {
+        return text; // No variables, return as-is
+    }
+
+    let result = text;
+    // Replace backwards to preserve indices
+    for (let i = variables.length - 1; i >= 0; i--) {
+        const v = variables[i];
+        result = result.substring(0, v.startIndex) + v.defaultValue + result.substring(v.endIndex);
+    }
+    return result;
+}
+
+// Initialize USP display texts to show default values instead of variable syntax
+function initUspDisplayTexts() {
+    $('.usp-title-text').each(function() {
+        const $title = $(this);
+        const originalText = $title.data('original-text');
+        if (originalText && originalText.includes('{') && originalText.includes(':')) {
+            const displayText = getUspDisplayText(originalText);
+            // Keep the SVG icon, only replace the text node
+            const svg = $title.find('svg').detach();
+            $title.text(displayText + ' ');
+            $title.append(svg);
+        }
+    });
+}
+
 // Configure AJAX to always send CSRF token
 $.ajaxSetup({
     beforeSend: function(xhr, settings) {
@@ -289,6 +341,9 @@ $.ajaxSetup({
 });
 
 $(document).ready(function() {
+    // Initialize USP display texts to show default values
+    initUspDisplayTexts();
+
     // Notification System
     function showNotification(message, type = 'success') {
         const notification = $(`
@@ -505,8 +560,10 @@ $(document).ready(function() {
         }
         
         // Setup character counter (using same ID as edit)
+        // Use getUspDisplayText to count actual characters (variables replaced with defaults)
         $('#edit-usp-text').on('input', function() {
-            $('#edit-usp-text-count').text(this.value.length);
+            const actualLength = getUspDisplayText(this.value).length;
+            $('#edit-usp-text-count').text(actualLength);
         });
         
         // Load and setup industries (reuse existing function)
@@ -558,7 +615,7 @@ $(document).ready(function() {
                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                maxlength="200">
                         <div class="text-xs text-gray-500 mt-1">
-                            <span id="edit-usp-text-count">${usp.text.length}</span>/200 karakterer
+                            <span id="edit-usp-text-count">${getUspDisplayText(usp.text).length}</span>/200 karakterer
                         </div>
                     </div>
                     
@@ -666,35 +723,36 @@ $(document).ready(function() {
                         <div>
                             <p class="text-sm text-gray-600 mb-3">Brug disse placeholders i dine USP tekster og headlines:</p>
                             
-                            <!-- Available Placeholders -->
+                            <!-- Available Placeholders - Format: {VARIABEL:default} -->
                             <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
-                                <button type="button" class="copy-placeholder text-xs px-3 py-2 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-lg border transition-colors" data-placeholder="{SERVICE}">
-                                    {SERVICE}
+                                <button type="button" class="copy-placeholder text-xs px-3 py-2 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-lg border transition-colors" data-placeholder="{SERVICE:}" title="Servicenavn - tilføj default efter kolon">
+                                    {SERVICE:}
                                 </button>
-                                <button type="button" class="copy-placeholder text-xs px-3 py-2 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-lg border transition-colors" data-placeholder="{BYNAVN}">
-                                    {BYNAVN}
+                                <button type="button" class="copy-placeholder text-xs px-3 py-2 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-lg border transition-colors" data-placeholder="{BRANCHE:}" title="Branchenavn - tilføj default efter kolon">
+                                    {BRANCHE:}
                                 </button>
-                                <button type="button" class="copy-placeholder text-xs px-3 py-2 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-lg border transition-colors" data-placeholder="{PRIS}">
-                                    {PRIS}
+                                <button type="button" class="copy-placeholder text-xs px-3 py-2 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-lg border transition-colors" data-placeholder="{BYNAVN:}" title="Bynavn - tilføj default efter kolon">
+                                    {BYNAVN:}
                                 </button>
-                                <button type="button" class="copy-placeholder text-xs px-3 py-2 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-lg border transition-colors" data-placeholder="{OMRÅDE}">
-                                    {OMRÅDE}
+                                <button type="button" class="copy-placeholder text-xs px-3 py-2 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-lg border transition-colors" data-placeholder="{VAR1:}" title="Generisk variabel 1 - tilføj default efter kolon">
+                                    {VAR1:}
                                 </button>
-                                <button type="button" class="copy-placeholder text-xs px-3 py-2 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-lg border transition-colors" data-placeholder="{BEDØMMELSE}">
-                                    {BEDØMMELSE}
+                                <button type="button" class="copy-placeholder text-xs px-3 py-2 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-lg border transition-colors" data-placeholder="{VAR2:}" title="Generisk variabel 2 - tilføj default efter kolon">
+                                    {VAR2:}
                                 </button>
-                                <button type="button" class="copy-placeholder text-xs px-3 py-2 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-lg border transition-colors" data-placeholder="{BEDØMMELSESPLATFORM}">
-                                    {BEDØMMELSESPLATFORM}
+                                <button type="button" class="copy-placeholder text-xs px-3 py-2 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-lg border transition-colors" data-placeholder="{VAR3:}" title="Generisk variabel 3 - tilføj default efter kolon">
+                                    {VAR3:}
                                 </button>
-                                <button type="button" class="copy-placeholder text-xs px-3 py-2 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-lg border transition-colors" data-placeholder="{VIRKSOMHED}">
-                                    {VIRKSOMHED}
-                                </button>
-                                <button type="button" class="copy-placeholder text-xs px-3 py-2 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-lg border transition-colors" data-placeholder="{TELEFON}">
-                                    {TELEFON}
-                                </button>
-                                <button type="button" class="copy-placeholder text-xs px-3 py-2 bg-gray-100 hover:bg-purple-100 text-gray-600 hover:text-purple-600 rounded-lg border transition-colors" data-placeholder="{ÅBNINGSTID}">
-                                    {ÅBNINGSTID}
-                                </button>
+                            </div>
+
+                            <div class="mt-4 p-3 bg-blue-50 rounded-lg text-xs text-blue-800">
+                                <p class="font-medium mb-1">Format: {VARIABEL:default_værdi}</p>
+                                <p>Eksempler:</p>
+                                <ul class="list-disc list-inside mt-1 space-y-1">
+                                    <li>Vinder af Årets {BRANCHE:Håndværker} {VAR1:2024}</li>
+                                    <li>{VAR1:4,7/5} på {VAR2:Trustpilot}</li>
+                                    <li>Professionel {SERVICE:VVS} i {BYNAVN:København}</li>
+                                </ul>
                             </div>
                             
                             <div class="text-xs text-gray-500 mt-3">
@@ -730,9 +788,10 @@ $(document).ready(function() {
                         saveUSPEdit
                     );
                     
-                    // Setup character counters
+                    // Setup character counters (using actual text length with variables replaced)
                     $('#edit-usp-text').on('input', function() {
-                        $('#edit-usp-text-count').text(this.value.length);
+                        const actualLength = getUspDisplayText(this.value).length;
+                        $('#edit-usp-text-count').text(actualLength);
                     });
                     
                     
@@ -1438,11 +1497,13 @@ $(document).ready(function() {
     function updateUSPCharacterCount(inputId, countId, maxLength) {
         const input = document.getElementById(inputId);
         const counter = document.getElementById(countId);
-        
+
         if (input && counter) {
-            const length = input.value.length;
+            // Use getUspDisplayText to get actual character count (variables replaced with defaults)
+            const actualText = getUspDisplayText(input.value);
+            const length = actualText.length;
             counter.textContent = `${length}/${maxLength}`;
-            
+
             // Color coding
             if (length > maxLength) {
                 counter.parentElement.classList.add('text-red-500');
@@ -1537,7 +1598,8 @@ $(document).ready(function() {
         
         $('#save-new-headline').off('click').on('click', function() {
             const headlineText = $('#new-headline-text').val().trim();
-            if (headlineText && headlineText.length <= 30) {
+            // Use actual display length (with variables replaced by defaults) for validation
+            if (headlineText && getUspDisplayText(headlineText).length <= 30) {
                 addHeadline(headlineText);
                 $('#new-headline-text').val('');
                 $('#add-headline-form').addClass('hidden');
@@ -1586,18 +1648,20 @@ $(document).ready(function() {
         }
         
         uspHeadlines.forEach((headline, index) => {
+            // Calculate actual display length (with variables replaced by defaults)
+            const displayLength = getUspDisplayText(headline).length;
             const headlineElement = $(`
                 <div class="headline-item p-3 border border-gray-200 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors" data-index="${index}">
                     <div class="flex items-center justify-between">
                         <div class="flex-1">
                             <div class="headline-display">
                                 <span class="text-sm font-medium text-gray-900 headline-text">${headline}</span>
-                                <div class="text-xs text-gray-500 mt-1">${headline.length}/30 karakterer</div>
+                                <div class="text-xs text-gray-500 mt-1">${displayLength}/30 karakterer</div>
                             </div>
                             <div class="headline-edit hidden">
-                                <input type="text" class="edit-headline-input w-full px-2 py-1 border border-gray-300 rounded text-sm" value="${headline}" maxlength="30">
+                                <input type="text" class="edit-headline-input w-full px-2 py-1 border border-gray-300 rounded text-sm" value="${headline}">
                                 <div class="text-xs text-gray-500 mt-1">
-                                    <span class="edit-char-count">${headline.length}</span>/30 karakterer
+                                    <span class="edit-char-count">${displayLength}</span>/30 karakterer
                                 </div>
                             </div>
                         </div>
@@ -1658,12 +1722,13 @@ $(document).ready(function() {
             cancelEditMode(index);
         });
         
-        // Character count for edit inputs
+        // Character count for edit inputs (using actual display length with variables replaced)
         $('.edit-headline-input').off('input').on('input', function() {
             const $input = $(this);
             const $container = $input.closest('.headline-item');
             const $charCount = $container.find('.edit-char-count');
-            $charCount.text($input.val().length);
+            // Use getUspDisplayText to get actual character count
+            $charCount.text(getUspDisplayText($input.val()).length);
         });
         
         // Enter key to save, Escape to cancel
@@ -1702,19 +1767,22 @@ $(document).ready(function() {
         const $item = $(`.headline-item[data-index="${index}"]`);
         $item.find('.headline-edit').addClass('hidden');
         $item.find('.headline-display').removeClass('hidden');
-        
+
         // Reset input value to original
         const originalValue = uspHeadlines[index];
         $item.find('.edit-headline-input').val(originalValue);
-        $item.find('.edit-char-count').text(originalValue.length);
+        // Use actual display length (with variables replaced by defaults)
+        $item.find('.edit-char-count').text(getUspDisplayText(originalValue).length);
     }
     
     function saveHeadlineEdit(index) {
         const $item = $(`.headline-item[data-index="${index}"]`);
         const $input = $item.find('.edit-headline-input');
         const newText = $input.val().trim();
-        
-        if (newText && newText.length <= 30) {
+        // Use actual display length (with variables replaced by defaults) for validation
+        const displayLength = getUspDisplayText(newText).length;
+
+        if (newText && displayLength <= 30) {
             // Check for duplicates (excluding current item)
             const otherHeadlines = uspHeadlines.filter((h, i) => i !== index);
             if (otherHeadlines.includes(newText)) {

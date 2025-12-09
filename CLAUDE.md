@@ -10,6 +10,37 @@ Google Ads Builder er et intelligent Django-baseret værktøj til at bygge Googl
 
 **VIGTIGST AF ALT**: Alle funktioner og potentielle konflikter SKAL testes med Playwright inden du siger du er færdig!
 
+## 🔄 KRITISK: Restore/Reload Funktionalitet Guideline
+
+**VIGTIG REGEL**: Når du implementerer restore/reload funktionalitet (fx localStorage restore, form reload, state genoprettelse), skal du ALTID:
+
+1. **Genbrug eksisterende funktioner** - Kald de samme funktioner som bruges ved normal brugerinteraktion
+2. **Aldrig byg ny render-logik** - Restore handlers skal kun sætte data og kalde eksisterende render funktioner
+3. **Test med original workflow** - Verificér at restore giver præcis samme resultat som manuel interaktion
+
+### Eksempel (RIGTIGT):
+```javascript
+// Restore handler kalder eksisterende renderCustomUsps()
+registerUIRestoreHandler('custom_usps', (config) => {
+    renderCustomUsps();  // Genbrug eksisterende funktion
+}, { priority: 45 });
+```
+
+### Eksempel (FORKERT):
+```javascript
+// Restore handler bygger sin egen HTML - ALDRIG GOR DETTE
+registerUIRestoreHandler('custom_usps', (config) => {
+    config.custom_usps.forEach(usp => {
+        $('#container').append(`<div>${usp}</div>`);  // FORKERT: duplikeret logik
+    });
+}, { priority: 45 });
+```
+
+### Tjekliste for implementering:
+- [ ] Er der en eksisterende render/display funktion jeg kan kalde?
+- [ ] Vil restore give praecis samme UI som manuel interaktion?
+- [ ] Har jeg testet med page refresh at alt virker identisk?
+
 ### Obligatorisk Testing Workflow:
 1. **Implementer funktionalitet** først
 2. **Skriv Playwright test** der verificerer funktionalitet virker

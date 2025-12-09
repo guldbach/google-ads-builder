@@ -73,6 +73,7 @@ urlpatterns = [
     # Industry Manager AJAX URLs
     path('ajax/get-industry-services/<int:industry_id>/', views.get_industry_services_ajax, name='get_industry_services_ajax'),
     path('ajax/get-service-keywords/<int:service_id>/', views.get_service_keywords_ajax, name='get_service_keywords_ajax'),
+    path('ajax/get-negative-keyword-lists/', views.get_negative_keyword_lists_ajax, name='get_negative_keyword_lists_ajax'),
     path('ajax/add-service-keyword/', views.add_service_keyword_ajax, name='add_service_keyword_ajax'),
     path('ajax/update-service-keyword/<int:keyword_id>/', views.update_service_keyword_ajax, name='update_service_keyword_ajax'),
     path('ajax/delete-service-keyword/<int:keyword_id>/', views.delete_service_keyword_ajax, name='delete_service_keyword_ajax'),
@@ -107,4 +108,7 @@ urlpatterns = [
     path('ajax/add-industry-seo-keyword/<int:industry_id>/', views.add_industry_seo_keyword_ajax, name='add_industry_seo_keyword_ajax'),
     path('ajax/update-industry-seo-keyword/<int:keyword_id>/', views.update_industry_seo_keyword_ajax, name='update_industry_seo_keyword_ajax'),
     path('ajax/delete-industry-seo-keyword/<int:keyword_id>/', views.delete_industry_seo_keyword_ajax, name='delete_industry_seo_keyword_ajax'),
+
+    # AI Description Generation
+    path('ajax/generate-descriptions/', views.generate_descriptions_ajax, name='generate_descriptions_ajax'),
 ]
