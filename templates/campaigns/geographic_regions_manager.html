@@ -441,13 +441,30 @@ body.overflow-hidden {
                             </button>
                         </div>
                         
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <input type="text" placeholder="Indtast bynavn..." 
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <input type="text" placeholder="Indtast bynavn..."
                                    class="new-city-name px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                    data-region-id="{{ region.id }}">
+                            <div class="relative">
+                                <input type="text" placeholder="Postnr. (auto)"
+                                       class="new-city-postal w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                       data-region-id="{{ region.id }}"
+                                       maxlength="4">
+                                <div class="postal-loading hidden absolute right-2 top-1/2 -translate-y-1/2">
+                                    <svg class="w-4 h-4 animate-spin text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                </div>
+                            </div>
                             <button class="add-city-btn bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200"
                                     data-region-id="{{ region.id }}">
                                 Tilføj By
+                            </button>
+                            <button class="lookup-postal-btn bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-all duration-200"
+                                    data-region-id="{{ region.id }}"
+                                    title="Slå postnummer op">
+                                🔍 Slå op
                             </button>
                         </div>
                     </div>
@@ -460,6 +477,7 @@ body.overflow-hidden {
                                 <thead class="bg-gray-50">
                                     <tr>
                                         <th class="text-left py-3 px-4 font-medium text-gray-700">Bynavn</th>
+                                        <th class="text-left py-3 px-4 font-medium text-gray-700">Postnr.</th>
                                         <th class="text-right py-3 px-4 font-medium text-gray-700">Actions</th>
                                     </tr>
                                 </thead>
@@ -468,6 +486,9 @@ body.overflow-hidden {
                                     <tr class="city-row hover:bg-gray-50 transition-colors duration-200" data-city-id="{{ city.id }}">
                                         <td class="py-3 px-4">
                                             <span class="font-medium text-gray-900">{{ city.city_name }}</span>
+                                        </td>
+                                        <td class="py-3 px-4">
+                                            <span class="text-gray-600">{% if city.postal_code %}{{ city.postal_code }}{% else %}-{% endif %}</span>
                                         </td>
                                         <td class="py-3 px-4 text-right">
                                             <div class="flex items-center justify-end space-x-2">
@@ -1012,7 +1033,27 @@ $(document).ready(function() {
             $(this).closest('.grid').find('.add-city-btn').click();
         }
     });
-    
+
+    // Auto-lookup postal code when leaving city name field
+    $(document).on('blur', '.new-city-name', function() {
+        const regionId = $(this).data('region-id');
+        const cityName = $(this).val().trim();
+        if (cityName.length >= 2) {
+            lookupPostalCode(regionId, cityName);
+        }
+    });
+
+    // Manual lookup button
+    $(document).on('click', '.lookup-postal-btn', function() {
+        const regionId = $(this).data('region-id');
+        const cityName = $(`.new-city-name[data-region-id="${regionId}"]`).val().trim();
+        if (cityName.length >= 2) {
+            lookupPostalCode(regionId, cityName);
+        } else {
+            showErrorNotification('Indtast et bynavn først');
+        }
+    });
+
     // Import Excel events for regions
     console.log('Registering import excel event listener for regions...');
     $(document).on('click', '.import-excel-btn', function(e) {
@@ -1991,17 +2032,14 @@ function updateKeywordCount(listId) {
     }
 }
 
-function addNewCity(e) {
-    const regionId = $(e.target).data('region-id');
-    const cityName = $(`.new-city-name[data-region-id="${regionId}"]`).val().trim();
-    
-    if (!cityName) {
-        showErrorNotification('Indtast et bynavn');
-        return;
-    }
-    
+function lookupPostalCode(regionId, cityName) {
+    // Show loading spinner
+    const postalInput = $(`.new-city-postal[data-region-id="${regionId}"]`);
+    const loadingSpinner = postalInput.siblings('.postal-loading');
+    loadingSpinner.removeClass('hidden');
+
     $.ajax({
-        url: `/ajax/add-danish-city/`,
+        url: `/ajax/suggest-postal-code/`,
         method: 'POST',
         data: {
             region_id: regionId,
@@ -2009,15 +2047,70 @@ function addNewCity(e) {
             csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
         },
         success: function(response) {
+            loadingSpinner.addClass('hidden');
+            if (response.success && response.found) {
+                postalInput.val(response.postal_code);
+
+                // If multiple matches, show tooltip with info
+                if (response.multiple_matches && response.suggestions.length > 1) {
+                    const otherOptions = response.suggestions
+                        .filter(s => s.code !== response.postal_code)
+                        .map(s => `${s.code} (${s.name})`)
+                        .join(', ');
+                    postalInput.attr('title', `Flere muligheder: ${otherOptions}`);
+                    postalInput.addClass('border-yellow-400');
+                } else {
+                    postalInput.removeClass('border-yellow-400');
+                    postalInput.attr('title', '');
+                }
+            } else {
+                postalInput.val('');
+                postalInput.attr('placeholder', 'Ikke fundet');
+                setTimeout(() => {
+                    postalInput.attr('placeholder', 'Postnr. (auto)');
+                }, 2000);
+            }
+        },
+        error: function() {
+            loadingSpinner.addClass('hidden');
+            postalInput.attr('placeholder', 'Fejl');
+            setTimeout(() => {
+                postalInput.attr('placeholder', 'Postnr. (auto)');
+            }, 2000);
+        }
+    });
+}
+
+function addNewCity(e) {
+    const regionId = $(e.target).data('region-id');
+    const cityName = $(`.new-city-name[data-region-id="${regionId}"]`).val().trim();
+    const postalCode = $(`.new-city-postal[data-region-id="${regionId}"]`).val().trim();
+
+    if (!cityName) {
+        showErrorNotification('Indtast et bynavn');
+        return;
+    }
+
+    $.ajax({
+        url: `/ajax/add-danish-city/`,
+        method: 'POST',
+        data: {
+            region_id: regionId,
+            city_name: cityName,
+            postal_code: postalCode,
+            csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+        },
+        success: function(response) {
             if (response.success) {
                 showSuccessNotification('By tilføjet!');
-                
-                // Clear the input field
+
+                // Clear the input fields
                 $(`.new-city-name[data-region-id="${regionId}"]`).val('');
-                
+                $(`.new-city-postal[data-region-id="${regionId}"]`).val('').removeClass('border-yellow-400').attr('title', '');
+
                 // Add the new city to the table dynamically
                 addCityToTable(regionId, response.city);
-                
+
                 // Update the city count in the region header
                 updateCityCount(regionId);
             } else {
@@ -2038,10 +2131,10 @@ function addCityToTable(regionId, city) {
         // If no table exists yet (empty region), create the table structure
         const tableContainer = $(`.cities-list[data-region-id="${regionId}"]`);
         const emptyMessage = tableContainer.find('.text-center.py-12');
-        
+
         if (emptyMessage.length > 0) {
             emptyMessage.remove();
-            
+
             // Create new table
             const tableHTML = `
                 <div class="overflow-x-auto">
@@ -2049,6 +2142,7 @@ function addCityToTable(regionId, city) {
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="text-left py-3 px-4 font-medium text-gray-700">Bynavn</th>
+                                <th class="text-left py-3 px-4 font-medium text-gray-700">Postnr.</th>
                                 <th class="text-right py-3 px-4 font-medium text-gray-700">Actions</th>
                             </tr>
                         </thead>
@@ -2056,26 +2150,30 @@ function addCityToTable(regionId, city) {
                     </table>
                 </div>
             `;
-            
+
             tableContainer.append(tableHTML);
         }
     }
-    
+
     // Create new row HTML for the city
+    const postalDisplay = city.postal_code || '-';
     const newRowHTML = `
         <tr class="city-row hover:bg-gray-50 transition-colors duration-200" data-city-id="${city.id}">
             <td class="py-3 px-4">
                 <span class="font-medium text-gray-900">${city.city_name}</span>
             </td>
+            <td class="py-3 px-4">
+                <span class="text-gray-600">${postalDisplay}</span>
+            </td>
             <td class="py-3 px-4 text-right">
                 <div class="inline-flex space-x-2">
-                    <button class="edit-city-btn text-gray-500 hover:text-blue-600 p-1" 
+                    <button class="edit-city-btn text-gray-500 hover:text-blue-600 p-1"
                             data-city-id="${city.id}" title="Redigér by">
                         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
                         </svg>
                     </button>
-                    <button class="delete-city-btn text-gray-500 hover:text-red-600 p-1" 
+                    <button class="delete-city-btn text-gray-500 hover:text-red-600 p-1"
                             data-city-id="${city.id}" title="Slet by">
                         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
@@ -2123,24 +2221,33 @@ function editCity(e) {
 
 function enableCityEditMode(row, cityId) {
     const cityNameCell = row.find('td:first-child');
+    const postalCodeCell = row.find('td:nth-child(2)');
     const editButton = row.find('.edit-city-btn');
-    
+
     // Get current values
     const currentCityName = cityNameCell.find('span').text().trim();
-    
+    const currentPostalCode = postalCodeCell.find('span').text().trim();
+    const postalCodeValue = currentPostalCode === '-' ? '' : currentPostalCode;
+
     // Replace city name with input
     cityNameCell.html(`
-        <input type="text" class="edit-city-name-input w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent" 
+        <input type="text" class="edit-city-name-input w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                value="${currentCityName}" data-original="${currentCityName}">
     `);
-    
+
+    // Replace postal code with input
+    postalCodeCell.html(`
+        <input type="text" class="edit-postal-code-input w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+               value="${postalCodeValue}" data-original="${postalCodeValue}" placeholder="0000" maxlength="4">
+    `);
+
     // Change edit button to save button
     editButton.html(`
         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
             <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
         </svg>
     `).attr('title', 'Gem ændringer').removeClass('hover:text-purple-600').addClass('hover:text-green-600');
-    
+
     // Add cancel button
     editButton.after(`
         <button class="cancel-edit-btn text-gray-500 hover:text-red-600 p-1" title="Annullér">
@@ -2149,15 +2256,15 @@ function enableCityEditMode(row, cityId) {
             </svg>
         </button>
     `);
-    
+
     // Mark row as in edit mode
     row.addClass('edit-mode bg-blue-50 border-l-4 border-blue-500');
-    
+
     // Add edit mode indicator
     if (row.find('.edit-mode-indicator').length === 0) {
         cityNameCell.find('.edit-city-name-input').before('<span class="edit-mode-indicator text-blue-600 mr-2" title="Redigerer...">✏️</span>');
     }
-    
+
     // Focus on city name input and select all text
     const input = row.find('.edit-city-name-input');
     input.focus().select();
@@ -2165,14 +2272,23 @@ function enableCityEditMode(row, cityId) {
 
 function saveCityEdit(row, cityId) {
     const cityNameInput = row.find('.edit-city-name-input');
+    const postalCodeInput = row.find('.edit-postal-code-input');
     const newCityName = cityNameInput.val().trim();
-    
+    const newPostalCode = postalCodeInput.val().trim();
+
     if (!newCityName) {
         showErrorNotification('Bynavn kan ikke være tomt');
         cityNameInput.focus();
         return;
     }
-    
+
+    // Validate postal code format (4 digits or empty)
+    if (newPostalCode && !/^\d{4}$/.test(newPostalCode)) {
+        showErrorNotification('Postnummer skal være 4 cifre');
+        postalCodeInput.focus();
+        return;
+    }
+
     // Show loading state
     row.find('.edit-city-btn').prop('disabled', true).html(`
         <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2180,14 +2296,14 @@ function saveCityEdit(row, cityId) {
             <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
         </svg>
     `);
-    
+
     $.ajax({
         url: `/ajax/update-danish-city/${cityId}/`,
         method: 'POST',
         data: {
             city_name: newCityName,
             city_synonym: '',
-            postal_code: '',
+            postal_code: newPostalCode,
             latitude: '',
             longitude: '',
             csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
@@ -2195,7 +2311,7 @@ function saveCityEdit(row, cityId) {
         success: function(response) {
             if (response.success) {
                 showSuccessNotification('By opdateret!');
-                exitCityEditMode(row, newCityName);
+                exitCityEditMode(row, newCityName, newPostalCode);
             } else {
                 showErrorNotification('Fejl: ' + response.error);
                 row.find('.edit-city-btn').prop('disabled', false).html(`
@@ -2216,14 +2332,18 @@ function saveCityEdit(row, cityId) {
     });
 }
 
-function exitCityEditMode(row, cityName) {
+function exitCityEditMode(row, cityName, postalCode) {
     const cityNameCell = row.find('td:first-child');
-    const actionsCell = row.find('td:last-child');
+    const postalCodeCell = row.find('td:nth-child(2)');
     const editButton = row.find('.edit-city-btn');
-    
+
     // Restore city name
     cityNameCell.html(`<span class="font-medium text-gray-900">${cityName}</span>`);
-    
+
+    // Restore postal code
+    const postalDisplay = postalCode || '-';
+    postalCodeCell.html(`<span class="text-gray-600">${postalDisplay}</span>`);
+
     // Restore edit button
     editButton.html(`
         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -2231,7 +2351,7 @@ function exitCityEditMode(row, cityName) {
         </svg>
     `).attr('title', 'Redigér by').removeClass('hover:text-green-600').addClass('hover:text-purple-600')
       .prop('disabled', false);
-    
+
     // Remove cancel button and edit mode
     row.find('.cancel-edit-btn').remove();
     row.removeClass('edit-mode bg-blue-50 border-l-4 border-blue-500');
@@ -2748,20 +2868,28 @@ window.GeoManager = {
 
     enableCityEditMode: function(row, cityId) {
         const cityNameCell = row.find('td:first-child');
+        const postalCodeCell = row.find('td:nth-child(2)');
         const editButton = row.find('.edit-city-btn');
         const currentCityName = cityNameCell.find('span').text().trim();
-        
+        const currentPostalCode = postalCodeCell.find('span').text().trim();
+        const postalCodeValue = currentPostalCode === '-' ? '' : currentPostalCode;
+
         cityNameCell.html(`
-            <input type="text" class="edit-city-name-input w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent" 
+            <input type="text" class="edit-city-name-input w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                    value="${currentCityName}" data-original="${currentCityName}">
         `);
-        
+
+        postalCodeCell.html(`
+            <input type="text" class="edit-postal-code-input w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                   value="${postalCodeValue}" data-original="${postalCodeValue}" placeholder="0000" maxlength="4">
+        `);
+
         editButton.html(`
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
             </svg>
         `).attr('title', 'Gem ændringer').removeClass('hover:text-purple-600').addClass('hover:text-green-600');
-        
+
         editButton.after(`
             <button class="cancel-edit-btn text-gray-500 hover:text-red-600 p-1 ml-2" title="Annullér">
                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -2769,33 +2897,41 @@ window.GeoManager = {
                 </svg>
             </button>
         `);
-        
+
         row.addClass('edit-mode bg-blue-50 border-l-4 border-blue-500');
         setTimeout(() => cityNameCell.find('input').focus().select(), 100);
     },
 
     saveCityEdit: function(row, cityId) {
         const newCityName = row.find('.edit-city-name-input').val().trim();
-        
+        const newPostalCode = row.find('.edit-postal-code-input').val().trim();
+
         if (!newCityName) {
             this.showErrorNotification('Bynavn kan ikke være tomt');
             return;
         }
-        
+
+        // Validate postal code format (4 digits or empty)
+        if (newPostalCode && !/^\d{4}$/.test(newPostalCode)) {
+            this.showErrorNotification('Postnummer skal være 4 cifre');
+            row.find('.edit-postal-code-input').focus();
+            return;
+        }
+
         row.find('.edit-city-btn').prop('disabled', true).html(`
             <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <circle cx="12" cy="12" r="10" stroke-width="4" opacity="0.25"/>
                 <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
             </svg>
         `);
-        
+
         $.ajax({
             url: `/ajax/update-danish-city/${cityId}/`,
             method: 'POST',
             data: {
                 city_name: newCityName,
                 city_synonym: '',
-                postal_code: '',
+                postal_code: newPostalCode,
                 latitude: '',
                 longitude: '',
                 csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
@@ -2803,7 +2939,7 @@ window.GeoManager = {
             success: (response) => {
                 if (response.success) {
                     this.showSuccessNotification('By opdateret!');
-                    this.exitCityEditMode(row, newCityName);
+                    this.exitCityEditMode(row, newCityName, newPostalCode);
                 } else {
                     this.showErrorNotification('Fejl: ' + response.error);
                     row.find('.edit-city-btn').prop('disabled', false);
@@ -2816,27 +2952,32 @@ window.GeoManager = {
         });
     },
 
-    exitCityEditMode: function(row, cityName) {
+    exitCityEditMode: function(row, cityName, postalCode) {
         const cityNameCell = row.find('td:first-child');
+        const postalCodeCell = row.find('td:nth-child(2)');
         const editButton = row.find('.edit-city-btn');
-        
+
         cityNameCell.html(`<span class="font-medium text-gray-900">${cityName}</span>`);
+
+        const postalDisplay = postalCode || '-';
+        postalCodeCell.html(`<span class="text-gray-600">${postalDisplay}</span>`);
+
         editButton.html(`
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
             </svg>
         `).attr('title', 'Redigér by').removeClass('hover:text-green-600').addClass('hover:text-purple-600')
           .prop('disabled', false);
-        
+
         row.find('.cancel-edit-btn').remove();
         row.removeClass('edit-mode bg-blue-50 border-l-4 border-blue-500');
     },
 
     cancelCityEdit: function(e) {
         const row = $(e.target).closest('tr');
-        const editButton = row.find('.edit-city-btn');
         const originalName = row.find('.edit-city-name-input').data('original');
-        this.exitCityEditMode(row, originalName);
+        const originalPostal = row.find('.edit-postal-code-input').data('original');
+        this.exitCityEditMode(row, originalName, originalPostal);
     },
 
     deleteCity: function(e) {
@@ -2872,22 +3013,24 @@ window.GeoManager = {
     addCity: function(e) {
         const button = $(e.target).closest('.add-city-btn');
         const regionId = button.data('region-id');
-        const input = $(`.new-city-name[data-region-id="${regionId}"]`);
-        const cityName = input.val().trim();
-        
+        const cityInput = $(`.new-city-name[data-region-id="${regionId}"]`);
+        const postalInput = $(`.new-city-postal[data-region-id="${regionId}"]`);
+        const cityName = cityInput.val().trim();
+        const postalCode = postalInput.val().trim();
+
         if (!cityName) {
             this.showErrorNotification('Indtast et bynavn');
-            input.focus();
+            cityInput.focus();
             return;
         }
-        
+
         button.prop('disabled', true).html(`
             <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <circle cx="12" cy="12" r="10" stroke-width="4" opacity="0.25"/>
                 <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
             </svg>
         `);
-        
+
         $.ajax({
             url: '/ajax/add-danish-city/',
             method: 'POST',
@@ -2895,7 +3038,7 @@ window.GeoManager = {
                 region_id: regionId,
                 city_name: cityName,
                 city_synonym: '',
-                postal_code: '',
+                postal_code: postalCode,
                 latitude: '',
                 longitude: '',
                 csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
@@ -2903,7 +3046,8 @@ window.GeoManager = {
             success: (response) => {
                 if (response.success) {
                     this.showSuccessNotification('By tilføjet!');
-                    input.val('');
+                    cityInput.val('');
+                    postalInput.val('').removeClass('border-yellow-400').attr('title', '');
                     this.addCityToTable(regionId, response.city);
                     this.updateCityCount(regionId);
                 } else {
@@ -3059,20 +3203,24 @@ window.GeoManager = {
     // Utility Functions
     addCityToTable: function(regionId, city) {
         const tableBody = $(`.cities-content[data-region-id="${regionId}"] tbody`);
+        const postalDisplay = city.postal_code || '-';
         const newRow = `
             <tr class="city-row hover:bg-gray-50">
                 <td class="px-6 py-3">
                     <span class="font-medium text-gray-900">${city.city_name}</span>
                 </td>
+                <td class="px-6 py-3">
+                    <span class="text-gray-600">${postalDisplay}</span>
+                </td>
                 <td class="px-6 py-3 text-right">
                     <div class="flex items-center justify-end space-x-2">
-                        <button class="edit-city-btn text-gray-500 hover:text-purple-600 p-1" 
+                        <button class="edit-city-btn text-gray-500 hover:text-purple-600 p-1"
                                 data-city-id="${city.id}" title="Redigér by">
                             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
                             </svg>
                         </button>
-                        <button class="delete-city-btn text-gray-500 hover:text-red-600 p-1" 
+                        <button class="delete-city-btn text-gray-500 hover:text-red-600 p-1"
                                 data-city-id="${city.id}" title="Slet by">
                             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>

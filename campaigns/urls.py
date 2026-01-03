@@ -55,6 +55,7 @@ urlpatterns = [
     path('geographic-regions-manager/', views.geographic_regions_manager, name='geographic_regions_manager'),
     path('ajax/create-geographic-region/', views.create_geographic_region_ajax, name='create_geographic_region_ajax'),
     path('ajax/add-danish-city/', views.add_danish_city_ajax, name='add_danish_city_ajax'),
+    path('ajax/suggest-postal-code/', views.suggest_postal_code_ajax, name='suggest_postal_code_ajax'),
     path('ajax/delete-danish-city/<int:city_id>/', views.delete_danish_city_ajax, name='delete_danish_city_ajax'),
     path('ajax/update-danish-city/<int:city_id>/', views.update_danish_city_ajax, name='update_danish_city_ajax'),
     path('ajax/delete-geographic-region/<int:region_id>/', views.delete_geographic_region_ajax, name='delete_geographic_region_ajax'),
@@ -63,7 +64,9 @@ urlpatterns = [
     path('ajax/import-danish-cities-excel/', views.import_danish_cities_excel, name='import_danish_cities_excel'),
     path('ajax/analyze-excel-import-cities/<int:region_id>/', views.analyze_excel_import_cities, name='analyze_excel_import_cities'),
     path('ajax/execute-excel-import-cities/<int:region_id>/', views.execute_excel_import_cities, name='execute_excel_import_cities'),
-    
+    path('ajax/generate-negative-city-list/', views.generate_negative_city_list, name='generate_negative_city_list'),
+    path('ajax/get-negative-city-count/', views.get_negative_city_count, name='get_negative_city_count'),
+
     # Industry Manager URLs  
     path('industry-manager/', views.industry_manager, name='industry_manager'),
     
@@ -111,4 +114,17 @@ urlpatterns = [
 
     # AI Description Generation
     path('ajax/generate-descriptions/', views.generate_descriptions_ajax, name='generate_descriptions_ajax'),
+
+    # Programmatic Byside AJAX URLs
+    path('ajax/crawl-sitemap/', views.crawl_sitemap_ajax, name='crawl_sitemap_ajax'),
+    path('ajax/match-city-pages/', views.match_city_pages_ajax, name='match_city_pages_ajax'),
+    path('ajax/generate-programmatic-descriptions/', views.generate_programmatic_descriptions_ajax, name='generate_programmatic_descriptions_ajax'),
+
+    # Postal Code Manager URLs
+    path('postal-manager/', views.postal_manager, name='postal_manager'),
+    path('ajax/update-postal-code/', views.update_postal_code_ajax, name='update_postal_code_ajax'),
+    path('api/postal-codes/', views.get_postal_codes_api, name='get_postal_codes_api'),
+
+    # Campaign Builder Export
+    path('export-campaign-builder-csv/', views.export_campaign_builder_csv, name='export_campaign_builder_csv'),
 ]

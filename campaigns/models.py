@@ -1548,9 +1548,62 @@ class ServiceNegativeKeywordList(models.Model):
     
     def __str__(self):
         return f"{self.service.name} → {self.negative_list.name}"
-    
+
     class Meta:
         unique_together = ['service', 'negative_list']
         verbose_name = "Service Negative Keyword Connection"
         verbose_name_plural = "Service Negative Keyword Connections"
         ordering = ['-connected_at']
+
+
+class PostalCode(models.Model):
+    """
+    Dansk postnummer med mulighed for custom visningsnavn og ekstra bynavne.
+    Bruges til geo-targeting i campaign builder.
+    """
+    code = models.CharField(
+        max_length=4,
+        unique=True,
+        db_index=True,
+        help_text="4-cifret postnummer (fx 2700)"
+    )
+    dawa_name = models.CharField(
+        max_length=100,
+        help_text="Officielt navn fra DAWA (fx Brønshøj)"
+    )
+    display_name = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Custom visningsnavn (fx Nørrebro i stedet for København N)"
+    )
+    additional_names = models.TextField(
+        blank=True,
+        help_text="Kommaseparerede ekstra bynavne (fx Husum, Bellahøj)"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['code']
+        verbose_name = "Postnummer"
+        verbose_name_plural = "Postnumre"
+
+    def __str__(self):
+        return f"{self.code} {self.get_display_name()}"
+
+    def get_display_name(self):
+        """Returnerer visningsnavn eller DAWA-navn"""
+        return self.display_name if self.display_name else self.dawa_name
+
+    def get_all_names(self):
+        """Returnerer alle navne for dette postnummer som liste"""
+        names = [self.get_display_name()]
+        if self.additional_names:
+            names.extend([n.strip() for n in self.additional_names.split(',') if n.strip()])
+        return names
+
+    def get_additional_names_list(self):
+        """Returnerer ekstra bynavne som liste"""
+        if self.additional_names:
+            return [n.strip() for n in self.additional_names.split(',') if n.strip()]
+        return []

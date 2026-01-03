@@ -6,11 +6,12 @@ from django.contrib import messages
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from .models import (
-    Industry, Client, Campaign, AdGroup, Ad, Keyword, PerformanceDataImport, 
+    Industry, Client, Campaign, AdGroup, Ad, Keyword, PerformanceDataImport,
     HistoricalCampaignPerformance, HistoricalKeywordPerformance,
     NegativeKeywordList, NegativeKeyword, CampaignNegativeKeywordList, NegativeKeywordUpload,
     GeographicRegion, DanishCity, GeographicRegionUpload,
-    IndustryService, ServiceKeyword, IndustryHeadline
+    IndustryService, ServiceKeyword, IndustryHeadline,
+    PostalCode
 )
 
 # Import geographic regions views
@@ -18,7 +19,8 @@ from .geographic_views import (
     geographic_regions_manager, create_geographic_region_ajax, add_danish_city_ajax,
     delete_danish_city_ajax, update_danish_city_ajax, delete_geographic_region_ajax,
     edit_geographic_region_ajax, download_danish_cities_template, import_danish_cities_excel,
-    analyze_excel_import_cities, execute_excel_import_cities
+    analyze_excel_import_cities, execute_excel_import_cities, suggest_postal_code_ajax,
+    generate_negative_city_list, get_negative_city_count
 )
 from usps.models import USPTemplate, ClientUSP, USPMainCategory
 from crawler.tasks import crawl_client_website
@@ -2694,11 +2696,18 @@ def get_negative_keyword_lists_ajax(request):
 
             lists_data = []
             for nk_list in lists:
+                # Hent tilknyttede service IDs via ManyToMany relation (used_by_services)
+                connected_service_ids = list(
+                    nk_list.used_by_services.values_list('id', flat=True)
+                )
+
                 lists_data.append({
                     'id': nk_list.id,
                     'name': nk_list.name,
                     'description': nk_list.description or '',
                     'keyword_count': nk_list.negative_keywords.count(),
+                    'connected_service_ids': connected_service_ids,  # Nye felt
+                    'is_city_list': nk_list.name == 'Ekskluderede Byer',  # Marker by-liste
                 })
 
             return JsonResponse({
@@ -4344,3 +4353,665 @@ def generate_descriptions_ajax(request):
             'success': False,
             'error': str(e)
         })
+
+
+# ==========================================
+# POSTAL CODE MANAGER VIEWS
+# ==========================================
+
+def postal_manager(request):
+    """
+    Postnummer Manager - administrer postnumre, visningsnavne og ekstra bynavne.
+    Skjuler konsoliderede postnumre (København K, V, Frederiksberg C) undtagen primary.
+    """
+    from django.db.models import Q
+
+    # Consolidated postal code ranges (hide all except primary)
+    # København K: 1050-1473 (primary: 1050)
+    # København V: 1550-1799 (primary: 1550)
+    # Frederiksberg C: 1800-1999 (primary: 1800)
+    postal_codes = PostalCode.objects.exclude(
+        # Exclude København K (1051-1473) - keep 1050
+        Q(code__gte='1051', code__lte='1473') |
+        # Exclude København V (1551-1799) - keep 1550
+        Q(code__gte='1551', code__lte='1799') |
+        # Exclude Frederiksberg C (1801-1999) - keep 1800
+        Q(code__gte='1801', code__lte='1999')
+    ).order_by('code')
+
+    return render(request, 'campaigns/postal_manager.html', {
+        'postal_codes': postal_codes,
+        'total_count': postal_codes.count()
+    })
+
+
+@csrf_exempt
+def update_postal_code_ajax(request):
+    """
+    AJAX endpoint til at opdatere et postnummer's display_name eller additional_names.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'})
+
+    import json
+    try:
+        data = json.loads(request.body)
+        code = data.get('code')
+        display_name = data.get('display_name', '').strip()
+        additional_names = data.get('additional_names', '').strip()
+
+        if not code:
+            return JsonResponse({'success': False, 'error': 'Missing postal code'})
+
+        postal = get_object_or_404(PostalCode, code=code)
+
+        # Opdater felter
+        postal.display_name = display_name
+        postal.additional_names = additional_names
+        postal.save()
+
+        return JsonResponse({
+            'success': True,
+            'code': postal.code,
+            'display_name': postal.get_display_name(),
+            'additional_names': postal.additional_names,
+            'all_names': postal.get_all_names()
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+def get_postal_codes_api(request):
+    """
+    API endpoint til at hente alle postnumre med customizations.
+    Bruges af geo map til at matche bynavne.
+    """
+    postal_codes = PostalCode.objects.all().order_by('code')
+
+    data = []
+    for pc in postal_codes:
+        data.append({
+            'code': pc.code,
+            'dawa_name': pc.dawa_name,
+            'display_name': pc.get_display_name(),
+            'additional_names': pc.additional_names,
+            'all_names': pc.get_all_names()
+        })
+
+    return JsonResponse({'postal_codes': data})
+
+
+@csrf_exempt
+def export_campaign_builder_csv(request):
+    """
+    Eksporter Campaign Builder data til Google Ads Editor CSV format.
+    Inkluderer kampagner, annoncegrupper, søgeord og negative søgeord.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Only POST requests allowed'})
+
+    try:
+        import pandas as pd
+        from io import BytesIO
+
+        data = json.loads(request.body)
+        campaigns_data = data.get('campaigns', {})
+
+        if not campaigns_data:
+            return JsonResponse({'success': False, 'error': 'Ingen kampagner at eksportere'})
+
+        # Google Ads Editor kolonner (126 kolonner)
+        columns = [
+            'Campaign', 'Labels', 'Campaign Type', 'Networks', 'Budget', 'Budget type',
+            'EU political ads', 'Standard conversion goals', 'Customer acquisition', 'Languages',
+            'Bid Strategy Type', 'Bid Strategy Name', 'Enhanced CPC', 'Maximum CPC bid limit',
+            'Start Date', 'End Date', 'Broad match keywords', 'Ad Schedule', 'Ad rotation',
+            'Content exclusions', 'Targeting method', 'Exclusion method', 'Audience targeting',
+            'Flexible Reach', 'AI Max', 'Text customization', 'Final URL expansion', 'Ad Group',
+            'Max CPC', 'Max CPM', 'Target CPA', 'Max CPV', 'Target CPV', 'Percent CPC',
+            'Target CPM', 'Target ROAS', 'Target CPC', 'Desktop Bid Modifier', 'Mobile Bid Modifier',
+            'Tablet Bid Modifier', 'TV Screen Bid Modifier', 'Display Network Custom Bid Type',
+            'Optimized targeting', 'Strict age and gender targeting', 'Search term matching',
+            'Ad Group Type', 'Channels', 'Audience name', 'Age demographic', 'Gender demographic',
+            'Income demographic', 'Parental status demographic', 'Remarketing audience segments',
+            'Interest categories', 'Life events', 'Custom audience segments', 'Detailed demographics',
+            'Remarketing audience exclusions', 'Tracking template', 'Final URL suffix',
+            'Custom parameters', 'ID', 'Location', 'Reach', 'Location groups', 'Radius',
+            'Unit', 'Bid Modifier', 'Keyword', 'Criterion Type', 'First page bid',
+            'Top of page bid', 'First position bid', 'Quality score', 'Landing page experience',
+            'Expected CTR', 'Ad relevance', 'Final URL', 'Final mobile URL', 'Ad type',
+            'Headline 1', 'Headline 1 position', 'Headline 2', 'Headline 2 position',
+            'Headline 3', 'Headline 3 position', 'Headline 4', 'Headline 4 position',
+            'Headline 5', 'Headline 5 position', 'Headline 6', 'Headline 6 position',
+            'Headline 7', 'Headline 7 position', 'Headline 8', 'Headline 8 position',
+            'Headline 9', 'Headline 9 position', 'Headline 10', 'Headline 10 position',
+            'Headline 11', 'Headline 11 position', 'Headline 12', 'Headline 12 position',
+            'Headline 13', 'Headline 13 position', 'Headline 14', 'Headline 14 position',
+            'Headline 15', 'Headline 15 position', 'Description 1', 'Description 1 position',
+            'Description 2', 'Description 2 position', 'Description 3', 'Description 3 position',
+            'Description 4', 'Description 4 position', 'Path 1', 'Path 2', 'Campaign Status',
+            'Ad Group Status', 'Status', 'Approval Status', 'Ad strength', 'Comment'
+        ]
+
+        all_rows = []
+
+        # Hent alle negative keyword lister på forhånd
+        all_negative_lists = {}
+        for nk_list in NegativeKeywordList.objects.prefetch_related('negative_keywords').all():
+            all_negative_lists[str(nk_list.id)] = {
+                'name': nk_list.name,
+                'keywords': list(nk_list.negative_keywords.values_list('keyword_text', 'match_type'))
+            }
+
+        for industry_id, campaign_data in campaigns_data.items():
+            campaign_name = campaign_data.get('industry_name', 'Campaign')
+            # Understøt både 'budget' og 'daily_budget' felter
+            budget = campaign_data.get('daily_budget') or campaign_data.get('budget', 500)
+            if not budget:
+                budget = 500
+            negative_list_ids = campaign_data.get('negative_keyword_list_ids', [])
+            ad_groups = campaign_data.get('ad_groups', {})
+
+            # 1. Campaign row (matcher præcis den fungerende fil)
+            campaign_row = {col: '' for col in columns}
+            campaign_row.update({
+                'Campaign': campaign_name,
+                'Campaign Type': 'Search',
+                'Networks': 'Google search',
+                'Budget': f"{float(budget):.2f}",
+                'Budget type': 'Daily',
+                'EU political ads': "Doesn't have EU political ads",
+                'Standard conversion goals': 'Account-level',
+                'Customer acquisition': 'Bid equally',
+                'Languages': 'da',
+                'Bid Strategy Type': 'Maximize clicks',
+                'Enhanced CPC': 'Disabled',
+                'Maximum CPC bid limit': '35.00',
+                'Start Date': '[]',
+                'End Date': '[]',
+                'Broad match keywords': 'Off',
+                'Ad Schedule': '[]',
+                'Ad rotation': 'Rotate evenly',
+                'Content exclusions': '[]',
+                'Targeting method': 'Location of presence or Area of interest',
+                'Exclusion method': 'Location of presence',
+                'Audience targeting': 'Audience segments',
+                'Flexible Reach': 'Audience segments',
+                'AI Max': 'Disabled',
+                'Text customization': 'Disabled',
+                'Final URL expansion': 'Disabled',
+                'Campaign Status': 'Enabled'
+            })
+            all_rows.append(campaign_row)
+
+            # 2. Ad Groups, Keywords, and Ads (først, før negative keywords)
+            for service_id, ad_group_data in ad_groups.items():
+                service_name = ad_group_data.get('service_name', 'Ad Group')
+                ad_group_full_name = f"{campaign_name} - {service_name}"
+                keywords = ad_group_data.get('keywords', [])
+                headlines = ad_group_data.get('headlines', [])
+                descriptions = ad_group_data.get('descriptions', [])
+
+                # Ad Group row (matcher præcis den fungerende fil - INGEN Max CPC her)
+                adgroup_row = {col: '' for col in columns}
+                adgroup_row.update({
+                    'Campaign': campaign_name,
+                    'Languages': 'All',
+                    'Audience targeting': 'Audience segments',
+                    'Flexible Reach': 'Audience segments;Genders;Ages;Parental status;Household incomes',
+                    'Ad Group': ad_group_full_name,
+                    'Optimized targeting': 'Disabled',
+                    'Strict age and gender targeting': 'Disabled',
+                    'Search term matching': 'Enabled',
+                    'Ad Group Type': 'Standard',
+                    'Channels': '[]',
+                    'Campaign Status': 'Enabled',
+                    'Ad Group Status': 'Enabled'
+                })
+                all_rows.append(adgroup_row)
+
+                # Keyword rows (matcher præcis den fungerende fil)
+                for kw in keywords:
+                    if isinstance(kw, dict):
+                        # Understøt både 'keyword' og 'keyword_text' felter
+                        kw_text = kw.get('keyword') or kw.get('keyword_text', '')
+                        match_type = kw.get('match_type', 'Phrase')
+                        final_url = kw.get('final_url') or kw.get('url', '')
+                    else:
+                        kw_text = str(kw)
+                        match_type = 'Phrase'
+                        final_url = ''
+
+                    if not kw_text:
+                        continue
+
+                    keyword_row = {col: '' for col in columns}
+                    keyword_row.update({
+                        'Campaign': campaign_name,
+                        'Ad Group': ad_group_full_name,
+                        'Max CPC': '35.00',
+                        'Keyword': kw_text,
+                        'Criterion Type': match_type.title(),
+                        'First page bid': '0.00',
+                        'Top of page bid': '0.00',
+                        'First position bid': '0.00',
+                        'Landing page experience': ' -',
+                        'Expected CTR': ' -',
+                        'Ad relevance': ' -',
+                        'Final URL': final_url,
+                        'Campaign Status': 'Enabled',
+                        'Ad Group Status': 'Enabled',
+                        'Status': 'Enabled',
+                        'Approval Status': 'Pending review'
+                    })
+                    all_rows.append(keyword_row)
+
+                # Ad row (RSA - Responsive Search Ad) - matcher præcis den fungerende fil
+                if headlines or descriptions:
+                    # Brug første keyword's final_url eller fallback
+                    first_url = ''
+                    if keywords:
+                        first_kw = keywords[0]
+                        if isinstance(first_kw, dict):
+                            first_url = first_kw.get('final_url') or first_kw.get('url', '')
+
+                    ad_row = {col: '' for col in columns}
+                    ad_row.update({
+                        'Campaign': campaign_name,
+                        'Ad Group': ad_group_full_name,
+                        'Final URL': first_url,
+                        'Ad type': 'Responsive search ad',
+                        'Campaign Status': 'Enabled',
+                        'Ad Group Status': 'Enabled',
+                        'Status': 'Enabled',
+                        'Approval Status': 'Pending review'
+                    })
+
+                    # Headlines (max 15)
+                    for i, headline in enumerate(headlines[:15], 1):
+                        if headline:
+                            # Understøt både string og dict format
+                            if isinstance(headline, dict):
+                                headline_text = headline.get('text', '') or headline.get('headline', '') or str(headline)
+                            else:
+                                headline_text = str(headline)
+                            if headline_text:
+                                ad_row[f'Headline {i}'] = headline_text[:30]
+
+                    # Descriptions (max 4)
+                    for i, description in enumerate(descriptions[:4], 1):
+                        if description:
+                            # Understøt både string og dict format
+                            if isinstance(description, dict):
+                                desc_text = description.get('text', '') or description.get('description', '') or str(description)
+                            else:
+                                desc_text = str(description)
+                            if desc_text:
+                                ad_row[f'Description {i}'] = desc_text[:90]
+
+                    all_rows.append(ad_row)
+
+            # 3. Negative Keywords for campaign (efter alle andre rækker)
+            for list_id in negative_list_ids:
+                list_id_str = str(list_id)
+                if list_id_str in all_negative_lists:
+                    neg_list = all_negative_lists[list_id_str]
+                    for keyword_text, match_type in neg_list['keywords']:
+                        neg_row = {col: '' for col in columns}
+                        neg_row.update({
+                            'Campaign': campaign_name,
+                            'Keyword': keyword_text,
+                            'Criterion Type': f"Negative {match_type.lower()}" if match_type else 'Negative phrase',
+                            'Campaign Status': 'Enabled',
+                            'Status': 'Enabled'
+                        })
+                        all_rows.append(neg_row)
+
+        # Håndter GEO kampagner (geo_campaigns)
+        geo_campaigns_data = data.get('geo_campaigns', {})
+        for service_id, geo_campaign in geo_campaigns_data.items():
+            geo_campaign_name = geo_campaign.get('name', f'GEO Kampagne {service_id}')
+            geo_budget = geo_campaign.get('daily_budget') or 500
+            geo_neg_list_ids = geo_campaign.get('negative_keyword_list_ids', [])
+            geo_ad_group = geo_campaign.get('ad_group', {})
+
+            # GEO Campaign row
+            geo_campaign_row = {col: '' for col in columns}
+            geo_campaign_row.update({
+                'Campaign': geo_campaign_name,
+                'Campaign Type': 'Search',
+                'Networks': 'Google search',
+                'Budget': f"{float(geo_budget):.2f}",
+                'Budget type': 'Daily',
+                'EU political ads': "Doesn't have EU political ads",
+                'Standard conversion goals': 'Account-level',
+                'Customer acquisition': 'Bid equally',
+                'Languages': 'da',
+                'Bid Strategy Type': 'Maximize clicks',
+                'Enhanced CPC': 'Disabled',
+                'Maximum CPC bid limit': '35.00',
+                'Start Date': '[]',
+                'End Date': '[]',
+                'Broad match keywords': 'Off',
+                'Ad Schedule': '[]',
+                'Ad rotation': 'Rotate evenly',
+                'Content exclusions': '[]',
+                'Targeting method': 'Location of presence or Area of interest',
+                'Exclusion method': 'Location of presence',
+                'Audience targeting': 'Audience segments',
+                'Flexible Reach': 'Audience segments',
+                'AI Max': 'Disabled',
+                'Text customization': 'Disabled',
+                'Final URL expansion': 'Disabled',
+                'Campaign Status': 'Enabled'
+            })
+            all_rows.append(geo_campaign_row)
+
+            # GEO Ad Group row
+            geo_ad_group_name = f"{geo_campaign_name} - Hovedgruppe"
+            geo_adgroup_row = {col: '' for col in columns}
+            geo_adgroup_row.update({
+                'Campaign': geo_campaign_name,
+                'Languages': 'All',
+                'Audience targeting': 'Audience segments',
+                'Flexible Reach': 'Audience segments;Genders;Ages;Parental status;Household incomes',
+                'Ad Group': geo_ad_group_name,
+                'Optimized targeting': 'Disabled',
+                'Strict age and gender targeting': 'Disabled',
+                'Search term matching': 'Enabled',
+                'Ad Group Type': 'Standard',
+                'Channels': '[]',
+                'Campaign Status': 'Enabled',
+                'Ad Group Status': 'Enabled'
+            })
+            all_rows.append(geo_adgroup_row)
+
+            # GEO Keywords
+            geo_keywords = geo_ad_group.get('keywords', [])
+            for kw in geo_keywords:
+                if isinstance(kw, dict):
+                    kw_text = kw.get('keyword', '')
+                    match_type = kw.get('match_type', 'Phrase')
+                    final_url = kw.get('url', '')
+                else:
+                    continue
+
+                if not kw_text:
+                    continue
+
+                geo_keyword_row = {col: '' for col in columns}
+                geo_keyword_row.update({
+                    'Campaign': geo_campaign_name,
+                    'Ad Group': geo_ad_group_name,
+                    'Max CPC': '35.00',
+                    'Keyword': kw_text,
+                    'Criterion Type': match_type.title(),
+                    'First page bid': '0.00',
+                    'Top of page bid': '0.00',
+                    'First position bid': '0.00',
+                    'Landing page experience': ' -',
+                    'Expected CTR': ' -',
+                    'Ad relevance': ' -',
+                    'Final URL': final_url,
+                    'Campaign Status': 'Enabled',
+                    'Ad Group Status': 'Enabled',
+                    'Status': 'Enabled',
+                    'Approval Status': 'Pending review'
+                })
+                all_rows.append(geo_keyword_row)
+
+            # GEO Ad row
+            geo_headlines = geo_ad_group.get('headlines', [])
+            geo_descriptions = geo_ad_group.get('descriptions', [])
+            if geo_headlines or geo_descriptions:
+                first_geo_url = ''
+                if geo_keywords:
+                    first_geo_kw = geo_keywords[0]
+                    if isinstance(first_geo_kw, dict):
+                        first_geo_url = first_geo_kw.get('url', '')
+
+                geo_ad_row = {col: '' for col in columns}
+                geo_ad_row.update({
+                    'Campaign': geo_campaign_name,
+                    'Ad Group': geo_ad_group_name,
+                    'Final URL': first_geo_url,
+                    'Ad type': 'Responsive search ad',
+                    'Campaign Status': 'Enabled',
+                    'Ad Group Status': 'Enabled',
+                    'Status': 'Enabled',
+                    'Approval Status': 'Pending review'
+                })
+
+                for i, headline in enumerate(geo_headlines[:15], 1):
+                    if headline:
+                        # Understøt både string og dict format
+                        if isinstance(headline, dict):
+                            headline_text = headline.get('text', '') or headline.get('headline', '') or str(headline)
+                        else:
+                            headline_text = str(headline)
+                        if headline_text:
+                            geo_ad_row[f'Headline {i}'] = headline_text[:30]
+
+                for i, description in enumerate(geo_descriptions[:4], 1):
+                    if description:
+                        # Understøt både string og dict format
+                        if isinstance(description, dict):
+                            desc_text = description.get('text', '') or description.get('description', '') or str(description)
+                        else:
+                            desc_text = str(description)
+                        if desc_text:
+                            geo_ad_row[f'Description {i}'] = desc_text[:90]
+
+                all_rows.append(geo_ad_row)
+
+            # GEO Negative Keywords
+            for list_id in geo_neg_list_ids:
+                list_id_str = str(list_id)
+                if list_id_str in all_negative_lists:
+                    neg_list = all_negative_lists[list_id_str]
+                    for keyword_text, match_type in neg_list['keywords']:
+                        neg_row = {col: '' for col in columns}
+                        neg_row.update({
+                            'Campaign': geo_campaign_name,
+                            'Keyword': keyword_text,
+                            'Criterion Type': f"Negative {match_type.lower()}" if match_type else 'Negative phrase',
+                            'Campaign Status': 'Enabled',
+                            'Status': 'Enabled'
+                        })
+                        all_rows.append(neg_row)
+
+        # Opret DataFrame og eksporter
+        df = pd.DataFrame(all_rows)
+
+        # Ensure all columns exist
+        for col in columns:
+            if col not in df.columns:
+                df[col] = ''
+
+        # Reorder columns
+        df = df[columns]
+
+        # Opret CSV response med korrekt encoding (UTF-16LE med tab separator for Google Ads Editor)
+        response = HttpResponse(content_type='text/csv; charset=utf-16le')
+        filename = f"Google_Ads_Export_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+        # Skriv CSV med UTF-16 encoding og tab separator (inkluderer BOM automatisk)
+        csv_content = df.to_csv(index=False, sep='\t', encoding='utf-16le', lineterminator='\r\n')
+        response.write(csv_content)
+
+        return response
+
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON data'})
+    except Exception as e:
+        import traceback
+        return JsonResponse({'success': False, 'error': str(e), 'traceback': traceback.format_exc()})
+
+
+# =====================================================
+# Programmatic Byside AJAX Endpoints
+# =====================================================
+
+@csrf_exempt
+def crawl_sitemap_ajax(request):
+    """
+    AJAX endpoint til sitemap crawling.
+    POST: {website_url: str}
+    Returns: {success: bool, urls_found: int, urls: List[str], message: str}
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'})
+
+    try:
+        from .sitemap_service import SitemapCrawler
+
+        data = json.loads(request.body)
+        website_url = data.get('website_url', '').strip()
+
+        if not website_url:
+            return JsonResponse({'success': False, 'error': 'Website URL er påkrævet'})
+
+        # Tilføj https hvis mangler
+        if not website_url.startswith('http'):
+            website_url = f'https://{website_url}'
+
+        crawler = SitemapCrawler(website_url)
+        success, urls, message = crawler.crawl_all_urls()
+
+        return JsonResponse({
+            'success': success,
+            'urls_found': len(urls),
+            'urls': urls[:1000],  # Begræns til 1000 URLs for performance
+            'message': message
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@csrf_exempt
+def match_city_pages_ajax(request):
+    """
+    AJAX endpoint til URL-matching mod sitemap.
+    POST: {
+        website_url: str,
+        service_name: str,
+        cities: List[str]
+    }
+    Returns: {
+        success: bool,
+        results: [{city, status, existing_url}],
+        existing_count: int,
+        missing_count: int
+    }
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'})
+
+    try:
+        from .sitemap_service import crawl_and_match
+
+        data = json.loads(request.body)
+        website_url = data.get('website_url', '').strip()
+        service_name = data.get('service_name', '').strip()
+        cities = data.get('cities', [])
+
+        if not website_url:
+            return JsonResponse({'success': False, 'error': 'Website URL er påkrævet'})
+        if not service_name:
+            return JsonResponse({'success': False, 'error': 'Service navn er påkrævet'})
+        if not cities:
+            return JsonResponse({'success': False, 'error': 'Mindst én by skal vælges'})
+
+        # Tilføj https hvis mangler
+        if not website_url.startswith('http'):
+            website_url = f'https://{website_url}'
+
+        result = crawl_and_match(website_url, service_name, cities)
+
+        return JsonResponse(result)
+
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@csrf_exempt
+def generate_programmatic_descriptions_ajax(request):
+    """
+    AJAX endpoint til AI-generering af descriptions og meta tags med {BYNAVN} placeholder.
+    POST: {
+        service_name: str,
+        industry_name: str,
+        usps: List[str],
+        keywords: List[str],
+        generate_meta_tags: bool (optional) - hvis true, generér 7 meta titler + 7 meta beskrivelser
+    }
+    Returns:
+        - Uden generate_meta_tags: {success: bool, descriptions: List[str]}
+        - Med generate_meta_tags: {success: bool, meta_titles: List[str], meta_descriptions: List[str]}
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'})
+
+    try:
+        from ai_integration.services import DescriptionGenerator
+
+        data = json.loads(request.body)
+        service_name = data.get('service_name', '')
+        industry_name = data.get('industry_name', '')
+        usps = data.get('usps', [])
+        keywords = data.get('keywords', [])
+        generate_meta_tags = data.get('generate_meta_tags', False)
+
+        if not service_name:
+            return JsonResponse({'success': False, 'error': 'Service navn er påkrævet'})
+
+        # Initialiser generator
+        generator = DescriptionGenerator()
+
+        # Hvis generate_meta_tags er true, generér 7 meta titler + 7 meta beskrivelser
+        if generate_meta_tags:
+            result = generator.generate_meta_tags(
+                service_name=service_name,
+                usps=usps
+            )
+            return JsonResponse({
+                'success': True,
+                'meta_titles': result['meta_titles'],
+                'meta_descriptions': result['meta_descriptions']
+            })
+
+        # Ellers generér standard descriptions
+        # Tilføj instruktion om {BYNAVN} placeholder til prompt
+        geo_usps = usps + [
+            "VIGTIGT: Inkluder {BYNAVN} placeholder i mindst 2 af beskrivelserne",
+            "Eksempel: 'Professionel service i {BYNAVN}. Ring nu!'"
+        ]
+
+        descriptions = generator.generate_descriptions(
+            service_name=service_name,
+            industry_name=industry_name,
+            usps=geo_usps,
+            keywords=keywords
+        )
+
+        return JsonResponse({
+            'success': True,
+            'descriptions': descriptions
+        })
+
+    except ValueError as e:
+        # API key ikke konfigureret
+        return JsonResponse({'success': False, 'error': str(e)})
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})

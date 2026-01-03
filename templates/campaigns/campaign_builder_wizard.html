@@ -11,6 +11,8 @@
 <!-- Include Leaflet for polygon-based geographic visualization -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<!-- Turf.js for polygon merging (used for consolidated postal codes like København) -->
+<script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
 
 <!-- Custom CSS for Multi-Step Wizard -->
 <style>
@@ -426,7 +428,7 @@
                 <div class="selection-card p-4 rounded-lg border-2 geographic-region-card"
                      data-region-id="{{ region.id }}"
                      data-region-name="{{ region.name|escapejs }}"
-                     data-cities='[{% for city in region.cities.all %}{"name": "{{ city.city_name|escapejs }}", "dawa_name": "{{ city.city_synonym|default:city.city_name|escapejs }}"}{% if not forloop.last %}, {% endif %}{% endfor %}]'>
+                     data-cities='[{% for city in region.cities.all %}{"name": "{{ city.city_name|escapejs }}", "dawa_name": "{{ city.city_synonym|default:city.city_name|escapejs }}", "postal_code": "{{ city.postal_code }}"}{% if not forloop.last %}, {% endif %}{% endfor %}]'>
                     <div class="flex items-start space-x-3">
                         <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center text-xl">
                             🏙️
@@ -435,7 +437,7 @@
                             <h4 class="font-medium text-gray-900">{{ region.name }}</h4>
                             <p class="text-sm text-gray-500 mb-2">{{ region.description|truncatechars:50 }}</p>
                             <div class="flex items-center space-x-2">
-                                <span class="category-badge bg-blue-100 text-blue-800">{{ region.cities.count }} byer</span>
+                                <span class="category-badge bg-blue-100 text-blue-800 region-city-count" data-original-count="{{ region.cities.count }}">{{ region.cities.count }} byer</span>
                             </div>
                         </div>
                     </div>
@@ -536,12 +538,40 @@
                     </table>
                 </div>
 
-                <div class="mt-4 flex justify-end">
-                    <button type="button" id="download-urls-btn" class="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:shadow-lg transition-all duration-200 flex items-center">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                        Download til WordPress Import
-                    </button>
+            </div>
+        </div>
+
+        <!-- Negative City List Generation (Hidden - auto-generates in background) -->
+        <div id="negative-city-list-section" class="mb-8 bg-gradient-to-r from-red-50 to-orange-50 rounded-xl p-6 border border-red-200" style="display: none;">
+            <h3 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                <span class="w-8 h-8 rounded-lg mr-3 flex items-center justify-center text-white bg-gradient-to-r from-red-600 to-orange-600">🚫</span>
+                Negativ By-Liste
+            </h3>
+            <p class="text-sm text-gray-600 mb-4">Generer automatisk en liste med alle danske byer du IKKE betjener - til brug som negative søgeord</p>
+
+            <div class="flex items-center gap-4">
+                <div class="flex-1">
+                    <div id="negative-city-list-info" class="text-sm text-gray-500">
+                        <span id="negative-city-count" class="font-semibold text-red-600">0</span> byer vil blive ekskluderet
+                    </div>
                 </div>
+                <button type="button" id="generate-negative-cities-btn"
+                        class="bg-gradient-to-r from-red-600 to-orange-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
+                    </svg>
+                    Generer Negativ By-Liste
+                </button>
+            </div>
+
+            <!-- Result info (hidden by default) -->
+            <div id="negative-city-list-result" class="mt-4 p-3 bg-green-50 rounded-lg border border-green-200" style="display: none;">
+                <p class="text-sm text-green-800">
+                    <span class="font-medium">✓ Liste oprettet:</span>
+                    <span id="negative-city-list-name"></span> med
+                    <span id="negative-city-list-count" class="font-semibold"></span> negative søgeord
+                </p>
             </div>
         </div>
     </div>
@@ -776,68 +806,196 @@
         </div>
 
         <div class="space-y-8">
-            <!-- City Selection -->
-            <div class="bg-gray-50 rounded-lg p-6">
-                <h3 class="text-xl font-semibold text-gray-900 mb-4">🏙️ Vælg Byer</h3>
-                <p class="text-sm text-gray-600 mb-4">Vælg de byer der skal inkluderes i geo-kampagnen</p>
+            <!-- Website URL & Sitemap Crawling -->
+            <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                <h3 class="text-xl font-semibold text-gray-900 mb-4">🌐 Website & Sitemap</h3>
+                <p class="text-sm text-gray-600 mb-4">Angiv kundens website for at finde eksisterende bysider</p>
 
-                <div class="mb-4">
-                    <input type="text" id="city-search" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="Søg efter by...">
-                </div>
-
-                <div id="programmatic-cities-container" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-64 overflow-y-auto">
-                    {% for region in geographic_regions %}
-                        {% for city in region.cities.all %}
-                        <label class="flex items-center p-2 bg-white rounded border cursor-pointer hover:bg-purple-50 city-checkbox-label">
-                            <input type="checkbox" class="city-checkbox mr-2" data-city-name="{{ city.name }}" data-city-slug="{{ city.slug }}">
-                            <span class="text-sm">{{ city.name }}</span>
-                        </label>
-                        {% endfor %}
-                    {% endfor %}
-                </div>
-
-                <div class="mt-4 flex items-center justify-between">
-                    <span class="text-sm text-gray-500">Valgte byer: <span id="selected-cities-count" class="font-semibold text-purple-600">0</span></span>
-                    <button type="button" onclick="selectAllCities()" class="text-sm text-purple-600 hover:text-purple-700 font-medium">Vælg alle</button>
-                </div>
-            </div>
-
-            <!-- Headline Templates -->
-            <div class="bg-gray-50 rounded-lg p-6">
-                <h3 class="text-xl font-semibold text-gray-900 mb-4">📰 Headline Templates</h3>
-                <p class="text-sm text-gray-600 mb-4">Definer headline templates med placeholders: <code class="bg-gray-200 px-1 rounded">{SERVICE}</code>, <code class="bg-gray-200 px-1 rounded">{BYNAVN}</code></p>
-
-                <div id="headline-templates-container" class="space-y-3">
-                    <div class="headline-template-row flex items-center space-x-2">
-                        <input type="text" class="headline-template-input flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="{SERVICE} i {BYNAVN}" maxlength="30">
-                        <span class="text-xs text-gray-500 w-12 text-right char-count">0/30</span>
-                    </div>
-                </div>
-                <button type="button" onclick="addHeadlineTemplate()" class="mt-3 text-sm text-purple-600 hover:text-purple-700 font-medium">+ Tilføj headline</button>
-            </div>
-
-            <!-- Description Templates -->
-            <div class="bg-gray-50 rounded-lg p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <div>
-                        <h3 class="text-xl font-semibold text-gray-900">📝 Description Templates</h3>
-                        <p class="text-sm text-gray-600 mt-1">Definer description templates med placeholders</p>
-                    </div>
-                    <button type="button" id="generate-ai-descriptions-btn" onclick="generateAIDescriptions()" class="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:shadow-lg transition-all duration-200 flex items-center space-x-2">
+                <div class="flex space-x-3">
+                    <input type="url" id="programmatic-website-url" class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="https://www.eksempel.dk">
+                    <button type="button" id="crawl-sitemap-btn" onclick="crawlSitemap()" class="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium hover:shadow-lg transition-all duration-200 flex items-center space-x-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                         </svg>
-                        <span>Generer med AI</span>
+                        <span>Crawl Sitemap</span>
                     </button>
                 </div>
 
-                <div id="description-templates-container" class="space-y-3">
-                    <div class="description-template-row flex items-center space-x-2">
-                        <textarea class="description-template-input flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="Professionel {SERVICE} i {BYNAVN}. Ring nu for gratis tilbud!" rows="2" maxlength="90"></textarea>
-                        <span class="text-xs text-gray-500 w-12 text-right char-count">0/90</span>
+                <!-- Sitemap Status -->
+                <div id="sitemap-status" class="mt-4 hidden">
+                    <div id="sitemap-loading" class="flex items-center space-x-2 text-gray-500 hidden">
+                        <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Crawler sitemap...</span>
+                    </div>
+                    <div id="sitemap-success" class="flex items-center space-x-2 text-green-600 hidden">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        <span id="sitemap-urls-count">0 URLs fundet i sitemap</span>
+                    </div>
+                    <div id="sitemap-error" class="flex items-center space-x-2 text-red-600 hidden">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                        <span id="sitemap-error-message">Kunne ikke crawle sitemap</span>
                     </div>
                 </div>
-                <button type="button" onclick="addDescriptionTemplate()" class="mt-3 text-sm text-purple-600 hover:text-purple-700 font-medium">+ Tilføj description</button>
+            </div>
+
+            <!-- Hidden: behold city-search for kompatibilitet men skjult -->
+            <input type="hidden" id="city-search" value="">
+            <input type="hidden" id="selected-cities-count" value="0">
+
+            <!-- City Page Status -->
+            <div id="city-page-status-section" class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 hidden">
+                <!-- Header med Credit Counter -->
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-xl font-semibold text-gray-900">📊 Byside Status</h3>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center space-x-2 px-4 py-2 bg-green-100 rounded-lg">
+                            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span class="font-semibold text-green-800" id="existing-pages-count">0</span>
+                            <span class="text-green-700 text-sm">eksisterer</span>
+                        </div>
+                        <div class="flex items-center space-x-2 px-4 py-2 bg-yellow-100 rounded-lg">
+                            <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            <span class="font-semibold text-yellow-800" id="missing-pages-count">0</span>
+                            <span class="text-yellow-700 text-sm">mangler</span>
+                        </div>
+                        <!-- Credit Counter -->
+                        <div class="flex items-center space-x-2 px-4 py-2 bg-purple-100 rounded-lg border-2 border-purple-300">
+                            <span class="text-purple-700 text-sm font-medium">Credits:</span>
+                            <span class="font-bold text-purple-800 text-lg" id="credits-count">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="city-page-status-loading" class="flex items-center justify-center py-8 hidden">
+                    <svg class="animate-spin h-8 w-8 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span class="ml-3 text-gray-600">Tjekker bysider...</span>
+                </div>
+
+                <!-- Resultat: To kolonner -->
+                <div id="city-page-results" class="hidden">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Eksisterende sider (venstre) -->
+                        <div class="bg-green-50 rounded-xl p-4 border border-green-200">
+                            <h4 class="font-semibold text-green-800 mb-3 flex items-center">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                Eksisterende sider (0 credits)
+                            </h4>
+                            <div id="existing-pages-list" class="space-y-2 max-h-64 overflow-y-auto">
+                                <!-- Dynamisk liste af eksisterende sider med links -->
+                            </div>
+                            <p id="no-existing-pages" class="text-sm text-green-600 italic hidden">Ingen eksisterende sider fundet</p>
+                        </div>
+
+                        <!-- Manglende sider (højre) -->
+                        <div class="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
+                            <div class="flex items-center justify-between mb-3">
+                                <h4 class="font-semibold text-yellow-800 flex items-center">
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                    </svg>
+                                    Nye sider (1 credit per side)
+                                </h4>
+                                <div class="flex space-x-2">
+                                    <button type="button" onclick="selectAllMissingPages()" class="text-xs text-yellow-700 hover:text-yellow-900 font-medium">Vælg alle</button>
+                                    <span class="text-yellow-400">|</span>
+                                    <button type="button" onclick="deselectAllMissingPages()" class="text-xs text-yellow-700 hover:text-yellow-900 font-medium">Fravælg alle</button>
+                                </div>
+                            </div>
+                            <div id="missing-pages-list" class="space-y-2 max-h-64 overflow-y-auto">
+                                <!-- Dynamisk liste af manglende sider med checkboxes -->
+                            </div>
+                            <p id="no-missing-pages" class="text-sm text-yellow-600 italic hidden">Alle bysider eksisterer allerede!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SEO Meta Tags Generering -->
+            <div id="seo-meta-tags-section" class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-6 border border-blue-200">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-xl font-semibold text-gray-900">🏷️ SEO Meta Tags</h3>
+                        <p class="text-sm text-gray-600 mt-1">Generér 7 varianter af meta titler (50-60 tegn) og meta beskrivelser (120-160 tegn)</p>
+                    </div>
+                    <button type="button" id="generate-meta-tags-btn" onclick="generateAIMetaTags()" class="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-medium hover:shadow-lg transition-all duration-200 flex items-center space-x-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                        </svg>
+                        <span>Generer 7 varianter med AI</span>
+                    </button>
+                </div>
+
+                <!-- Loading state -->
+                <div id="meta-tags-loading" class="hidden flex items-center justify-center py-8">
+                    <svg class="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span class="ml-3 text-gray-600">Genererer meta tags med AI...</span>
+                </div>
+
+                <!-- Preview af genererede meta tags -->
+                <div id="meta-tags-preview" class="hidden">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Meta Titler -->
+                        <div class="bg-white rounded-xl p-4 border border-blue-100">
+                            <div class="flex items-center justify-between mb-4">
+                                <h4 class="font-semibold text-blue-800 flex items-center">
+                                    <span class="w-7 h-7 rounded-lg mr-2 flex items-center justify-center text-sm"
+                                          style="background: linear-gradient(135deg, #dbeafe, #bfdbfe);">📰</span>
+                                    Meta Titler (<span id="meta-titles-count">0</span>/10)
+                                </h4>
+                                <button type="button" class="add-meta-title-btn text-sm px-4 py-2 rounded-xl font-medium transition-all duration-200 hover:shadow-md"
+                                        style="background: linear-gradient(135deg, #dbeafe20, #bfdbfe20); color: #2563eb;">
+                                    + Tilføj
+                                </button>
+                            </div>
+                            <div id="meta-titles-list" class="space-y-2">
+                                <!-- Dynamisk liste af meta titler -->
+                            </div>
+                        </div>
+
+                        <!-- Meta Beskrivelser -->
+                        <div class="bg-white rounded-xl p-4 border border-indigo-100">
+                            <div class="flex items-center justify-between mb-4">
+                                <h4 class="font-semibold text-indigo-800 flex items-center">
+                                    <span class="w-7 h-7 rounded-lg mr-2 flex items-center justify-center text-sm"
+                                          style="background: linear-gradient(135deg, #e0e7ff, #c7d2fe);">📝</span>
+                                    Meta Beskrivelser (<span id="meta-descriptions-count">0</span>/10)
+                                </h4>
+                                <button type="button" class="add-meta-desc-btn text-sm px-4 py-2 rounded-xl font-medium transition-all duration-200 hover:shadow-md"
+                                        style="background: linear-gradient(135deg, #e0e7ff20, #c7d2fe20); color: #4f46e5;">
+                                    + Tilføj
+                                </button>
+                            </div>
+                            <div id="meta-descriptions-list" class="space-y-2">
+                                <!-- Dynamisk liste af meta beskrivelser -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 p-3 bg-blue-100 rounded-lg">
+                        <p class="text-sm text-blue-800">
+                            <strong>💡 Tip:</strong> Ved eksport blandes titler og beskrivelser automatisk, så hver byside får en unik kombination.
+                        </p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -968,6 +1126,7 @@
 <script>
 // Wizard State Management
 let currentStep = 0;  // Start at step 0 (purpose selection)
+
 let campaignConfig = {
     selected_purposes: [],  // ['company_description', 'google_ads', 'seo', 'programmatic']
     industry_ids: [],  // Changed from industry_id to support multiple industries
@@ -992,9 +1151,7 @@ let campaignConfig = {
         focus_keywords: []
     },
     programmatic_info: {
-        selected_cities: [],
-        headline_templates: [],
-        description_templates: []
+        selected_cities: []
     },
     // NYT: Geo-kampagne konfiguration (Step 4)
     geo_config: {
@@ -1007,9 +1164,11 @@ let campaignConfig = {
     // Custom negative keywords added in this session (per list)
     custom_negative_keywords: {},  // {listId: ['keyword1', 'keyword2', ...]}
     // Template ad group for copying headlines/descriptions to other ad groups
+    // Supports both industry and GEO campaigns (shared template pool)
     template_ad_group: {
-        industry_id: null,
-        service_id: null,
+        type: null,           // 'industry' or 'geo'
+        industry_id: null,    // Only used when type='industry'
+        service_id: null,     // Used by both types
         source_service_name: null  // Original service name for substitution
     }
 };
@@ -1197,6 +1356,17 @@ registerUIRestoreHandler('custom_usps', (config) => {
         renderCustomUsps();
     }
 }, { priority: 45 });
+
+// Step 5: Geo Map Targeting (priority: 50) - Restore geo map selected cities
+registerUIRestoreHandler('geo_map_targeting', (config) => {
+    if (config.geo_map_targeting && config.geo_map_targeting.postal_names && config.geo_map_targeting.postal_names.length > 0) {
+        // Opdater display feltet med gemte bynavne
+        $('#geo-map-selected-cities').val(config.geo_map_targeting.postal_names.join(', '));
+        $('#geo-map-city-count').text(config.geo_map_targeting.postal_names.length);
+        $('#geo-map-summary').show();
+        console.log('Restored geo_map_targeting:', config.geo_map_targeting.postal_names);
+    }
+}, { priority: 50 });
 
 // Restore UI from saved state using registered handlers
 async function restoreUIFromState() {
@@ -2193,6 +2363,16 @@ function previousStep() {
     }
 }
 
+// Go to a specific step (for navigation links)
+function goToStep(stepNumber) {
+    const visibleSteps = getVisibleSteps();
+    if (visibleSteps.includes(stepNumber)) {
+        currentStep = stepNumber;
+        updateWizardState();
+        saveStateToStorage();
+    }
+}
+
 // Validate current step
 function validateCurrentStep() {
     switch(currentStep) {
@@ -2257,10 +2437,12 @@ function validateCurrentStep() {
             campaignConfig.company_info.target_audience = $('#target-audience').val().trim();
             return true;
         case 4:  // Geographic Targeting (Step 4)
-            // Check if there are regions available
-            const regionCardsCount = $('.geographic-region-card').length;
-            if (regionCardsCount > 0 && campaignConfig.geographic_region_ids.length === 0) {
-                alert('Vælg mindst én geografisk region før du fortsætter.');
+            // Region is optional if user has manually selected cities via the map
+            const hasRegionsSelected = campaignConfig.geographic_region_ids.length > 0;
+            const hasManualCities = campaignConfig.geo_map_targeting?.postal_codes?.length > 0;
+
+            if (!hasRegionsSelected && !hasManualCities) {
+                alert('Vælg mindst én geografisk region eller vælg byer manuelt på kortet.');
                 return false;
             }
             // Save geo config settings
@@ -2297,25 +2479,14 @@ function validateCurrentStep() {
             campaignConfig.seo_info.focus_keywords = $('#seo-focus-keywords').val().trim().split('\n').filter(k => k.trim());
             return true;
         case 7:  // Programmatic Byside
-            if (campaignConfig.programmatic_info.selected_cities.length === 0) {
-                alert('Vælg mindst én by før du fortsætter.');
+            // Brug byer fra Geografisk Målretning (Step 4)
+            const cities = getSelectedCities();
+            if (cities.length === 0) {
+                alert('Vælg først byer i Geografisk Målretning (Step 4)');
                 return false;
             }
-            // Collect headline and description templates
-            campaignConfig.programmatic_info.headline_templates = [];
-            $('.headline-template-input').each(function() {
-                const val = $(this).val().trim();
-                if (val) campaignConfig.programmatic_info.headline_templates.push(val);
-            });
-            campaignConfig.programmatic_info.description_templates = [];
-            $('.description-template-input').each(function() {
-                const val = $(this).val().trim();
-                if (val) campaignConfig.programmatic_info.description_templates.push(val);
-            });
-            if (campaignConfig.programmatic_info.headline_templates.length === 0) {
-                alert('Tilføj mindst én headline template.');
-                return false;
-            }
+            // Gem byerne til programmatic_info for kompatibilitet
+            campaignConfig.programmatic_info.selected_cities = cities;
             return true;
         default:
             return true;
@@ -2375,6 +2546,16 @@ function updateWizardState() {
         $('#next-btn').show();
         $('#create-campaign-btn').hide();
     }
+
+    // Initialize Step 7 (Programmatic Byside) when shown
+    if (currentStep === 7) {
+        initStep7FromGeoAndUsps();
+    }
+}
+
+// Initialize Step 7 with data from Step 4 (Geo) and Step 2 (USPs)
+function initStep7FromGeoAndUsps() {
+    // Function kept for compatibility - summaries removed from UI
 }
 
 // Generate campaign summary for final step
@@ -2446,9 +2627,7 @@ function generateCampaignSummary() {
         summaryHtml += `
                 <div>
                     <h4 class="font-medium text-gray-900 mb-2">🌍 Programmatic Byside</h4>
-                    <p class="text-sm text-gray-600 mb-1">Byer: ${campaignConfig.programmatic_info.selected_cities.length} valgt</p>
-                    <p class="text-sm text-gray-600 mb-1">Headlines: ${campaignConfig.programmatic_info.headline_templates.length} stk</p>
-                    <p class="text-sm text-gray-600">Descriptions: ${campaignConfig.programmatic_info.description_templates.length} stk</p>
+                    <p class="text-sm text-gray-600">Byer: ${campaignConfig.programmatic_info.selected_cities.length} valgt</p>
                 </div>
         `;
     }
@@ -2493,8 +2672,8 @@ function generateCampaignSummary() {
     if (campaignConfig.selected_purposes.includes('programmatic')) {
         exportHtml += `
             <button class="bg-gradient-to-r from-purple-600 to-purple-700 text-white p-6 rounded-lg text-left hover:shadow-lg transition-all" onclick="exportProgrammaticFiles()">
-                <h4 class="font-medium text-white mb-2">🌍 Programmatic Export</h4>
-                <p class="text-purple-100 text-sm">Google Ads CSV + WordPress Excel</p>
+                <h4 class="font-medium text-white mb-2">🌍 WordPress Byside Export</h4>
+                <p class="text-purple-100 text-sm">Download CSV til WP All Import</p>
             </button>
         `;
     }
@@ -2514,9 +2693,58 @@ function generateCompanyPrompt() {
     alert('Genererer ChatGPT prompt... (Backend integration kommer i næste fase)');
 }
 
-function exportGoogleAdsCsv() {
+async function exportGoogleAdsCsv() {
     console.log('Exporting Google Ads CSV...', campaignConfig);
-    alert('Eksporterer Google Ads CSV... (Backend integration kommer i næste fase)');
+
+    // Valider at der er kampagner at eksportere
+    if (!campaignConfig.campaigns || Object.keys(campaignConfig.campaigns).length === 0) {
+        showToast('Ingen kampagner at eksportere. Gennemfør wizard først.', 'error');
+        return;
+    }
+
+    try {
+        showToast('Genererer Google Ads fil...', 'info');
+
+        const response = await fetch('/export-campaign-builder-csv/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(campaignConfig)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Export fejlede');
+        }
+
+        // Download filen
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+
+        // Få filnavn fra Content-Disposition header
+        const disposition = response.headers.get('Content-Disposition');
+        let filename = 'Google_Ads_Export.csv';
+        if (disposition && disposition.includes('filename=')) {
+            const match = disposition.match(/filename="?([^"]+)"?/);
+            if (match) filename = match[1];
+        }
+
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+
+        showToast('Google Ads fil downloadet!', 'success');
+
+    } catch (error) {
+        console.error('Export error:', error);
+        showToast('Fejl ved eksport: ' + error.message, 'error');
+    }
 }
 
 function generateSeoReport() {
@@ -2571,9 +2799,147 @@ function getCookie(name) {
     return cookieValue;
 }
 
+// Export WordPress CSV - KUN manglende byer (smart eksport)
 function exportProgrammaticFiles() {
-    console.log('Exporting programmatic files...', campaignConfig.programmatic_info);
-    alert('Eksporterer programmatic filer... (Backend integration kommer i næste fase)');
+    console.log('Exporting WordPress CSV (kun manglende byer)...', programmaticState);
+
+    const selectedCities = getSelectedCities();
+    const serviceName = getServiceNameForProgrammatic() || 'service';
+    const usps = getActiveUsps();
+
+    // Determine which cities to export
+    let citiesToExport = [];
+
+    if (programmaticState.city_matches && programmaticState.city_matches.length > 0) {
+        // Smart export: Only selected missing pages (from checkboxes)
+        if (programmaticState.selected_new_cities && programmaticState.selected_new_cities.length > 0) {
+            citiesToExport = programmaticState.selected_new_cities;
+        } else {
+            // Fallback: all missing cities
+            const missingCities = programmaticState.city_matches.filter(m => m.status === 'missing');
+            citiesToExport = missingCities.map(m => m.city);
+        }
+
+        if (citiesToExport.length === 0) {
+            showToast('Ingen nye bysider valgt! Vælg mindst én by fra listen.', 'info');
+            return;
+        }
+
+        const skippedCount = programmaticState.existing_count + (programmaticState.missing_count - citiesToExport.length);
+        if (skippedCount > 0) {
+            showToast(`${skippedCount} sider springes over (eksisterende eller fravalgte).`, 'info');
+        }
+    } else {
+        // No sitemap crawl done - export all selected cities
+        if (selectedCities.length === 0) {
+            showToast('Ingen byer valgt. Vælg først byer i Geografisk Målretning (Step 4).', 'error');
+            return;
+        }
+        citiesToExport = selectedCities;
+    }
+
+    // Brug AI-genererede meta tags hvis tilgængelige, ellers fallback til default
+    const metaTitles = programmaticState.generated_meta_titles.length > 0
+        ? programmaticState.generated_meta_titles
+        : getDefaultMetaTitles(serviceName, usps);
+
+    const metaDescs = programmaticState.generated_meta_descriptions.length > 0
+        ? programmaticState.generated_meta_descriptions
+        : getDefaultMetaDescriptions(serviceName, usps);
+
+    // Opret CSV content til WordPress WP All Import med varierede meta tags
+    // Bruger semikolon som separator for korrekt Excel-import i Danmark
+    let csv = 'post_title;post_name;bynavn;service;meta_title;meta_description\n';
+
+    citiesToExport.forEach((cityName, index) => {
+        const urlSlug = `${serviceName.toLowerCase().replace(/\s+/g, '-')}-${cityName.toLowerCase().replace(/\s+/g, '-').replace(/æ/g, 'ae').replace(/ø/g, 'oe').replace(/å/g, 'aa')}`;
+
+        // Modulo fordeling for variation: titel og beskrivelse offset med 3
+        const titleVariant = index % metaTitles.length;
+        const descVariant = (index + 3) % metaDescs.length;
+
+        // Meta title: Erstat {BYNAVN} placeholder
+        const metaTitle = metaTitles[titleVariant]
+            .replace(/{BYNAVN}/g, cityName)
+            .replace(/{SERVICE}/g, serviceName);
+
+        // Meta description: Erstat {BYNAVN} placeholder
+        const metaDescription = metaDescs[descVariant]
+            .replace(/{BYNAVN}/g, cityName)
+            .replace(/{SERVICE}/g, serviceName);
+
+        // Escape semikolon i værdier og brug semikolon som separator
+        const escapeValue = (val) => val.replace(/"/g, '""');
+        csv += `"${escapeValue(serviceName)} ${escapeValue(cityName)}";"${escapeValue(urlSlug)}";"${escapeValue(cityName)}";"${escapeValue(serviceName)}";"${escapeValue(metaTitle)}";"${escapeValue(metaDescription)}"\n`;
+    });
+
+    // Download filen med UTF-8 BOM for korrekt dansk tegn-encoding i Excel
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `wordpress-bysider-${citiesToExport.length}-byer.csv`;
+    link.click();
+
+    showToast(`Eksporteret ${citiesToExport.length} bysider til WordPress import med USPs og meta tags.`, 'success');
+}
+
+// Export Google Ads CSV - ALLE byer (med korrekt Final URL)
+function exportGoogleAdsCsv() {
+    console.log('Exporting Google Ads CSV (alle byer)...', programmaticState);
+
+    const selectedCities = getSelectedCities();
+    if (selectedCities.length === 0) {
+        showToast('Ingen byer valgt. Vælg først byer i Geografisk Målretning (Step 4).', 'error');
+        return;
+    }
+
+    const serviceName = getServiceNameForProgrammatic() || 'service';
+    const websiteUrl = $('#programmatic-website-url').val().trim() || '';
+
+    // Build CSV for Google Ads Editor import (semikolon som separator for dansk Excel)
+    let csv = 'Campaign;Ad Group;Keyword;Match Type;Final URL;Headline 1;Headline 2;Description 1\n';
+
+    const escapeValue = (val) => val.replace(/"/g, '""');
+
+    selectedCities.forEach(cityName => {
+        // Check if city has existing page
+        const match = programmaticState.city_matches?.find(m => m.city === cityName);
+        let finalUrl;
+
+        if (match && match.existing_url) {
+            // Use existing URL
+            finalUrl = match.existing_url.startsWith('http') ? match.existing_url : (websiteUrl + match.existing_url);
+        } else {
+            // Generate new URL
+            const urlSlug = `${serviceName.toLowerCase().replace(/\s+/g, '-')}-${cityName.toLowerCase().replace(/\s+/g, '-').replace(/æ/g, 'ae').replace(/ø/g, 'oe').replace(/å/g, 'aa')}`;
+            finalUrl = websiteUrl ? `${websiteUrl.replace(/\/$/, '')}/${urlSlug}/` : `/${urlSlug}/`;
+        }
+
+        // Process templates - default headlines og description baseret på service og by
+        const headline1 = `${serviceName} ${cityName}`;
+        const headline2 = `Professionel ${serviceName}`;
+        const description1 = `Professionel ${serviceName} i ${cityName}. Ring for gratis tilbud!`;
+
+        const campaignName = `${serviceName} - Geo`;
+        const adGroupName = cityName;
+        const keyword = `${serviceName} ${cityName}`;
+
+        csv += `"${escapeValue(campaignName)}";"${escapeValue(adGroupName)}";"${escapeValue(keyword)}";"Phrase";"${escapeValue(finalUrl)}";"${escapeValue(headline1)}";"${escapeValue(headline2)}";"${escapeValue(description1)}"\n`;
+    });
+
+    // Download med UTF-8 BOM for korrekt dansk tegn-encoding
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `google-ads-geo-${selectedCities.length}-byer.csv`;
+    link.click();
+
+    const existingCount = programmaticState.city_matches?.filter(m => m.status === 'existing').length || 0;
+    const missingCount = selectedCities.length - existingCount;
+
+    showToast(`Eksporteret ${selectedCities.length} byer til Google Ads (${existingCount} med eksist. URL, ${missingCount} med ny URL).`, 'success');
 }
 
 // Create campaign function
@@ -2582,213 +2948,8 @@ function createCampaign() {
     alert('Kampagne oprettes... (Backend integration kommer i næste fase)');
 }
 
-// =====================================================
-// Programmatic Byside Helper Functions
-// =====================================================
-
-// City selection
-function selectAllCities() {
-    $('.city-checkbox').prop('checked', true).trigger('change');
-}
-
-// Update city count
-$(document).on('change', '.city-checkbox', function() {
-    const cityName = $(this).data('city-name');
-    const citySlug = $(this).data('city-slug');
-
-    if ($(this).is(':checked')) {
-        if (!campaignConfig.programmatic_info.selected_cities.find(c => c.name === cityName)) {
-            campaignConfig.programmatic_info.selected_cities.push({
-                name: cityName,
-                slug: citySlug
-            });
-        }
-    } else {
-        campaignConfig.programmatic_info.selected_cities = campaignConfig.programmatic_info.selected_cities.filter(c => c.name !== cityName);
-    }
-
-    $('#selected-cities-count').text(campaignConfig.programmatic_info.selected_cities.length);
-});
-
-// City search filter
-$(document).on('input', '#city-search', function() {
-    const searchTerm = $(this).val().toLowerCase();
-    $('.city-checkbox-label').each(function() {
-        const cityName = $(this).find('.city-checkbox').data('city-name').toLowerCase();
-        if (cityName.includes(searchTerm)) {
-            $(this).show();
-        } else {
-            $(this).hide();
-        }
-    });
-});
-
-// Add headline template
-function addHeadlineTemplate() {
-    const container = $('#headline-templates-container');
-    container.append(`
-        <div class="headline-template-row flex items-center space-x-2">
-            <input type="text" class="headline-template-input flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="{SERVICE} i {BYNAVN}" maxlength="30">
-            <span class="text-xs text-gray-500 w-12 text-right char-count">0/30</span>
-            <button type="button" onclick="$(this).closest('.headline-template-row').remove()" class="text-red-500 hover:text-red-700 p-1">✕</button>
-        </div>
-    `);
-}
-
-// Add description template
-function addDescriptionTemplate() {
-    const container = $('#description-templates-container');
-    container.append(`
-        <div class="description-template-row flex items-center space-x-2">
-            <textarea class="description-template-input flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="Professionel {SERVICE} i {BYNAVN}. Ring nu!" rows="2" maxlength="90"></textarea>
-            <span class="text-xs text-gray-500 w-12 text-right char-count">0/90</span>
-            <button type="button" onclick="$(this).closest('.description-template-row').remove()" class="text-red-500 hover:text-red-700 p-1">✕</button>
-        </div>
-    `);
-}
-
-// Generate AI descriptions using OpenAI
-async function generateAIDescriptions() {
-    const btn = $('#generate-ai-descriptions-btn');
-    const originalHtml = btn.html();
-
-    // Show loading state
-    btn.prop('disabled', true).html(`
-        <svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <span>Genererer...</span>
-    `);
-
-    try {
-        // Collect data from wizard state
-        const selectedServices = campaignConfig.service_ids;
-        const selectedIndustries = campaignConfig.industry_ids;
-        const selectedUsps = campaignConfig.usp_ids;
-
-        // Get first selected service name (simplified)
-        let serviceName = 'Service';
-        const serviceCard = $(`.service-card.selected`).first();
-        if (serviceCard.length) {
-            serviceName = serviceCard.find('h4').text().trim() || 'Service';
-        }
-
-        // Get first selected industry name
-        let industryName = 'Branche';
-        const industryCard = $(`.industry-card.selected`).first();
-        if (industryCard.length) {
-            industryName = industryCard.find('h4').text().trim() || 'Branche';
-        }
-
-        // Collect selected USP texts
-        const usps = [];
-        selectedUsps.forEach(uspId => {
-            const checkbox = $(`.usp-checkbox[data-usp-id="${uspId}"]`);
-            if (checkbox.length) {
-                const uspText = checkbox.closest('.usp-card').find('.usp-text').text().trim();
-                if (uspText) usps.push(uspText);
-            }
-        });
-
-        // Collect custom USPs
-        campaignConfig.custom_usps.forEach(usp => {
-            if (usp && usp.trim()) usps.push(usp.trim());
-        });
-
-        // Collect headline templates as keywords
-        const keywords = [];
-        $('.headline-template-input').each(function() {
-            const val = $(this).val().trim();
-            if (val) keywords.push(val.replace(/{SERVICE}/g, serviceName).replace(/{BYNAVN}/g, 'by'));
-        });
-
-        // Call the AI endpoint
-        const response = await fetch('/ajax/generate-descriptions/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                service_name: serviceName,
-                industry_name: industryName,
-                usps: usps.length > 0 ? usps : ['Professionel service', 'Hurtig levering'],
-                keywords: keywords.length > 0 ? keywords : [serviceName.toLowerCase()]
-            })
-        });
-
-        const data = await response.json();
-
-        if (data.success && data.descriptions && data.descriptions.length > 0) {
-            // Clear existing description templates
-            $('#description-templates-container').empty();
-
-            // Add generated descriptions
-            data.descriptions.forEach(description => {
-                const charCount = description.length;
-                $('#description-templates-container').append(`
-                    <div class="description-template-row flex items-center space-x-2">
-                        <textarea class="description-template-input flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="Professionel {SERVICE} i {BYNAVN}. Ring nu!" rows="2" maxlength="90">${description}</textarea>
-                        <span class="text-xs ${charCount >= 90 ? 'text-red-500' : 'text-gray-500'} w-12 text-right char-count">${charCount}/90</span>
-                        <button type="button" onclick="$(this).closest('.description-template-row').remove()" class="text-red-500 hover:text-red-700 p-1">✕</button>
-                    </div>
-                `);
-            });
-
-            // Show success message
-            btn.removeClass('from-purple-600 to-pink-600').addClass('from-green-600 to-green-700');
-            btn.html(`
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                </svg>
-                <span>${data.descriptions.length} genereret</span>
-            `);
-
-            // Reset button after 2 seconds
-            setTimeout(() => {
-                btn.removeClass('from-green-600 to-green-700').addClass('from-purple-600 to-pink-600');
-                btn.html(originalHtml);
-                btn.prop('disabled', false);
-            }, 2000);
-        } else {
-            throw new Error(data.error || 'Kunne ikke generere descriptions');
-        }
-    } catch (error) {
-        console.error('AI Generation error:', error);
-
-        // Show error state
-        btn.removeClass('from-purple-600 to-pink-600').addClass('from-red-600 to-red-700');
-        btn.html(`
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-            <span>Fejl</span>
-        `);
-
-        alert('Fejl ved AI generering: ' + error.message);
-
-        // Reset button after 2 seconds
-        setTimeout(() => {
-            btn.removeClass('from-red-600 to-red-700').addClass('from-purple-600 to-pink-600');
-            btn.html(originalHtml);
-            btn.prop('disabled', false);
-        }, 2000);
-    }
-}
-
-// Update character counts for templates
-$(document).on('input', '.headline-template-input, .description-template-input', function() {
-    const maxLength = $(this).attr('maxlength');
-    const currentLength = $(this).val().length;
-    $(this).siblings('.char-count').text(`${currentLength}/${maxLength}`);
-
-    // Visual feedback for limit
-    if (currentLength >= maxLength) {
-        $(this).siblings('.char-count').addClass('text-red-500').removeClass('text-gray-500');
-    } else {
-        $(this).siblings('.char-count').removeClass('text-red-500').addClass('text-gray-500');
-    }
-});
+// NOTE: Programmatic Byside Helper Functions (selectAllCities, etc.) are defined in the Step 7
+// section below (around line 8730) to avoid duplication and maintain better organization.
 
 // =====================================================
 // Authorization Functions
@@ -2961,6 +3122,31 @@ async function fetchCampaignBuilderData() {
 let activeCampaignKey = null;
 let allCampaignKeys = [];
 
+// Hent default negative keyword list IDs baseret på valgte services
+// Returnerer IDs for lister der er tilknyttet de valgte services + by-listen
+function getDefaultNegativeKeywordListIds() {
+    const selectedServiceIds = campaignConfig.service_ids || [];
+    const defaultIds = [];
+
+    if (!serverData.negative_keyword_lists) return defaultIds;
+
+    serverData.negative_keyword_lists.forEach(list => {
+        // Inkluder by-listen hvis den eksisterer
+        if (list.is_city_list && list.keyword_count > 0) {
+            defaultIds.push(list.id);
+            return;
+        }
+
+        // Inkluder lister der er tilknyttet mindst én af de valgte services
+        const connectedIds = list.connected_service_ids || [];
+        if (connectedIds.some(sid => selectedServiceIds.includes(sid))) {
+            defaultIds.push(list.id);
+        }
+    });
+
+    return defaultIds;
+}
+
 // Render the campaigns builder UI - NEW SIDEBAR VERSION
 function renderCampaignsBuilder() {
     const legacyContainer = $('#campaigns-builder-container');
@@ -2989,13 +3175,16 @@ function renderCampaignsBuilder() {
 
         // Initialize campaign config if not exists
         if (!campaignConfig.campaigns[industryId]) {
+            // Hent default negative keyword list IDs baseret på valgte services
+            const defaultNegListIds = getDefaultNegativeKeywordListIds();
+
             campaignConfig.campaigns[industryId] = {
                 industry_id: parseInt(industryId),
                 industry_name: industryInfo.name,
                 daily_budget: '',
                 bidding_strategy: 'maximize_clicks',
                 target_cpa: null,
-                negative_keyword_list_ids: [],
+                negative_keyword_list_ids: defaultNegListIds,  // Pre-vælg tilknyttede lister
                 ad_groups: {},
                 approved: false
             };
@@ -3041,13 +3230,16 @@ function renderCampaignsBuilder() {
             const serviceName = urls[0]?.serviceName || 'Service';
 
             if (!campaignConfig.geo_campaigns[serviceId]) {
+                // Hent default negative keyword list IDs baseret på valgte services
+                const defaultNegListIds = getDefaultNegativeKeywordListIds();
+
                 campaignConfig.geo_campaigns[serviceId] = {
                     name: `${serviceName} - GEO Kampagne`,
                     daily_budget: '',
                     bidding_strategy: 'maximize_clicks',
                     target_cpa: null,
                     match_type: 'phrase',
-                    negative_keyword_list_ids: [],
+                    negative_keyword_list_ids: defaultNegListIds,  // Pre-vælg tilknyttede lister
                     serviceId: serviceId,
                     serviceName: serviceName,
                     approved: false,
@@ -3058,7 +3250,9 @@ function renderCampaignsBuilder() {
                             url: item.url,
                             city: item.city,
                             match_type: 'phrase'
-                        }))
+                        })),
+                        headlines: [],
+                        descriptions: []
                     }
                 };
             }
@@ -3353,6 +3547,88 @@ function renderAdGroupCard(industryId, serviceId, adGroup, serviceName) {
     `;
 }
 
+// Render GEO ad group card (matches industry ad group card design)
+function renderGeoAdGroupCard(serviceId, geoCampaign) {
+    const adGroup = geoCampaign.ad_group || {};
+    const serviceName = geoCampaign.serviceName || geoCampaign.name || 'GEO Annoncegruppe';
+
+    // Calculate progress (same logic as industry)
+    const keywordsOk = (adGroup.keywords?.length || 0) > 0;
+    const headlinesOk = (adGroup.headlines?.length || 0) >= 3;
+    const descriptionsOk = (adGroup.descriptions?.length || 0) >= 2;
+    const completedSteps = [keywordsOk, headlinesOk, descriptionsOk].filter(Boolean).length;
+    const progressPercent = Math.round((completedSteps / 3) * 100);
+
+    // Status icons
+    const keywordStatus = keywordsOk ? '✓' : '';
+    const headlineStatus = headlinesOk ? '✓' : ((adGroup.headlines?.length || 0) > 0 ? '!' : '');
+    const descStatus = descriptionsOk ? '✓' : ((adGroup.descriptions?.length || 0) > 0 ? '!' : '');
+
+    const keywordCount = adGroup.keywords?.length || 0;
+    const headlineCount = adGroup.headlines?.length || 0;
+    const descriptionCount = adGroup.descriptions?.length || 0;
+
+    return `
+        <div class="ad-group-card selection-card rounded-xl p-6" data-service-id="${serviceId}">
+            <!-- Header -->
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center space-x-3">
+                    <div class="w-11 h-11 rounded-xl flex items-center justify-center text-lg shadow-sm"
+                         style="background: linear-gradient(135deg, #d1fae5, #a7f3d0);">
+                        🌍
+                    </div>
+                    <div>
+                        <h5 class="font-semibold text-gray-900">${serviceName}</h5>
+                        <p class="text-xs text-gray-500">${progressPercent}% komplet</p>
+                    </div>
+                </div>
+                <button type="button" class="edit-geo-ad-group-btn text-sm px-4 py-2 rounded-xl font-medium transition-all duration-200 hover:shadow-md"
+                        style="background: linear-gradient(135deg, #d1fae5, #a7f3d0); color: #059669;"
+                        data-service-id="${serviceId}"
+                        onclick="openGeoAdGroupEditPanel('${serviceId}')">
+                    Rediger
+                </button>
+            </div>
+
+            <!-- Progress bar (green for GEO) -->
+            <div class="progress-bar-container mb-4" style="height: 4px;">
+                <div class="progress-bar" style="width: ${progressPercent}%; background: linear-gradient(90deg, #10b981, #34d399);"></div>
+            </div>
+
+            <!-- Status Checklist -->
+            <div class="space-y-2.5 text-sm">
+                <div class="flex items-center justify-between text-gray-900">
+                    <span class="flex items-center">
+                        <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs mr-2 ${keywordsOk ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}">
+                            ${keywordStatus}
+                        </span>
+                        Søgeord
+                    </span>
+                    <span class="font-medium text-gray-600">${keywordCount}</span>
+                </div>
+                <div class="flex items-center justify-between text-gray-900">
+                    <span class="flex items-center">
+                        <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs mr-2 ${headlinesOk ? 'bg-green-100 text-green-600' : (headlineCount > 0 ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-100 text-gray-400')}">
+                            ${headlineStatus}
+                        </span>
+                        Headlines
+                    </span>
+                    <span class="font-medium text-gray-600">${headlineCount}/15</span>
+                </div>
+                <div class="flex items-center justify-between text-gray-900">
+                    <span class="flex items-center">
+                        <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs mr-2 ${descriptionsOk ? 'bg-green-100 text-green-600' : (descriptionCount > 0 ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-100 text-gray-400')}">
+                            ${descStatus}
+                        </span>
+                        Beskrivelser
+                    </span>
+                    <span class="font-medium text-gray-600">${descriptionCount}/4</span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
 // Render GEO campaign content
 function renderGeoCampaignContent(serviceId, geoCampaign) {
     const keywordCount = geoCampaign.ad_group?.keywords?.length || 0;
@@ -3426,6 +3702,17 @@ function renderGeoCampaignContent(serviceId, geoCampaign) {
                 </div>
             </div>
 
+            <!-- Annoncegruppe Card (Single ad group for GEO) -->
+            <div class="wizard-card p-6 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h4 class="font-semibold text-gray-900 flex items-center">
+                        <span class="w-7 h-7 rounded-lg mr-2 flex items-center justify-center text-sm" style="background: linear-gradient(135deg, #d1fae5, #a7f3d0);">📰</span>
+                        Annoncegruppe
+                    </h4>
+                </div>
+                ${renderGeoAdGroupCard(serviceId, geoCampaign)}
+            </div>
+
             <!-- GEO Keywords Preview -->
             <div class="wizard-card p-6">
                 <h4 class="font-semibold text-gray-900 mb-4 flex items-center">
@@ -3441,12 +3728,30 @@ function renderGeoCampaignContent(serviceId, geoCampaign) {
 }
 
 // Render negative keyword chips (clickable selection like Industry Manager)
+// Kun vis lister der er tilknyttet de valgte services ELLER er by-listen
 function renderNegativeKeywordChips(selectedIds, entityId, campaignType) {
     if (!serverData.negative_keyword_lists || serverData.negative_keyword_lists.length === 0) {
         return '<p class="text-gray-500 text-sm">Ingen negative søgeordslister tilgængelige</p>';
     }
 
-    return serverData.negative_keyword_lists.map(list => {
+    // Hent alle valgte service IDs fra campaignConfig
+    const selectedServiceIds = campaignConfig.service_ids || [];
+
+    // Filtrer lister: Vis kun dem der er tilknyttet valgte services ELLER er by-listen
+    const relevantLists = serverData.negative_keyword_lists.filter(list => {
+        // Altid vis by-listen (Ekskluderede Byer)
+        if (list.is_city_list) return true;
+
+        // Vis hvis listen er tilknyttet mindst én af de valgte services
+        const connectedIds = list.connected_service_ids || [];
+        return connectedIds.some(sid => selectedServiceIds.includes(sid));
+    });
+
+    if (relevantLists.length === 0) {
+        return '<p class="text-gray-500 text-sm">Ingen negative søgeordslister tilknyttet de valgte services</p>';
+    }
+
+    return relevantLists.map(list => {
         const isSelected = selectedIds.includes(list.id);
         // Use design system purple/pink colors instead of harsh red
         const selectedStyle = isSelected
@@ -3599,6 +3904,14 @@ function setupCampaignContentHandlers() {
         const serviceId = $(this).data('service-id');
         openAdGroupEditPanel(industryId, serviceId);
     });
+
+    // Edit GEO ad group button - open slide panel for GEO campaigns
+    $(document).off('click', '.edit-geo-ad-group-btn').on('click', '.edit-geo-ad-group-btn', function() {
+        console.log('GEO Rediger button clicked');
+        const serviceId = $(this).data('service-id');
+        console.log('Service ID from button:', serviceId);
+        openGeoAdGroupEditPanel(serviceId);
+    });
 }
 
 // Open ad group edit slide panel
@@ -3679,7 +3992,7 @@ function openAdGroupEditPanel(industryId, serviceId) {
                                     Headlines (<span class="headlines-count">${adGroup.headlines.length}</span>/15)
                                 </h4>
                                 <div class="flex space-x-2">
-                                    ${campaignConfig.template_ad_group.industry_id && !(campaignConfig.template_ad_group.industry_id === industryId && campaignConfig.template_ad_group.service_id === serviceId) ?
+                                    ${campaignConfig.template_ad_group?.service_id && !(campaignConfig.template_ad_group.type === 'industry' && campaignConfig.template_ad_group.industry_id === industryId && campaignConfig.template_ad_group.service_id === serviceId) ?
                                         '<button type="button" class="apply-template-btn text-sm px-4 py-2 rounded-xl font-medium transition-all duration-200 hover:shadow-md" style="background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e;" title="Kopier headlines og beskrivelser fra ' + campaignConfig.template_ad_group.source_service_name + '">📋 Hent fra template</button>' : ''}
                                     <button type="button" class="shuffle-headlines-panel-btn text-sm px-4 py-2 rounded-xl font-medium transition-all duration-200 hover:shadow-md" style="background: linear-gradient(135deg, #ede9fe, #ddd6fe); color: #7c3aed;">
                                         🔀 Shuffle
@@ -3751,6 +4064,271 @@ function openAdGroupEditPanel(industryId, serviceId) {
 
     // Setup panel event handlers
     setupPanelEventHandlers(industryId, serviceId);
+}
+
+// Open GEO ad group edit slide panel
+function openGeoAdGroupEditPanel(serviceId) {
+    console.log('openGeoAdGroupEditPanel called with serviceId:', serviceId);
+    console.log('geo_campaigns:', campaignConfig.geo_campaigns);
+
+    const geoCampaign = campaignConfig.geo_campaigns[serviceId];
+    if (!geoCampaign) {
+        console.error('GEO campaign not found for serviceId:', serviceId);
+        alert('GEO kampagne ikke fundet. Prøv at genindlæse siden.');
+        return;
+    }
+
+    const adGroup = geoCampaign.ad_group;
+    if (!adGroup) {
+        console.error('Ad group not found in GEO campaign:', geoCampaign);
+        alert('Annoncegruppe ikke fundet. Prøv at genindlæse siden.');
+        return;
+    }
+
+    // Ensure arrays exist (for backwards compatibility with existing campaigns)
+    if (!adGroup.keywords) adGroup.keywords = [];
+    if (!adGroup.headlines) adGroup.headlines = [];
+    if (!adGroup.descriptions) adGroup.descriptions = [];
+
+    // Create slide panel HTML with GEO-specific styling (green gradient theme)
+    const panelHtml = `
+        <div id="geo-ad-group-edit-panel" class="fixed inset-0 z-50">
+            <div class="absolute inset-0 bg-black bg-opacity-50 backdrop-blur-sm" id="geo-panel-overlay"></div>
+            <div class="absolute right-0 top-0 h-full w-full max-w-2xl bg-white shadow-2xl transform transition-transform duration-300" id="geo-panel-content" style="border-radius: 24px 0 0 24px;">
+                <div class="h-full flex flex-col">
+                    <!-- Panel Header (GEO green theme) -->
+                    <div class="p-6 border-b border-gray-100" style="background: linear-gradient(135deg, #d1fae5, #a7f3d0);">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-4">
+                                <div class="w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-lg" style="background: linear-gradient(135deg, #a7f3d0, #6ee7b7);">
+                                    🌍
+                                </div>
+                                <div>
+                                    <h3 class="text-xl font-bold text-gray-900">${escapeHtml(geoCampaign.name)}</h3>
+                                    <p class="text-sm text-gray-600">Rediger GEO annoncegruppe</p>
+                                </div>
+                            </div>
+                            <button type="button" class="close-geo-panel-btn w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 hover:shadow-md" style="background: linear-gradient(135deg, #f3f4f6, #e5e7eb);">
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Panel Content -->
+                    <div class="flex-1 overflow-y-auto p-6">
+                        <!-- Template Checkbox (GEO green theme) -->
+                        <div class="flex items-center justify-between mb-6 p-4 rounded-xl border-2 transition-all duration-200
+                                    ${campaignConfig.template_ad_group?.type === 'geo' &&
+                                      campaignConfig.template_ad_group?.service_id == serviceId ?
+                                      'bg-green-50 border-green-300' : 'bg-gray-50 border-gray-200'}">
+                            <div class="flex items-center space-x-3">
+                                <input type="checkbox" id="geo-use-as-template"
+                                       class="w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500"
+                                       ${campaignConfig.template_ad_group?.type === 'geo' &&
+                                         campaignConfig.template_ad_group?.service_id == serviceId ? 'checked' : ''}>
+                                <label for="geo-use-as-template" class="text-sm font-medium text-gray-700 cursor-pointer">
+                                    Brug som template for andre annoncegrupper
+                                </label>
+                            </div>
+                            ${campaignConfig.template_ad_group?.source_service_name ?
+                              '<span class="text-xs ' + (campaignConfig.template_ad_group.type === 'geo' ? 'text-emerald-600' : 'text-purple-600') + ' font-medium">Aktiv template: ' + campaignConfig.template_ad_group.source_service_name + '</span>' : ''}
+                        </div>
+
+                        <!-- Keywords Section -->
+                        <div class="mb-8">
+                            <div class="flex items-center justify-between mb-4">
+                                <h4 class="font-semibold text-gray-900 flex items-center">
+                                    <span class="w-7 h-7 rounded-lg mr-2 flex items-center justify-center text-sm" style="background: linear-gradient(135deg, #dbeafe, #bfdbfe);">🔑</span>
+                                    Søgeord (${adGroup.keywords.length})
+                                </h4>
+                                <button type="button" class="add-geo-keyword-panel-btn text-sm px-4 py-2 rounded-xl font-medium transition-all duration-200 hover:shadow-md" style="background: linear-gradient(135deg, #d1fae520, #a7f3d020); color: #059669;">
+                                    + Tilføj
+                                </button>
+                            </div>
+                            <div class="geo-panel-keywords-list space-y-2 max-h-48 overflow-y-auto" data-service-id="${serviceId}">
+                                ${renderGeoPanelKeywordsList(adGroup.keywords, serviceId)}
+                            </div>
+                            <div class="add-geo-keyword-form hidden mt-3 p-4 rounded-xl" style="background: linear-gradient(135deg, #f9fafb, #f3f4f6);">
+                                <div class="flex items-center space-x-2">
+                                    <input type="text" class="new-geo-keyword-input flex-1 px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all" placeholder="Nyt søgeord...">
+                                    <select class="new-geo-keyword-match-type px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all">
+                                        <option value="broad">Broad</option>
+                                        <option value="phrase">Phrase</option>
+                                        <option value="exact">Exact</option>
+                                    </select>
+                                    <button type="button" class="save-new-geo-keyword-btn px-4 py-2.5 rounded-xl font-medium text-white transition-all duration-200 hover:shadow-lg" style="background: linear-gradient(90deg, #059669, #10b981);">Gem</button>
+                                    <button type="button" class="cancel-geo-keyword-btn px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-all">Annuller</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Headlines Section -->
+                        <div class="mb-8">
+                            <div class="flex items-center justify-between mb-4">
+                                <h4 class="font-semibold text-gray-900 flex items-center geo-headlines-section-header">
+                                    <span class="w-7 h-7 rounded-lg mr-2 flex items-center justify-center text-sm" style="background: linear-gradient(135deg, #fef3c7, #fde68a);">📰</span>
+                                    Headlines (<span class="geo-headlines-count">${adGroup.headlines.length}</span>/15)
+                                </h4>
+                                <div class="flex space-x-2">
+                                    ${campaignConfig.template_ad_group?.service_id &&
+                                      !(campaignConfig.template_ad_group.type === 'geo' &&
+                                        campaignConfig.template_ad_group.service_id == serviceId) ?
+                                      `<button type="button" class="apply-geo-template-btn text-sm px-4 py-2 rounded-xl font-medium transition-all duration-200 hover:shadow-md"
+                                       style="background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e;"
+                                       title="Hent fra ${campaignConfig.template_ad_group.source_service_name}">
+                                       📋 Hent fra template
+                                      </button>` : ''}
+                                    <button type="button" class="shuffle-geo-headlines-panel-btn text-sm px-4 py-2 rounded-xl font-medium transition-all duration-200 hover:shadow-md" style="background: linear-gradient(135deg, #d1fae5, #a7f3d0); color: #059669;">
+                                        🔀 Shuffle
+                                    </button>
+                                    <button type="button" class="add-geo-headline-panel-btn text-sm px-4 py-2 rounded-xl font-medium transition-all duration-200 hover:shadow-md" style="background: linear-gradient(135deg, #d1fae520, #a7f3d020); color: #059669;">
+                                        + Tilføj
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="geo-panel-headlines-list space-y-2" data-service-id="${serviceId}">
+                                ${renderGeoPanelHeadlinesList(serviceId, adGroup.headlines)}
+                            </div>
+                        </div>
+
+                        <!-- Descriptions Section -->
+                        <div class="mb-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h4 class="font-semibold text-gray-900 flex items-center geo-descriptions-section-header">
+                                    <span class="w-7 h-7 rounded-lg mr-2 flex items-center justify-center text-sm" style="background: linear-gradient(135deg, #d1fae5, #a7f3d0);">📝</span>
+                                    Beskrivelser (<span class="geo-descriptions-count">${adGroup.descriptions.length}</span>/4)
+                                </h4>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" class="generate-geo-ai-descriptions-btn text-sm px-4 py-2 rounded-xl font-medium transition-all duration-200 hover:shadow-md flex items-center gap-2" style="background: linear-gradient(135deg, #d1fae520, #a7f3d020); color: #059669;">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                        Generer med AI
+                                    </button>
+                                    <button type="button" class="add-geo-description-panel-btn text-sm px-4 py-2 rounded-xl font-medium transition-all duration-200 hover:shadow-md" style="background: linear-gradient(135deg, #d1fae520, #a7f3d020); color: #059669;">
+                                        + Tilføj
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="geo-panel-descriptions-list space-y-2" data-service-id="${serviceId}">
+                                ${renderGeoPanelDescriptionsList(serviceId, adGroup.descriptions)}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Panel Footer -->
+                    <div class="p-6 border-t border-gray-100" style="background: linear-gradient(135deg, #f9fafb, #f3f4f6);">
+                        <div class="flex justify-end space-x-3">
+                            <button type="button" class="close-geo-panel-btn px-6 py-2.5 rounded-xl font-medium transition-all duration-200 hover:shadow-md" style="background: linear-gradient(135deg, #d1fae5, #a7f3d0); color: #059669;">
+                                Luk
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Remove any existing panel first
+    $('#geo-ad-group-edit-panel').remove();
+
+    // Add panel directly to document body
+    $(document.body).append(panelHtml);
+
+    // Force panel to be visible
+    setTimeout(() => {
+        const panel = document.getElementById('geo-ad-group-edit-panel');
+        if (panel) {
+            panel.style.position = 'fixed';
+            panel.style.top = '0';
+            panel.style.left = '0';
+            panel.style.right = '0';
+            panel.style.bottom = '0';
+            panel.style.zIndex = '9999';
+        }
+    }, 10);
+
+    // Setup GEO panel event handlers
+    setupGeoPanelEventHandlers(serviceId);
+}
+
+// Render GEO panel keywords list
+function renderGeoPanelKeywordsList(keywords, serviceId) {
+    if (!keywords || keywords.length === 0) {
+        return '<p class="text-gray-500 text-sm text-center py-2">Ingen søgeord</p>';
+    }
+
+    return keywords.map((kw, index) => `
+        <div class="flex items-center justify-between p-3 rounded-xl transition-all duration-200 hover:shadow-sm" style="background: linear-gradient(135deg, #f9fafb, #f3f4f6);">
+            <div class="flex items-center space-x-2">
+                <span class="text-gray-900 font-medium">${escapeHtml(kw.keyword)}</span>
+                <span class="text-xs px-2.5 py-1 rounded-lg font-medium" style="background: linear-gradient(135deg, #d1fae5, #a7f3d0); color: #059669;">${kw.match_type}</span>
+            </div>
+            <button type="button" class="remove-geo-keyword-btn w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-all" data-index="${index}">×</button>
+        </div>
+    `).join('');
+}
+
+// Render GEO panel headlines list
+function renderGeoPanelHeadlinesList(serviceId, headlines) {
+    if (!headlines || headlines.length === 0) {
+        return '<p class="text-gray-500 text-sm text-center py-2">Ingen headlines. Klik "Shuffle" for at generere.</p>';
+    }
+
+    // Create array with original indices for sorting
+    const headlinesWithIndices = headlines.map((headline, index) => ({
+        headline,
+        originalIndex: index
+    }));
+
+    // Sort: unlocked first, locked at the bottom
+    headlinesWithIndices.sort((a, b) => {
+        const aLocked = typeof a.headline === 'object' ? a.headline.locked : false;
+        const bLocked = typeof b.headline === 'object' ? b.headline.locked : false;
+        if (aLocked === bLocked) return 0;
+        return aLocked ? 1 : -1;
+    });
+
+    return headlinesWithIndices.map(({headline, originalIndex}) => {
+        const text = typeof headline === 'object' ? headline.text : headline;
+        const locked = typeof headline === 'object' ? headline.locked : false;
+        const charCount = text.length;
+        const charColor = charCount > 30 ? 'text-red-500' : charCount > 25 ? 'text-yellow-500' : 'text-gray-400';
+
+        return `
+        <div class="flex items-center justify-between p-3 rounded-xl transition-all duration-200 hover:shadow-sm ${locked ? 'ring-2 ring-emerald-400' : ''}" style="background: linear-gradient(135deg, ${locked ? '#d1fae5, #a7f3d0' : '#f9fafb, #f3f4f6'});">
+            <div class="flex items-center space-x-2 flex-1 min-w-0">
+                <button type="button" class="lock-geo-headline-btn w-8 h-8 shrink-0 rounded-lg flex items-center justify-center transition-all ${locked ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-500 hover:bg-gray-300'}" data-index="${originalIndex}" title="${locked ? 'Klik for at låse op' : 'Klik for at fryse denne headline'}">
+                    ${locked ? '🔒' : '🔓'}
+                </button>
+                <input type="text" class="geo-headline-input flex-1 min-w-0 px-3 py-1.5 border border-transparent rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-gray-900 bg-transparent hover:bg-white transition-all"
+                       value="${escapeHtml(text)}" data-index="${originalIndex}" maxlength="30">
+            </div>
+            <div class="flex items-center space-x-1 ml-2 shrink-0">
+                <span class="text-xs ${charColor} geo-headline-char-count w-10">${charCount}/30</span>
+                <button type="button" class="remove-geo-headline-btn w-6 h-6 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-all" data-index="${originalIndex}">×</button>
+            </div>
+        </div>
+    `;
+    }).join('');
+}
+
+// Render GEO panel descriptions list
+function renderGeoPanelDescriptionsList(serviceId, descriptions) {
+    if (!descriptions || descriptions.length === 0) {
+        return '<p class="text-gray-500 text-sm text-center py-2">Ingen beskrivelser</p>';
+    }
+
+    return descriptions.map((desc, index) => {
+        const charCount = desc.length;
+        const charColor = charCount > 90 ? 'text-red-500' : charCount > 75 ? 'text-yellow-500' : 'text-gray-400';
+
+        return `
+            <div class="flex items-center space-x-2 p-3 rounded-xl transition-all duration-200 hover:shadow-sm" style="background: linear-gradient(135deg, #f9fafb, #f3f4f6);">
+                <textarea class="geo-description-input flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all resize-none" rows="2" maxlength="90" data-index="${index}">${escapeHtml(desc)}</textarea>
+                <span class="text-xs ${charColor}">${charCount}/90</span>
+                <button type="button" class="remove-geo-description-btn w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-all" data-index="${index}">×</button>
+            </div>
+        `;
+    }).join('');
 }
 
 // Render panel keywords list
@@ -3835,27 +4413,42 @@ function applyTemplateToAdGroup(targetIndustryId, targetServiceId) {
     const template = campaignConfig.template_ad_group;
 
     // Check if there's an active template
-    if (!template.industry_id || !template.service_id) {
+    if (!template?.service_id) {
         console.log('No template set');
         return;
     }
 
-    // Get source and target ad groups
-    const sourceAdGroup = campaignConfig.campaigns[template.industry_id].ad_groups[template.service_id];
-    const targetAdGroup = campaignConfig.campaigns[targetIndustryId].ad_groups[targetServiceId];
+    // Get source ad group based on template type
+    let sourceAdGroup, sourceServiceName;
+    if (template.type === 'industry') {
+        // Source is from industry campaign
+        sourceAdGroup = campaignConfig.campaigns[template.industry_id]?.ad_groups[template.service_id];
+        sourceServiceName = sourceAdGroup?.service_name || template.source_service_name;
+    } else if (template.type === 'geo') {
+        // Source is from GEO campaign
+        sourceAdGroup = campaignConfig.geo_campaigns[template.service_id]?.ad_group;
+        sourceServiceName = template.source_service_name;
+    }
 
-    if (!sourceAdGroup || !targetAdGroup) {
-        console.error('Source or target ad group not found');
+    if (!sourceAdGroup) {
+        console.error('Source ad group not found');
         return;
     }
 
-    const sourceServiceName = template.source_service_name;
+    // Get target industry ad group
+    const targetAdGroup = campaignConfig.campaigns[targetIndustryId]?.ad_groups[targetServiceId];
+    if (!targetAdGroup) {
+        console.error('Target ad group not found');
+        return;
+    }
+
     const targetServiceName = targetAdGroup.service_name;
 
     console.log('Applying template from', sourceServiceName, 'to', targetServiceName);
 
     // Copy headlines with service name substitution
-    targetAdGroup.headlines = sourceAdGroup.headlines.map(h => {
+    const sourceHeadlines = sourceAdGroup.headlines || [];
+    targetAdGroup.headlines = sourceHeadlines.map(h => {
         const text = typeof h === 'object' ? h.text : h;
         // Case-insensitive replacement of service name
         const substituted = text.replace(new RegExp(escapeRegExp(sourceServiceName), 'gi'), targetServiceName);
@@ -3863,11 +4456,71 @@ function applyTemplateToAdGroup(targetIndustryId, targetServiceId) {
     });
 
     // Copy descriptions with service name substitution
-    targetAdGroup.descriptions = sourceAdGroup.descriptions.map(desc => {
-        return desc.replace(new RegExp(escapeRegExp(sourceServiceName), 'gi'), targetServiceName);
+    const sourceDescriptions = sourceAdGroup.descriptions || [];
+    targetAdGroup.descriptions = sourceDescriptions.map(desc => {
+        const text = typeof desc === 'object' ? desc.text || desc : desc;
+        return text.replace(new RegExp(escapeRegExp(sourceServiceName), 'gi'), targetServiceName);
     });
 
     console.log('Template applied successfully. Headlines:', targetAdGroup.headlines.length, 'Descriptions:', targetAdGroup.descriptions.length);
+}
+
+// Apply template to GEO ad group (supports both industry and GEO templates)
+function applyTemplateToGeoAdGroup(targetServiceId) {
+    const template = campaignConfig.template_ad_group;
+
+    // Check if there's an active template
+    if (!template?.service_id) {
+        console.log('No template set');
+        return;
+    }
+
+    // Get source ad group based on template type
+    let sourceAdGroup, sourceServiceName;
+    if (template.type === 'industry') {
+        // Source is from industry campaign
+        sourceAdGroup = campaignConfig.campaigns[template.industry_id]?.ad_groups[template.service_id];
+        sourceServiceName = sourceAdGroup?.service_name || template.source_service_name;
+    } else if (template.type === 'geo') {
+        // Source is from GEO campaign
+        sourceAdGroup = campaignConfig.geo_campaigns[template.service_id]?.ad_group;
+        sourceServiceName = template.source_service_name;
+    }
+
+    if (!sourceAdGroup) {
+        console.error('Source ad group not found');
+        return;
+    }
+
+    // Get target GEO ad group
+    const targetAdGroup = campaignConfig.geo_campaigns[targetServiceId]?.ad_group;
+    if (!targetAdGroup) {
+        console.error('Target GEO ad group not found');
+        return;
+    }
+
+    const geoCampaign = campaignConfig.geo_campaigns[targetServiceId];
+    const targetServiceName = geoCampaign.serviceName || geoCampaign.name;
+
+    console.log('Applying template from', sourceServiceName, 'to GEO', targetServiceName);
+
+    // Copy headlines with service name substitution
+    const sourceHeadlines = sourceAdGroup.headlines || [];
+    targetAdGroup.headlines = sourceHeadlines.map(h => {
+        const text = typeof h === 'object' ? h.text : h;
+        // Case-insensitive replacement of service name
+        const substituted = text.replace(new RegExp(escapeRegExp(sourceServiceName), 'gi'), targetServiceName);
+        return { text: substituted, locked: false };
+    });
+
+    // Copy descriptions with service name substitution
+    const sourceDescriptions = sourceAdGroup.descriptions || [];
+    targetAdGroup.descriptions = sourceDescriptions.map(desc => {
+        const text = typeof desc === 'object' ? desc.text || desc : desc;
+        return text.replace(new RegExp(escapeRegExp(sourceServiceName), 'gi'), targetServiceName);
+    });
+
+    console.log('Template applied to GEO. Headlines:', targetAdGroup.headlines.length, 'Descriptions:', targetAdGroup.descriptions.length);
 }
 
 // Escape special regex characters
@@ -4022,6 +4675,7 @@ function setupPanelEventHandlers(industryId, serviceId) {
         if ($(this).is(':checked')) {
             // Set this ad group as the template
             campaignConfig.template_ad_group = {
+                type: 'industry',
                 industry_id: industryId,
                 service_id: serviceId,
                 source_service_name: adGroup.service_name
@@ -4029,9 +4683,11 @@ function setupPanelEventHandlers(industryId, serviceId) {
             console.log('Template set:', campaignConfig.template_ad_group);
         } else {
             // Only clear if this is the current template
-            if (campaignConfig.template_ad_group.industry_id === industryId &&
+            if (campaignConfig.template_ad_group.type === 'industry' &&
+                campaignConfig.template_ad_group.industry_id === industryId &&
                 campaignConfig.template_ad_group.service_id === serviceId) {
                 campaignConfig.template_ad_group = {
+                    type: null,
                     industry_id: null,
                     service_id: null,
                     source_service_name: null
@@ -4193,6 +4849,469 @@ function setupPanelEventHandlers(industryId, serviceId) {
         adGroup.descriptions.splice(index, 1);
         $('.panel-descriptions-list').html(renderPanelDescriptionsList(industryId, serviceId, adGroup.descriptions));
     });
+}
+
+// Setup GEO panel event handlers
+function setupGeoPanelEventHandlers(serviceId) {
+    const adGroup = campaignConfig.geo_campaigns[serviceId].ad_group;
+
+    // Remove any existing document-level event handlers for GEO panel elements
+    $(document).off('click', '.close-geo-panel-btn, #geo-panel-overlay');
+    $(document).off('click', '.remove-geo-keyword-btn');
+    $(document).off('click', '.lock-geo-headline-btn');
+    $(document).off('input', '.geo-headline-input');
+    $(document).off('input', '.geo-description-input');
+    $(document).off('click', '.remove-geo-headline-btn');
+    $(document).off('click', '.remove-geo-description-btn');
+
+    // Close panel
+    $(document).on('click', '.close-geo-panel-btn, #geo-panel-overlay', function() {
+        // Auto-save state when closing panel
+        saveStateToStorage();
+        $('#geo-ad-group-edit-panel').remove();
+        // Refresh the geo campaign content
+        if (activeCampaignKey) {
+            renderActiveCampaignContent(activeCampaignKey);
+        }
+    });
+
+    // Add keyword
+    $('.add-geo-keyword-panel-btn').on('click', function() {
+        $('.add-geo-keyword-form').removeClass('hidden');
+    });
+
+    $('.cancel-geo-keyword-btn').on('click', function() {
+        $('.add-geo-keyword-form').addClass('hidden');
+        $('.new-geo-keyword-input').val('');
+    });
+
+    $('.save-new-geo-keyword-btn').on('click', function() {
+        const keyword = $('.new-geo-keyword-input').val().trim();
+        const matchType = $('.new-geo-keyword-match-type').val();
+
+        if (keyword) {
+            adGroup.keywords.push({
+                keyword: keyword,
+                match_type: matchType,
+                is_primary: false
+            });
+
+            // Re-render keywords list
+            $('.geo-panel-keywords-list').html(renderGeoPanelKeywordsList(adGroup.keywords, serviceId));
+            $('.add-geo-keyword-form').addClass('hidden');
+            $('.new-geo-keyword-input').val('');
+        }
+    });
+
+    // Remove keyword
+    $(document).on('click', '.remove-geo-keyword-btn', function() {
+        const index = $(this).data('index');
+        adGroup.keywords.splice(index, 1);
+        $('.geo-panel-keywords-list').html(renderGeoPanelKeywordsList(adGroup.keywords, serviceId));
+    });
+
+    // Shuffle headlines for GEO - generates from selected USPs
+    $('.shuffle-geo-headlines-panel-btn').on('click', function() {
+        shuffleGeoHeadlines(serviceId);
+        $('.geo-panel-headlines-list').html(renderGeoPanelHeadlinesList(serviceId, adGroup.headlines));
+        $('.geo-headlines-count').text(adGroup.headlines.length);
+    });
+
+    // Add headline
+    $('.add-geo-headline-panel-btn').on('click', function() {
+        if (adGroup.headlines.length < 15) {
+            adGroup.headlines.push('');
+            $('.geo-panel-headlines-list').html(renderGeoPanelHeadlinesList(serviceId, adGroup.headlines));
+            $('.geo-headlines-count').text(adGroup.headlines.length);
+            $('.geo-panel-headlines-list .geo-headline-input').last().focus();
+        }
+    });
+
+    // Update headline on input
+    $(document).on('input', '.geo-headline-input', function() {
+        const index = $(this).data('index');
+        const value = $(this).val();
+
+        if (typeof adGroup.headlines[index] === 'string') {
+            adGroup.headlines[index] = value;
+        } else {
+            adGroup.headlines[index].text = value;
+        }
+
+        // Update character counter
+        const container = $(this).closest('div[class*="p-3"]');
+        const charSpan = container.find('span.text-xs');
+        charSpan.text(`${value.length}/30`);
+        charSpan.removeClass('text-gray-400 text-yellow-500 text-red-500');
+        if (value.length > 30) {
+            charSpan.addClass('text-red-500');
+        } else if (value.length > 25) {
+            charSpan.addClass('text-yellow-500');
+        } else {
+            charSpan.addClass('text-gray-400');
+        }
+    });
+
+    // Remove headline
+    $(document).on('click', '.remove-geo-headline-btn', function() {
+        const index = $(this).data('index');
+        adGroup.headlines.splice(index, 1);
+        $('.geo-panel-headlines-list').html(renderGeoPanelHeadlinesList(serviceId, adGroup.headlines));
+        $('.geo-headlines-count').text(adGroup.headlines.length);
+    });
+
+    // Toggle headline lock
+    $(document).on('click', '.lock-geo-headline-btn', function() {
+        const index = $(this).data('index');
+        const headline = adGroup.headlines[index];
+
+        if (typeof headline === 'string') {
+            adGroup.headlines[index] = { text: headline, locked: true };
+        } else {
+            adGroup.headlines[index].locked = !headline.locked;
+        }
+
+        $('.geo-panel-headlines-list').html(renderGeoPanelHeadlinesList(serviceId, adGroup.headlines));
+    });
+
+    // Add description
+    $('.add-geo-description-panel-btn').on('click', function() {
+        if (adGroup.descriptions.length < 4) {
+            adGroup.descriptions.push('');
+            $('.geo-panel-descriptions-list').html(renderGeoPanelDescriptionsList(serviceId, adGroup.descriptions));
+            $('.geo-descriptions-count').text(adGroup.descriptions.length);
+            $('.geo-panel-descriptions-list .geo-description-input').last().focus();
+        }
+    });
+
+    // Generate descriptions with AI for GEO
+    $('.generate-geo-ai-descriptions-btn').on('click', async function() {
+        const btn = $(this);
+        const originalHtml = btn.html();
+
+        btn.prop('disabled', true);
+        btn.html(`
+            <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+            <span>Genererer...</span>
+        `);
+
+        try {
+            const geoCampaign = campaignConfig.geo_campaigns[serviceId];
+
+            // Collect USP texts
+            const uspTexts = [];
+            campaignConfig.usp_ids.forEach(uspId => {
+                const uspCheckbox = $(`.usp-checkbox[data-usp-id="${uspId}"]`);
+                if (uspCheckbox.length) {
+                    if (campaignConfig.usp_custom_texts && campaignConfig.usp_custom_texts[uspId]) {
+                        uspTexts.push(campaignConfig.usp_custom_texts[uspId]);
+                    } else {
+                        const uspItem = uspCheckbox.closest('.usp-item');
+                        const displayText = uspItem.find('.usp-display-text').text().trim();
+                        if (displayText) {
+                            uspTexts.push(displayText);
+                        } else {
+                            const originalText = uspCheckbox.data('original-text');
+                            if (originalText) uspTexts.push(originalText);
+                        }
+                    }
+                }
+            });
+
+            // Add custom USPs
+            if (campaignConfig.custom_usps && campaignConfig.custom_usps.length > 0) {
+                campaignConfig.custom_usps.forEach(usp => {
+                    if (usp && usp.trim()) uspTexts.push(usp.trim());
+                });
+            }
+
+            // Get keywords
+            const keywordObjects = adGroup.keywords || [];
+            const keywordStrings = keywordObjects.map(kw => typeof kw === 'string' ? kw : kw.keyword);
+
+            const response = await fetch('/ajax/generate-descriptions/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    service_name: geoCampaign.name,
+                    industry_name: 'GEO Kampagne',
+                    usps: uspTexts,
+                    keywords: keywordStrings.slice(0, 10)
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                adGroup.descriptions = data.descriptions;
+                $('.geo-panel-descriptions-list').html(renderGeoPanelDescriptionsList(serviceId, adGroup.descriptions));
+                $('.geo-descriptions-count').text(adGroup.descriptions.length);
+                showToast('4 beskrivelser genereret med AI!', 'success');
+            } else {
+                showToast('Fejl: ' + data.error, 'error');
+            }
+
+        } catch (error) {
+            console.error('AI generation error:', error);
+            showToast('Kunne ikke generere beskrivelser', 'error');
+        } finally {
+            btn.prop('disabled', false);
+            btn.html(originalHtml);
+        }
+    });
+
+    // Update description on input
+    $(document).on('input', '.geo-description-input', function() {
+        const index = $(this).data('index');
+        const value = $(this).val();
+        adGroup.descriptions[index] = value;
+
+        // Auto-resize textarea
+        this.style.height = 'auto';
+        this.style.height = Math.max(36, this.scrollHeight) + 'px';
+
+        // Update character counter
+        const container = $(this).closest('div[class*="p-3"]');
+        const charSpan = container.find('span.text-xs');
+        charSpan.text(`${value.length}/90`);
+        charSpan.removeClass('text-gray-400 text-yellow-500 text-red-500');
+        if (value.length > 90) {
+            charSpan.addClass('text-red-500');
+        } else if (value.length > 75) {
+            charSpan.addClass('text-yellow-500');
+        } else {
+            charSpan.addClass('text-gray-400');
+        }
+    });
+
+    // Remove description
+    $(document).on('click', '.remove-geo-description-btn', function() {
+        const index = $(this).data('index');
+        adGroup.descriptions.splice(index, 1);
+        $('.geo-panel-descriptions-list').html(renderGeoPanelDescriptionsList(serviceId, adGroup.descriptions));
+        $('.geo-descriptions-count').text(adGroup.descriptions.length);
+    });
+
+    // GEO Template checkbox handler
+    $('#geo-use-as-template').on('change', function() {
+        const geoCampaign = campaignConfig.geo_campaigns[serviceId];
+
+        if ($(this).is(':checked')) {
+            // Set this GEO ad group as the template
+            campaignConfig.template_ad_group = {
+                type: 'geo',
+                industry_id: null,
+                service_id: serviceId,
+                source_service_name: geoCampaign.serviceName || geoCampaign.name
+            };
+            console.log('GEO Template set:', campaignConfig.template_ad_group);
+        } else {
+            // Only clear if this is the current template
+            if (campaignConfig.template_ad_group?.type === 'geo' &&
+                campaignConfig.template_ad_group?.service_id == serviceId) {
+                campaignConfig.template_ad_group = {
+                    type: null,
+                    industry_id: null,
+                    service_id: null,
+                    source_service_name: null
+                };
+                console.log('GEO Template cleared');
+            }
+        }
+    });
+
+    // Apply template to GEO ad group
+    $('.apply-geo-template-btn').on('click', function() {
+        applyTemplateToGeoAdGroup(serviceId);
+        // Re-render lists
+        $('.geo-panel-headlines-list').html(renderGeoPanelHeadlinesList(serviceId, adGroup.headlines));
+        $('.geo-panel-descriptions-list').html(renderGeoPanelDescriptionsList(serviceId, adGroup.descriptions));
+        $('.geo-headlines-count').text(adGroup.headlines.length);
+        $('.geo-descriptions-count').text(adGroup.descriptions.length);
+        showToast('Template anvendt!', 'success');
+    });
+}
+
+// Shuffle headlines for GEO campaigns
+// Matches industry shuffleHeadlines() behavior with standard headlines and locked preservation
+function shuffleGeoHeadlines(serviceId) {
+    const geoCampaign = campaignConfig.geo_campaigns[serviceId];
+    if (!geoCampaign) return;
+
+    const adGroup = geoCampaign.ad_group;
+    const maxHeadlines = 15;
+
+    // 1. Preserve locked headlines and note their positions
+    const lockedHeadlines = [];
+    const lockedIndices = new Set();
+
+    if (adGroup.headlines && adGroup.headlines.length > 0) {
+        adGroup.headlines.forEach((headline, index) => {
+            if (typeof headline === 'object' && headline.locked) {
+                lockedHeadlines.push({ index, headline });
+                lockedIndices.add(index);
+            }
+        });
+    }
+
+    // Create a Set of locked headline texts for duplicate filtering
+    const lockedTexts = new Set(
+        lockedHeadlines.map(({ headline }) =>
+            typeof headline === 'object' ? headline.text : headline
+        )
+    );
+
+    // 2. Generate new headlines from USPs
+    let availableHeadlines = [];
+
+    campaignConfig.usp_ids.forEach(uspId => {
+        const $checkbox = $(`.usp-checkbox[data-usp-id="${uspId}"]`);
+        if (!$checkbox.length) return;
+
+        // Get example_headlines from data attribute
+        let exampleHeadlines = [];
+        try {
+            let headlinesData = $checkbox.attr('data-example-headlines');
+            if (headlinesData && headlinesData !== 'null' && headlinesData !== '[]' && headlinesData !== 'None') {
+                exampleHeadlines = JSON.parse(headlinesData);
+            }
+        } catch (e) {
+            console.warn('Could not parse example_headlines for USP', uspId, e);
+        }
+
+        if (Array.isArray(exampleHeadlines) && exampleHeadlines.length > 0) {
+            // Pick 1 random headline from this USP's example_headlines
+            const randomIndex = Math.floor(Math.random() * exampleHeadlines.length);
+            let headline = exampleHeadlines[randomIndex];
+
+            // Substitute variables - use service name from GEO campaign
+            headline = substituteGeoHeadlineVariables(headline, serviceId, uspId);
+
+            // Only add if within 30 character limit
+            if (headline.length <= 30) {
+                availableHeadlines.push({ text: headline, locked: false });
+            }
+        } else {
+            // Fallback: Use USP text if no example_headlines
+            const originalText = $checkbox.data('original-text');
+            const finalText = getUspFinalText(uspId, originalText);
+            if (finalText && finalText.length <= 30) {
+                availableHeadlines.push({ text: finalText, locked: false });
+            }
+        }
+    });
+
+    // 3. Custom USPs are used 1:1 directly as headlines
+    if (campaignConfig.custom_usps) {
+        campaignConfig.custom_usps.forEach(usp => {
+            if (usp && usp.length <= 30) {
+                availableHeadlines.push({ text: usp, locked: false });
+            }
+        });
+    }
+
+    // Filter out headlines that match locked headline texts (avoid duplicates)
+    availableHeadlines = availableHeadlines.filter(h => !lockedTexts.has(h.text));
+
+    // 4. Add standard headlines with Google Ads dynamic insertion
+    // {SERVICE} is substituted with the service name
+    // {LOCATION(City)} is Google Ads native syntax - stays as is for dynamic city insertion
+    // {KeyWord:{SERVICE}} becomes e.g. {KeyWord:Elektriker} for keyword insertion
+    const standardHeadlineTemplates = [
+        '{SERVICE} {LOCATION(City)}',
+        '{KeyWord:{SERVICE}}'
+    ];
+
+    // Get service name from the GEO campaign
+    const serviceName = geoCampaign.serviceName || geoCampaign.name || '';
+
+    // Generate standard headlines (separate from regular pool)
+    const standardHeadlines = [];
+    console.log('GEO Standard headlines - serviceName:', serviceName);
+    if (serviceName) {
+        standardHeadlineTemplates.forEach(template => {
+            // Only substitute {SERVICE} - leave {LOCATION(City)} and {KeyWord:...} as Google Ads syntax
+            const substituted = template.replace(/\{SERVICE\}/gi, serviceName);
+            console.log('GEO Standard headline template:', template, '-> substituted:', substituted, 'length:', substituted.length);
+            if (substituted.length <= 30 && !lockedTexts.has(substituted)) {
+                standardHeadlines.push({ text: substituted, locked: false, source: 'standard' });
+            }
+        });
+    }
+    console.log('GEO Standard headlines generated:', standardHeadlines.length, standardHeadlines);
+
+    if (availableHeadlines.length === 0 && lockedHeadlines.length === 0 && standardHeadlines.length === 0) {
+        alert('Ingen headlines fundet. Tjek at dine USPs har tilknyttede example_headlines eller tilføj manuelt.');
+        return;
+    }
+
+    // 5. Shuffle only the USP headlines (Fisher-Yates algorithm)
+    for (let i = availableHeadlines.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [availableHeadlines[i], availableHeadlines[j]] = [availableHeadlines[j], availableHeadlines[i]];
+    }
+
+    // 6. Calculate how many new headlines we need
+    const slotsNeeded = maxHeadlines - lockedHeadlines.length;
+    const finalHeadlines = new Array(maxHeadlines).fill(null);
+
+    // 7. Place locked headlines at their original positions
+    lockedHeadlines.forEach(({ index, headline }) => {
+        if (index < maxHeadlines) {
+            finalHeadlines[index] = headline;
+        }
+    });
+
+    // 8. Fill empty slots - FIRST with standard headlines (always included), then with USP headlines
+    let slotIndex = 0;
+
+    // First: Add standard headlines to the first available slots
+    for (let stdIdx = 0; stdIdx < standardHeadlines.length && slotIndex < maxHeadlines; ) {
+        if (finalHeadlines[slotIndex] === null) {
+            finalHeadlines[slotIndex] = standardHeadlines[stdIdx];
+            stdIdx++;
+        }
+        slotIndex++;
+    }
+
+    // Then: Fill remaining slots with USP headlines
+    let uspIndex = 0;
+    for (let i = 0; i < maxHeadlines && uspIndex < availableHeadlines.length; i++) {
+        if (finalHeadlines[i] === null) {
+            finalHeadlines[i] = availableHeadlines[uspIndex++];
+        }
+    }
+
+    // 9. Remove null values and update
+    adGroup.headlines = finalHeadlines.filter(h => h !== null);
+
+    console.log('Shuffled GEO headlines (locked:', lockedHeadlines.length, ', new:', adGroup.headlines.length - lockedHeadlines.length, '):', adGroup.headlines);
+}
+
+// Helper function: Substitute variables in GEO headline text
+function substituteGeoHeadlineVariables(headline, serviceId, uspId) {
+    const geoCampaign = campaignConfig.geo_campaigns[serviceId];
+    const serviceName = geoCampaign?.serviceName || geoCampaign?.name || '';
+
+    let result = headline;
+
+    // Apply USP-specific variable substitution (VAR1, VAR2, VAR3)
+    if (uspId) {
+        result = substituteUspVariables(result, uspId);
+    }
+
+    // Apply general placeholders
+    if (serviceName) {
+        result = result.replace(/\{SERVICE\}/gi, serviceName);
+    }
+
+    return result;
 }
 
 // Render GEO campaign accordion - now accepts serviceId for multiple campaigns
@@ -4448,54 +5567,6 @@ function removeGeoDescription(serviceId, index) {
 
     geoCampaign.ad_group.descriptions.splice(index, 1);
     refreshGeoDescriptionsList(serviceId);
-}
-
-// Shuffle GEO headlines from USPs
-function shuffleGeoHeadlines(serviceId) {
-    const geoCampaign = campaignConfig.geo_campaigns[serviceId];
-    if (!geoCampaign) return;
-
-    const maxHeadlines = 15;
-    let availableHeadlines = [];
-
-    // Get selected USP texts (with variables substituted)
-    campaignConfig.usp_ids.forEach(uspId => {
-        const $checkbox = $(`.usp-checkbox[data-usp-id="${uspId}"]`);
-        if ($checkbox.length) {
-            const originalText = $checkbox.data('original-text');
-            const finalText = getUspFinalText(uspId, originalText);
-            // Truncate to 30 chars for headline
-            if (finalText && finalText.length <= 30) {
-                availableHeadlines.push(finalText);
-            }
-        }
-    });
-
-    // Also add custom USPs that fit
-    if (campaignConfig.custom_usps) {
-        campaignConfig.custom_usps.forEach(usp => {
-            if (usp.length <= 30) {
-                availableHeadlines.push(usp);
-            }
-        });
-    }
-
-    if (availableHeadlines.length === 0) {
-        alert('Ingen USPs valgt der passer til headline-længde (max 30 tegn). Tilføj manuelt.');
-        return;
-    }
-
-    // Shuffle the array
-    for (let i = availableHeadlines.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [availableHeadlines[i], availableHeadlines[j]] = [availableHeadlines[j], availableHeadlines[i]];
-    }
-
-    // Take up to maxHeadlines
-    geoCampaign.ad_group.headlines = availableHeadlines.slice(0, maxHeadlines);
-    refreshGeoHeadlinesList(serviceId);
-
-    console.log('Shuffled GEO headlines:', geoCampaign.ad_group.headlines);
 }
 
 // Refresh GEO headlines list in UI
@@ -5959,6 +7030,230 @@ $(document).on('click', '#copy-urls-btn', function() {
     });
 });
 
+// Generate negative city list button click handler
+$(document).on('click', '#generate-negative-cities-btn', function() {
+    var selectedCities = campaignConfig.geo_map_targeting?.postal_names || [];
+
+    if (selectedCities.length === 0) {
+        alert('Vælg først nogle byer/regioner før du kan generere en negativ by-liste.');
+        return;
+    }
+
+    var btn = $(this);
+    var originalHtml = btn.html();
+    btn.prop('disabled', true).html('<span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></span> Opdaterer...');
+
+    // Simpelt request - backend håndterer singleton listen
+    $.ajax({
+        url: '/ajax/generate-negative-city-list/',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            selected_cities: selectedCities
+        }),
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        success: function(response) {
+            if (response.success) {
+                // Show success result
+                $('#negative-city-list-name').text(response.list_name);
+                $('#negative-city-list-count').text(response.keywords_count);
+                $('#negative-city-list-result').slideDown(200);
+
+                // Update button to show success
+                var successText = response.updated ? '✓ Liste Opdateret' : '✓ Liste Oprettet';
+                btn.html(successText).addClass('bg-green-600').removeClass('from-red-600 to-orange-600');
+
+                // Opdater serverData direkte med det nye antal (for øjeblikkelig Step 5 opdatering)
+                var list = (serverData.negative_keyword_lists || []).find(function(l) {
+                    return l.name === 'Ekskluderede Byer';
+                });
+                if (list) {
+                    list.keyword_count = response.keywords_count;
+                } else {
+                    // Listen blev nyoprettet - tilføj den til serverData
+                    serverData.negative_keyword_lists = serverData.negative_keyword_lists || [];
+                    serverData.negative_keyword_lists.push({
+                        id: response.list_id,
+                        name: response.list_name,
+                        description: '',
+                        keyword_count: response.keywords_count
+                    });
+                }
+
+                // Opdater Step 5 chips med det samme
+                updateStep5NegativeKeywordChips();
+
+                setTimeout(function() {
+                    btn.html('🔄 Opdater Negativ By-Liste').removeClass('bg-green-600').addClass('from-red-600 to-orange-600');
+                    btn.prop('disabled', false);
+                }, 2000);
+            } else {
+                alert('Fejl: ' + (response.error || 'Ukendt fejl'));
+                btn.html(originalHtml).prop('disabled', false);
+            }
+        },
+        error: function(xhr, status, error) {
+            alert('Der opstod en fejl: ' + error);
+            btn.html(originalHtml).prop('disabled', false);
+        }
+    });
+});
+
+// Refresh serverData.negative_keyword_lists efter opdatering
+// Så Step 5 (Kampagne & Annoncebygger) viser opdaterede data
+function refreshNegativeKeywordLists() {
+    $.ajax({
+        url: '/ajax/get-negative-keyword-lists/',
+        method: 'GET',
+        success: function(response) {
+            serverData.negative_keyword_lists = response.lists || [];
+
+            // Opdater Step 5 chips uanset synlighed (så data er klar når bruger navigerer)
+            updateStep5NegativeKeywordChips();
+        }
+    });
+}
+
+// Opdater negative keyword chips i Step 5
+function updateStep5NegativeKeywordChips() {
+    // Opdater industri-kampagne chips
+    // FIX: Brug .neg-keyword-chips-container og data-industry-id (matcher HTML struktur)
+    Object.keys(campaignConfig.campaigns || {}).forEach(function(industryId) {
+        var campaign = campaignConfig.campaigns[industryId];
+        var container = $(`.neg-keyword-chips-container[data-industry-id="${industryId}"][data-campaign-type="industry"]`);
+        if (container.length) {
+            container.html(renderNegativeKeywordChips(campaign.negative_keyword_list_ids || [], industryId, 'industry'));
+        }
+    });
+
+    // Opdater geo-kampagne chips
+    // FIX: Brug .neg-keyword-chips-container og data-service-id (matcher HTML struktur)
+    Object.keys(campaignConfig.geo_campaigns || {}).forEach(function(serviceId) {
+        var geoCampaign = campaignConfig.geo_campaigns[serviceId];
+        var container = $(`.neg-keyword-chips-container[data-service-id="${serviceId}"][data-campaign-type="geo"]`);
+        if (container.length) {
+            container.html(renderNegativeKeywordChips(geoCampaign.negative_keyword_list_ids || [], serviceId, 'geo'));
+        }
+
+        // Legacy accordions (hvis de stadig bruges)
+        var legacyContainer = $(`.geo-negative-keywords-container[data-service-id="${serviceId}"]`);
+        if (legacyContainer.length) {
+            legacyContainer.html(renderNegativeKeywordListsForGeo(geoCampaign.negative_keyword_list_ids || [], serviceId));
+        }
+    });
+}
+
+// Update negative city count when geo selection changes
+var autoUpdateNegativeCityListTimer = null;
+var updateNegativeCityCountTimer = null;
+
+function updateNegativeCityCount() {
+    var selectedCities = campaignConfig.geo_map_targeting?.postal_names || [];
+    var btn = $('#generate-negative-cities-btn');
+
+    if (selectedCities.length > 0) {
+        btn.prop('disabled', false);
+
+        // Debounce AJAX kald for at undgå for mange requests
+        if (updateNegativeCityCountTimer) {
+            clearTimeout(updateNegativeCityCountTimer);
+        }
+
+        updateNegativeCityCountTimer = setTimeout(function() {
+            // Hent faktisk antal fra backend via AJAX
+            $.ajax({
+                url: '/ajax/get-negative-city-count/',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    selected_cities: selectedCities
+                }),
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                success: function(response) {
+                    $('#negative-city-count').text(response.count);
+                },
+                error: function() {
+                    // Fallback til estimat hvis AJAX fejler
+                    var estimatedExcluded = Math.max(0, 1089 - selectedCities.length);
+                    $('#negative-city-count').text(estimatedExcluded);
+                }
+            });
+        }, 300); // 300ms debounce
+
+        // Auto-opdater negativ by-liste i baggrunden (med debounce)
+        // Clear previous timer
+        if (autoUpdateNegativeCityListTimer) {
+            clearTimeout(autoUpdateNegativeCityListTimer);
+        }
+
+        // Debounce: vent 1.5 sekunder før automatisk opdatering
+        autoUpdateNegativeCityListTimer = setTimeout(function() {
+            autoUpdateNegativeCityList();
+        }, 1500);
+    } else {
+        $('#negative-city-count').text('0');
+        btn.prop('disabled', true);
+    }
+}
+
+// Auto-update the negative city list when geo selection changes
+// Runs automatically in background when cities are selected - no manual button click needed
+function autoUpdateNegativeCityList() {
+    var selectedCities = campaignConfig.geo_map_targeting?.postal_names || [];
+
+    // Kun kør hvis der er valgte byer
+    if (selectedCities.length === 0) {
+        return;
+    }
+
+    console.log('[AutoNegative] Opdaterer negativ by-liste automatisk med', selectedCities.length, 'valgte byer');
+
+    // Simpelt request - backend håndterer singleton listen
+    $.ajax({
+        url: '/ajax/generate-negative-city-list/',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            selected_cities: selectedCities
+        }),
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        success: function(response) {
+            if (response.success) {
+                console.log('[AutoNegative] Liste opdateret:', response.keywords_count, 'ekskluderede byer');
+
+                // Opdater serverData direkte med det nye antal (for øjeblikkelig Step 5 opdatering)
+                var list = (serverData.negative_keyword_lists || []).find(function(l) {
+                    return l.name === 'Ekskluderede Byer';
+                });
+                if (list) {
+                    list.keyword_count = response.keywords_count;
+                } else {
+                    // Listen blev nyoprettet - tilføj den til serverData
+                    serverData.negative_keyword_lists = serverData.negative_keyword_lists || [];
+                    serverData.negative_keyword_lists.push({
+                        id: response.list_id,
+                        name: response.list_name,
+                        description: '',
+                        keyword_count: response.keywords_count
+                    });
+                }
+
+                // Opdater Step 5 chips med det samme
+                updateStep5NegativeKeywordChips();
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('[AutoNegative] Fejl ved opdatering:', error);
+        }
+    });
+}
+
 // Generate byside URLs for EACH selected service - creates separate URL sets per service
 function generateBysideUrls() {
     const tbody = $('#byside-urls-body');
@@ -5968,10 +7263,13 @@ function generateBysideUrls() {
     campaignConfig.geo_config.byside_urls = [];  // Keep for backward compatibility
     campaignConfig.geo_config.byside_urls_by_service = {};
 
-    // Get selected regions and their cities
-    const selectedRegionIds = campaignConfig.geographic_region_ids;
-    if (selectedRegionIds.length === 0) {
-        tbody.html('<tr><td colspan="4" class="px-4 py-4 text-center text-gray-500">Vælg mindst én region ovenfor</td></tr>');
+    // Get cities from geo map targeting (postal_names)
+    const allCities = campaignConfig.geo_map_targeting && campaignConfig.geo_map_targeting.postal_names
+        ? campaignConfig.geo_map_targeting.postal_names
+        : [];
+
+    if (allCities.length === 0) {
+        tbody.html('<tr><td colspan="4" class="px-4 py-4 text-center text-gray-500">Vælg byer på områdekortet først</td></tr>');
         return;
     }
 
@@ -5989,26 +7287,6 @@ function generateBysideUrls() {
         const industryCard = $('.industry-card.selected').first();
         const industryName = industryCard.find('h4').text().trim() || 'branche';
         selectedServices.push({ id: 'industry', name: industryName });
-    }
-
-    // Collect all cities from selected regions
-    const allCities = [];
-    selectedRegionIds.forEach(regionId => {
-        const regionCard = $(`.geographic-region-card[data-region-id="${regionId}"]`);
-        const citiesData = regionCard.data('cities');
-        if (citiesData && Array.isArray(citiesData)) {
-            citiesData.forEach(city => {
-                const cityName = typeof city === 'string' ? city : city.name;
-                if (!allCities.includes(cityName)) {
-                    allCities.push(cityName);
-                }
-            });
-        }
-    });
-
-    if (allCities.length === 0) {
-        tbody.html('<tr><td colspan="4" class="px-4 py-4 text-center text-gray-500">Ingen byer fundet i valgte regioner</td></tr>');
-        return;
     }
 
     // Generate URLs for EACH selected service
@@ -6106,14 +7384,15 @@ $(document).on('click', '#download-urls-btn', function() {
         return;
     }
 
-    // Create CSV content
-    let csv = 'by,url\n';
+    // Create CSV content (semikolon som separator for dansk Excel)
+    let csv = 'by;url\n';
     urls.forEach(u => {
-        csv += `"${u.city}","${u.url}"\n`;
+        csv += `"${u.city}";"${u.url}"\n`;
     });
 
-    // Download
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    // Download med UTF-8 BOM for korrekt dansk tegn-encoding
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = 'byside_urls.csv';
@@ -6133,6 +7412,11 @@ updateWizardState = function() {
     if (currentStep === 4) {
         // Geo targeting step - populate services
         populateGeoServicesContainer();
+
+        // Preload DAWA data in background to eliminate delay when selecting regions
+        loadDAWAGeoJSON().then(function() {
+            console.log('DAWA data preloaded for step 4');
+        });
     } else if (currentStep === 5) {
         // Campaign builder step
         initializeCampaignsBuilder();
@@ -6320,11 +7604,13 @@ function restoreKeywordDisplay(input, text) {
 
 var geoMap = null;  // Leaflet map instance
 var geoGeoJsonLayer = null;  // Layer containing all postal code polygons
-var geoPostalData = {};  // { postalCode: { geometry, navn, polygon } }
+var geoPostalData = {};  // { postalCode: { geometry, navn, polygon, displayName, additionalNames } }
 var geoSelectedPostals = {};  // { postalCode: { source: 'region'|'typed'|'clicked'|'circle', polygon } }
+var geoSelectedCityNames = [];  // Array of city names for 1:1 display count
 var geoCircleMode = false;  // Toggle for circle drawing mode
 var geoCircles = [];  // Array of Leaflet circles (for optional circle mode)
 var geoCircleDrawing = null;  // Current circle being drawn
+var geoPostalCustomizations = {};  // Customizations from PostalCode Manager
 
 // Color scheme for different selection sources
 var GEO_COLORS = {
@@ -6336,37 +7622,226 @@ var GEO_COLORS = {
     default: { fill: '#E5E7EB', stroke: '#9CA3AF' }    // Gray - unselected
 };
 
+// Load PostalCode customizations from database
+function loadPostalCustomizations() {
+    return $.ajax({
+        url: '{% url "get_postal_codes_api" %}',
+        timeout: 10000,
+        dataType: 'json'
+    }).then(function(data) {
+        console.log('PostalCode customizations loaded:', data.postal_codes.length, 'entries');
+        data.postal_codes.forEach(function(pc) {
+            geoPostalCustomizations[pc.code] = {
+                displayName: pc.display_name || '',
+                additionalNames: pc.additional_names ? pc.additional_names.split(',').map(function(n) { return n.trim().toLowerCase(); }).filter(Boolean) : []
+            };
+        });
+        return geoPostalCustomizations;
+    }).catch(function(error) {
+        console.warn('Could not load postal customizations:', error);
+        return {};
+    });
+}
+
+// Consolidate København K, V and Frederiksberg C postal codes into single entries
+// Uses DAWA name matching instead of numeric ranges to ensure geographic continuity
+// Turf.js is used to merge all matching polygons into one big polygon per city
+function consolidateCopenhagenPostals(postalData) {
+    // Use name patterns instead of numeric ranges
+    // This ensures we only group geographically contiguous areas
+    var consolidations = {
+        'kbh_k': {
+            namePattern: 'København K',  // Matches postal codes named "København K"
+            displayName: 'København',
+            codes: []
+        },
+        'kbh_v': {
+            namePatterns: ['Vesterbro', 'København V'],  // Matches either name
+            displayName: 'Vesterbro',
+            codes: []
+        },
+        'frb_c': {
+            namePattern: 'Frederiksberg',  // Matches postal codes containing "Frederiksberg"
+            displayName: 'Frederiksberg',
+            codes: []
+        }
+    };
+
+    // Find all postal codes that should be consolidated based on DAWA name
+    for (var nr in postalData) {
+        var postal = postalData[nr];
+        var davaName = postal.navn || '';
+
+        for (var key in consolidations) {
+            var c = consolidations[key];
+            var matches = false;
+
+            // Check if name matches pattern(s)
+            if (c.namePatterns) {
+                // Multiple patterns - check if any match
+                matches = c.namePatterns.some(function(pattern) {
+                    return davaName.indexOf(pattern) !== -1;
+                });
+            } else if (c.namePattern) {
+                // Single pattern
+                matches = davaName.indexOf(c.namePattern) !== -1;
+            }
+
+            if (matches) {
+                c.codes.push(nr);
+                break;  // Each postal code belongs to only one group
+            }
+        }
+    }
+
+    // For each consolidation: merge all polygons into one, hide the rest
+    for (var key in consolidations) {
+        var c = consolidations[key];
+        if (c.codes.length > 0) {
+            c.codes.sort();
+            var primaryCode = c.codes[0];
+
+            // Update primary with display name and all consolidated codes
+            postalData[primaryCode].displayName = c.displayName;
+            postalData[primaryCode].consolidatedCodes = c.codes;
+
+            // Merge all polygons into one using Turf.js
+            try {
+                var polygonsToMerge = [];
+                c.codes.forEach(function(code) {
+                    var postal = postalData[code];
+                    if (postal && postal.geometry) {
+                        var feature = turf.feature(postal.geometry);
+                        polygonsToMerge.push(feature);
+                    }
+                });
+
+                if (polygonsToMerge.length > 1) {
+                    // Use turf.union to merge all polygons
+                    var merged = polygonsToMerge[0];
+                    for (var i = 1; i < polygonsToMerge.length; i++) {
+                        try {
+                            merged = turf.union(merged, polygonsToMerge[i]);
+                        } catch (e) {
+                            // Skip invalid polygons
+                            console.warn('Could not merge polygon', c.codes[i], e);
+                        }
+                    }
+
+                    // Replace primary code's geometry with merged polygon
+                    if (merged && merged.geometry) {
+                        postalData[primaryCode].geometry = merged.geometry;
+                        console.log('Merged', c.displayName + ':', c.codes.length, 'polygons into one (by name: ' + (c.namePattern || c.namePatterns.join('/')) + ')');
+                    }
+                }
+            } catch (e) {
+                console.error('Error merging polygons for', c.displayName, e);
+            }
+
+            console.log('Consolidated', c.displayName + ':', c.codes.length, 'postal codes into', primaryCode, '(matched by DAWA name)');
+
+            // Hide the other postal codes from map display (show only merged polygon)
+            for (var i = 1; i < c.codes.length; i++) {
+                postalData[c.codes[i]].hidden = true;
+            }
+        }
+    }
+
+    return postalData;
+}
+
 // Load DAWA GeoJSON data for all postal codes
+var dawaLoadingPromise = null;  // Track ongoing load to prevent duplicates
+
 function loadDAWAGeoJSON() {
     if (Object.keys(geoPostalData).length > 0) {
         return Promise.resolve(geoPostalData);
     }
 
+    // If already loading, return existing promise
+    if (dawaLoadingPromise) {
+        return dawaLoadingPromise;
+    }
+
     console.log('Loading DAWA GeoJSON data...');
-    return $.ajax({
-        url: 'https://dawa.aws.dk/postnumre?format=geojson',
-        timeout: 30000,
-        dataType: 'json'
-    }).then(function(geojson) {
+
+    // Load both DAWA data and customizations with cache-busting
+    dawaLoadingPromise = Promise.all([
+        $.ajax({
+            url: 'https://dawa.aws.dk/postnumre?format=geojson&_=' + Date.now(),
+            timeout: 30000,
+            dataType: 'json',
+            cache: false
+        }),
+        loadPostalCustomizations()
+    ]).then(function(results) {
+        var geojson = results[0];
         console.log('DAWA GeoJSON loaded:', geojson.features.length, 'postal codes');
 
-        // Build lookup by postal code
+        // Build lookup by postal code with customizations
         geojson.features.forEach(function(feature) {
             var nr = feature.properties.nr;
+            var customization = geoPostalCustomizations[nr] || {};
+
             geoPostalData[nr] = {
                 nr: nr,
                 navn: feature.properties.navn,
+                displayName: customization.displayName || '',
+                additionalNames: customization.additionalNames || [],
                 geometry: feature.geometry,
-                polygon: null  // Will be set when added to map
+                polygon: null,  // Will be set when added to map
+                hidden: false,  // For consolidated postal codes
+                consolidatedCodes: null  // Array of codes if this is a primary consolidated code
             };
         });
 
+        // Consolidate København K, V and Frederiksberg C
+        consolidateCopenhagenPostals(geoPostalData);
+
+        dawaLoadingPromise = null;  // Clear so future calls return cached data
         return geoPostalData;
     }).catch(function(error) {
         console.error('Error loading DAWA GeoJSON:', error);
-        alert('Kunne ikke hente postnummer-data. Prøv igen senere.');
+        dawaLoadingPromise = null;  // Clear so retries can happen
+        // Don't alert - just log and throw
         throw error;
     });
+
+    return dawaLoadingPromise;
+}
+
+// Get display name for a postal code (uses customization or DAWA name)
+function getPostalDisplayName(nr) {
+    var postal = geoPostalData[nr];
+    if (!postal) return nr;
+    return postal.displayName || postal.navn;
+}
+
+// Find postal code by city name (checks both DAWA name and additional names)
+function findPostalCodeByName(cityName) {
+    if (!cityName) return null;
+    var searchName = cityName.toLowerCase().trim();
+
+    for (var nr in geoPostalData) {
+        var postal = geoPostalData[nr];
+
+        // Check DAWA name
+        if (postal.navn.toLowerCase() === searchName) {
+            return nr;
+        }
+
+        // Check display name
+        if (postal.displayName && postal.displayName.toLowerCase() === searchName) {
+            return nr;
+        }
+
+        // Check additional names (includes cities like Husum, Nørrebro etc.)
+        if (postal.additionalNames && postal.additionalNames.includes(searchName)) {
+            return nr;
+        }
+    }
+
+    return null;
 }
 
 // Initialize Leaflet map with Danish postal code polygons
@@ -6377,9 +7852,15 @@ function initGeoModal() {
         return Promise.reject('Map container not found');
     }
 
-    // If map already exists, just return
+    // If map already exists, check if GeoJSON layer needs to be created
     if (geoMap) {
         geoMap.invalidateSize();
+        // If GeoJSON layer doesn't exist yet, create it
+        if (!geoGeoJsonLayer) {
+            return loadDAWAGeoJSON().then(function(postalData) {
+                createGeoJsonLayer(postalData);
+            });
+        }
         return Promise.resolve();
     }
 
@@ -6398,8 +7879,23 @@ function initGeoModal() {
 
     // Load and display postal code polygons
     return loadDAWAGeoJSON().then(function(postalData) {
-        // Create GeoJSON features array
-        var features = Object.values(postalData).map(function(postal) {
+        createGeoJsonLayer(postalData);
+    });
+}
+
+// Create GeoJSON layer from postal data
+function createGeoJsonLayer(postalData) {
+    if (geoGeoJsonLayer) {
+        console.log('GeoJSON layer already exists');
+        return;
+    }
+
+    // Create GeoJSON features array (skip hidden/consolidated postal codes)
+    var features = Object.values(postalData)
+        .filter(function(postal) {
+            return !postal.hidden;  // Skip consolidated postal codes (show only primary)
+        })
+        .map(function(postal) {
             return {
                 type: 'Feature',
                 properties: { nr: postal.nr, navn: postal.navn },
@@ -6407,32 +7903,85 @@ function initGeoModal() {
             };
         });
 
-        // Add GeoJSON layer with styling
-        geoGeoJsonLayer = L.geoJSON({ type: 'FeatureCollection', features: features }, {
-            style: getPolygonStyle,
-            onEachFeature: onEachPostalFeature
-        }).addTo(geoMap);
+    // Add GeoJSON layer with styling
+    geoGeoJsonLayer = L.geoJSON({ type: 'FeatureCollection', features: features }, {
+        style: getPolygonStyle,
+        onEachFeature: onEachPostalFeature
+    }).addTo(geoMap);
 
-        // Store polygon references
-        geoGeoJsonLayer.eachLayer(function(layer) {
-            var nr = layer.feature.properties.nr;
-            if (geoPostalData[nr]) {
-                geoPostalData[nr].polygon = layer;
-            }
-        });
-
-        console.log('Geo map initialized with', features.length, 'postal polygons');
-
-        // Sync any pre-selected regions
-        syncRegionsToMap();
-        updateGeoSelectionDisplay();
+    // Store polygon references
+    geoGeoJsonLayer.eachLayer(function(layer) {
+        var nr = layer.feature.properties.nr;
+        if (geoPostalData[nr]) {
+            geoPostalData[nr].polygon = layer;
+        }
     });
+
+    console.log('Geo map initialized with', features.length, 'postal polygons');
+
+    // Restore saved selections from campaignConfig
+    if (campaignConfig.geo_map_targeting && campaignConfig.geo_map_targeting.postal_codes) {
+        campaignConfig.geo_map_targeting.postal_codes.forEach(function(code) {
+            selectPostal(code, 'restored');
+        });
+        console.log('Restored', campaignConfig.geo_map_targeting.postal_codes.length, 'postal codes from saved state');
+    }
+
+    // Sync any pre-selected regions
+    syncRegionsToMap();
+    updateGeoSelectionDisplay();
+
+    // Refresh all polygon styles after delays to ensure selections are applied
+    // (syncRegionsToMap is async so we need multiple refreshes)
+    setTimeout(function() {
+        refreshAllPolygonStyles();
+    }, 500);
+    setTimeout(function() {
+        refreshAllPolygonStyles();
+    }, 1500);
+    setTimeout(function() {
+        refreshAllPolygonStyles();
+    }, 3000);
+}
+
+// Refresh all polygon styles based on current geoSelectedPostals
+function refreshAllPolygonStyles() {
+    if (!geoGeoJsonLayer) {
+        console.log('Geo layer not ready, skipping style refresh');
+        return;
+    }
+
+    var selectedCount = Object.keys(geoSelectedPostals).length;
+    if (selectedCount === 0) {
+        console.log('No selections to refresh');
+        return;
+    }
+
+    geoGeoJsonLayer.eachLayer(function(layer) {
+        var nr = layer.feature.properties.nr;
+        layer.setStyle(getPolygonStyle({ properties: { nr: nr } }));
+    });
+
+    console.log('Refreshed polygon styles for', selectedCount, 'selected postal codes');
 }
 
 // Get style for a postal code polygon
 function getPolygonStyle(feature) {
     var nr = feature.properties.nr;
     var selected = geoSelectedPostals[nr];
+
+    // For consolidated postal codes, check if ANY of the underlying codes are selected
+    if (!selected) {
+        var postal = geoPostalData[nr];
+        if (postal && postal.consolidatedCodes) {
+            for (var i = 0; i < postal.consolidatedCodes.length; i++) {
+                if (geoSelectedPostals[postal.consolidatedCodes[i]]) {
+                    selected = geoSelectedPostals[postal.consolidatedCodes[i]];
+                    break;
+                }
+            }
+        }
+    }
 
     if (selected) {
         var colors = GEO_COLORS[selected.source] || GEO_COLORS.clicked;
@@ -6457,10 +8006,13 @@ function getPolygonStyle(feature) {
 // Attach events to each postal code polygon
 function onEachPostalFeature(feature, layer) {
     var nr = feature.properties.nr;
-    var navn = feature.properties.navn;
+    var postal = geoPostalData[nr];
+
+    // Use display name if available (for consolidated areas like København)
+    var displayName = postal && postal.displayName ? postal.displayName : feature.properties.navn;
 
     // Tooltip showing postal code info
-    layer.bindTooltip(nr + ' ' + navn, { sticky: true });
+    layer.bindTooltip(displayName, { sticky: true });
 
     // Hover effects
     layer.on('mouseover', function(e) {
@@ -6491,34 +8043,96 @@ function onEachPostalFeature(feature, layer) {
 // Toggle selection of a postal code
 function togglePostalSelection(postalCode, source) {
     postalCode = String(postalCode);
+    var postal = geoPostalData[postalCode];
 
-    if (geoSelectedPostals[postalCode]) {
-        // Deselect
-        delete geoSelectedPostals[postalCode];
+    // Check if this is a consolidated postal code (København, Vesterbro, Frederiksberg)
+    if (postal && postal.consolidatedCodes) {
+        // For consolidated codes, check if ANY of them are selected
+        var anySelected = postal.consolidatedCodes.some(function(code) {
+            return !!geoSelectedPostals[code];
+        });
+
+        if (anySelected) {
+            // Deselect ALL consolidated codes
+            deselectPostal(postalCode);
+        } else {
+            // Select ALL consolidated codes
+            selectPostal(postalCode, source);
+        }
     } else {
-        // Select
-        geoSelectedPostals[postalCode] = { source: source };
-    }
+        // Normal postal code - simple toggle
+        if (geoSelectedPostals[postalCode]) {
+            // Deselect
+            delete geoSelectedPostals[postalCode];
+        } else {
+            // Select
+            geoSelectedPostals[postalCode] = { source: source };
+        }
 
-    // Update polygon style
-    if (geoPostalData[postalCode] && geoPostalData[postalCode].polygon) {
-        geoPostalData[postalCode].polygon.setStyle(
-            getPolygonStyle({ properties: { nr: postalCode } })
-        );
+        // Update polygon style
+        if (postal && postal.polygon) {
+            postal.polygon.setStyle(
+                getPolygonStyle({ properties: { nr: postalCode } })
+            );
+        }
     }
 
     updateGeoSelectionDisplay();
 }
 
 // Select a postal code (without toggle)
-function selectPostal(postalCode, source) {
+// Now tracks multiple regionIds so postal codes shared between regions aren't lost when one region is deselected
+function selectPostal(postalCode, source, regionId = null) {
     postalCode = String(postalCode);
 
-    if (!geoSelectedPostals[postalCode]) {
-        geoSelectedPostals[postalCode] = { source: source };
+    // Helper to add regionId to existing selection
+    function addRegionToSelection(code, isConsolidated) {
+        if (geoSelectedPostals[code]) {
+            // Already selected - add this regionId if not already present
+            if (regionId && source === 'region') {
+                if (!geoSelectedPostals[code].regionIds) {
+                    // Convert old single regionId to array
+                    geoSelectedPostals[code].regionIds = geoSelectedPostals[code].regionId ?
+                        [geoSelectedPostals[code].regionId] : [];
+                    delete geoSelectedPostals[code].regionId;
+                }
+                if (geoSelectedPostals[code].regionIds.indexOf(regionId) === -1) {
+                    geoSelectedPostals[code].regionIds.push(regionId);
+                }
+            }
+        } else {
+            // New selection
+            var newSelection = {
+                source: source,
+                regionIds: regionId ? [regionId] : []
+            };
+            // Only mark as consolidated if it's actually part of a consolidated group
+            if (isConsolidated) {
+                newSelection.consolidated = true;
+            }
+            geoSelectedPostals[code] = newSelection;
+        }
+    }
 
-        if (geoPostalData[postalCode] && geoPostalData[postalCode].polygon) {
-            geoPostalData[postalCode].polygon.setStyle(
+    // If this is a consolidated postal code (like København K), select all underlying codes
+    var postal = geoPostalData[postalCode];
+    if (postal && postal.consolidatedCodes) {
+        // Select all consolidated codes internally - mark them as consolidated
+        postal.consolidatedCodes.forEach(function(code) {
+            addRegionToSelection(code, true);
+        });
+        // Update only the primary polygon style (consolidated codes share this polygon)
+        if (postal.polygon) {
+            postal.polygon.setStyle(
+                getPolygonStyle({ properties: { nr: postalCode } })
+            );
+        }
+    } else {
+        // Regular postal code - NOT consolidated
+        addRegionToSelection(postalCode, false);
+
+        if (postal && postal.polygon) {
+            postal.polygon.setStyle(
                 getPolygonStyle({ properties: { nr: postalCode } })
             );
         }
@@ -6529,15 +8143,42 @@ function selectPostal(postalCode, source) {
 function deselectPostal(postalCode) {
     postalCode = String(postalCode);
 
-    if (geoSelectedPostals[postalCode]) {
+    // If this is a consolidated postal code, deselect all underlying codes
+    var postal = geoPostalData[postalCode];
+    if (postal && postal.consolidatedCodes) {
+        postal.consolidatedCodes.forEach(function(code) {
+            delete geoSelectedPostals[code];
+        });
+        // Update only the primary polygon style
+        if (postal.polygon) {
+            postal.polygon.setStyle(
+                getPolygonStyle({ properties: { nr: postalCode } })
+            );
+        }
+    } else if (geoSelectedPostals[postalCode]) {
         delete geoSelectedPostals[postalCode];
 
-        if (geoPostalData[postalCode] && geoPostalData[postalCode].polygon) {
-            geoPostalData[postalCode].polygon.setStyle(
+        if (postal && postal.polygon) {
+            postal.polygon.setStyle(
                 getPolygonStyle({ properties: { nr: postalCode } })
             );
         }
     }
+}
+
+// Find consolidated primary code for cities with multiple postal codes
+function findConsolidatedPrimaryCode(cityName) {
+    var name = (cityName || '').toLowerCase().trim();
+    if (name === 'københavn') {
+        return '1050';  // København K primary (1050-1473)
+    }
+    if (name === 'vesterbro') {
+        return '1550';  // København V primary (1550-1799)
+    }
+    if (name === 'frederiksberg') {
+        return '1800';  // Frederiksberg C primary (1800-1999)
+    }
+    return null;
 }
 
 // Add region's cities as selected postal codes (polygon-based)
@@ -6546,24 +8187,45 @@ function addRegionToGeoMap(regionId, regionName, cities) {
 
     loadDAWAGeoJSON().then(function() {
         cities.forEach(function(city) {
-            // Try to match by postal code from dawa_name or direct postal lookup
             var postalCode = null;
+            var cityName = city.name || city.dawa_name || '';
+            var foundPostalCode = false;
 
-            // If city has a dawa_name that looks like a postal code
-            if (city.dawa_name && /^\d{4}$/.test(city.dawa_name)) {
-                postalCode = city.dawa_name;
+            // 0. SPECIAL: MULTI postnummer for København/Vesterbro/Frederiksberg
+            if (city.postal_code === 'MULTI') {
+                var primaryCode = findConsolidatedPrimaryCode(city.name);
+                if (primaryCode && geoPostalData[primaryCode]) {
+                    selectPostal(primaryCode, 'region', regionId);
+                    foundPostalCode = true;
+                }
             } else {
-                // Search for matching postal code by name
-                for (var nr in geoPostalData) {
-                    if (geoPostalData[nr].navn.toLowerCase() === (city.dawa_name || city.name || '').toLowerCase()) {
-                        postalCode = nr;
-                        break;
-                    }
+                // 1. PRIORITET: Brug postal_code direkte hvis tilgængelig
+                if (city.postal_code && /^\d{4}$/.test(city.postal_code)) {
+                    postalCode = city.postal_code;
+                }
+                // 2. FALLBACK: dawa_name hvis det er et postnummer
+                else if (city.dawa_name && /^\d{4}$/.test(city.dawa_name)) {
+                    postalCode = city.dawa_name;
+                }
+                // 3. SIDSTE UDVEJ: Navnematching
+                else {
+                    var lookupName = city.dawa_name || city.name || '';
+                    postalCode = findPostalCodeByName(lookupName);
+                }
+
+                if (postalCode && geoPostalData[postalCode]) {
+                    selectPostal(postalCode, 'region', regionId);
+                    foundPostalCode = true;
                 }
             }
 
-            if (postalCode && geoPostalData[postalCode]) {
-                selectPostal(postalCode, 'region');
+            // Always track city name (for display), but mark if it's keyword-only (no postal code)
+            if (!geoSelectedCityNames.find(function(c) { return c.name === cityName && c.regionId === regionId; })) {
+                geoSelectedCityNames.push({
+                    name: cityName,
+                    regionId: regionId,
+                    keywordOnly: !foundPostalCode  // True for areas like Nordsjælland
+                });
             }
         });
 
@@ -6571,14 +8233,159 @@ function addRegionToGeoMap(regionId, regionName, cities) {
 
         // Pan to show selected area
         fitMapToSelection();
+
+        // Sync to campaignConfig so generate-urls works immediately
+        syncGeoMapTargetingToConfig();
     });
 }
 
 // Remove region's postal codes from selection
+// Only fully removes postal codes if they're not also selected by another region
 function removeRegionFromGeoMap(regionId) {
-    // For now, we need to track which postals came from which region
-    // This is simplified - in a full implementation you'd track regionId per postal
+    var postalsToFullyRemove = [];
+    var postalsToUpdateStyle = [];
+
+    for (var nr in geoSelectedPostals) {
+        var selection = geoSelectedPostals[nr];
+
+        // Check if this postal code has this regionId
+        var hasRegion = false;
+        if (selection.regionIds && selection.regionIds.indexOf(regionId) !== -1) {
+            hasRegion = true;
+        } else if (selection.regionId === regionId) {
+            // Old format with single regionId
+            hasRegion = true;
+        }
+
+        if (hasRegion) {
+            if (selection.regionIds) {
+                // Remove this regionId from the array
+                var idx = selection.regionIds.indexOf(regionId);
+                if (idx !== -1) {
+                    selection.regionIds.splice(idx, 1);
+                }
+                // Only fully remove if no more regions reference it
+                if (selection.regionIds.length === 0) {
+                    postalsToFullyRemove.push(nr);
+                } else {
+                    postalsToUpdateStyle.push(nr);
+                }
+            } else {
+                // Old format - just remove it
+                postalsToFullyRemove.push(nr);
+            }
+        }
+    }
+
+    // Fully deselect postal codes with no remaining region references
+    postalsToFullyRemove.forEach(function(postalCode) {
+        deselectPostal(postalCode);
+    });
+
+    // Update styles for postal codes that are still selected by other regions
+    postalsToUpdateStyle.forEach(function(postalCode) {
+        var postal = geoPostalData[postalCode];
+        if (postal && postal.polygon) {
+            postal.polygon.setStyle(
+                getPolygonStyle({ properties: { nr: postalCode } })
+            );
+        }
+    });
+
+    // Remove city names for this region from the 1:1 tracking
+    geoSelectedCityNames = geoSelectedCityNames.filter(function(c) {
+        return c.regionId !== regionId;
+    });
+
     updateGeoSelectionDisplay();
+
+    // Sync to campaignConfig
+    syncGeoMapTargetingToConfig();
+}
+
+// Get all postal codes for a region
+function getRegionPostalCodes(regionCard) {
+    var cities = $(regionCard).data('cities') || [];
+    var postalCodes = [];
+
+    cities.forEach(function(city) {
+        // 0. SPECIAL: MULTI postnummer for København/Vesterbro/Frederiksberg
+        if (city.postal_code === 'MULTI') {
+            var primaryCode = findConsolidatedPrimaryCode(city.name);
+            if (primaryCode && geoPostalData[primaryCode]) {
+                var postal = geoPostalData[primaryCode];
+                if (postal.consolidatedCodes) {
+                    // Add all consolidated codes
+                    postal.consolidatedCodes.forEach(function(code) {
+                        if (postalCodes.indexOf(code) === -1) {
+                            postalCodes.push(code);
+                        }
+                    });
+                } else {
+                    postalCodes.push(primaryCode);
+                }
+            }
+            return; // Continue to next city
+        }
+
+        var postalCode = null;
+
+        // 1. PRIORITET: Brug postal_code direkte hvis tilgængelig
+        if (city.postal_code && /^\d{4}$/.test(city.postal_code)) {
+            postalCode = city.postal_code;
+        }
+        // 2. FALLBACK: dawa_name hvis det er et postnummer
+        else if (city.dawa_name && /^\d{4}$/.test(city.dawa_name)) {
+            postalCode = city.dawa_name;
+        }
+        // 3. SIDSTE UDVEJ: Navnematching (legacy)
+        else {
+            var cityName = city.dawa_name || city.name || '';
+            postalCode = findPostalCodeByName(cityName);
+        }
+
+        if (postalCode && geoPostalData[postalCode]) {
+            postalCodes.push(postalCode);
+        }
+    });
+
+    return postalCodes;
+}
+
+// Check if all postal codes for a region are selected
+function isRegionFullySelected(regionCard) {
+    var regionPostalCodes = getRegionPostalCodes(regionCard);
+
+    if (regionPostalCodes.length === 0) return false;
+
+    // Check if ALL postal codes are selected
+    return regionPostalCodes.every(function(postalCode) {
+        return geoSelectedPostals[postalCode] !== undefined;
+    });
+}
+
+// Sync region card selection state with actual postal code selections
+function syncRegionSelectionState() {
+    $('.geographic-region-card').each(function() {
+        var regionCard = $(this);
+        var regionId = regionCard.data('region-id');
+        var isFullySelected = isRegionFullySelected(this);
+        var isCurrentlyMarked = regionCard.hasClass('selected');
+
+        if (isFullySelected && !isCurrentlyMarked) {
+            // All cities selected - mark region as selected
+            regionCard.addClass('selected');
+            if (!campaignConfig.geographic_region_ids.includes(regionId)) {
+                campaignConfig.geographic_region_ids.push(regionId);
+            }
+        } else if (!isFullySelected && isCurrentlyMarked) {
+            // Not all cities selected - unmark region
+            regionCard.removeClass('selected');
+            campaignConfig.geographic_region_ids = campaignConfig.geographic_region_ids.filter(function(id) {
+                return id !== regionId;
+            });
+        }
+    });
 }
 
 // Fit map bounds to show all selected postal codes
@@ -6613,20 +8420,97 @@ function syncRegionsToMap() {
 // Update the display of selected postal codes
 function updateGeoSelectionDisplay() {
     var selectedList = [];
+    var cityCountExcludingKeywords = 0;
 
+    // Use city names from regions for display
+    geoSelectedCityNames.forEach(function(city) {
+        if (selectedList.indexOf(city.name) === -1) {
+            selectedList.push(city.name);
+            // Only count cities with postal codes (not keyword-only areas like Nordsjælland)
+            if (!city.keywordOnly) {
+                cityCountExcludingKeywords++;
+            }
+        }
+    });
+
+    // Also add postal codes selected directly (typed, clicked, circle) that are not from regions
     for (var nr in geoSelectedPostals) {
+        var selection = geoSelectedPostals[nr];
+
+        // Skip if this was added from a region (city names already tracked)
+        if (selection.regionIds && selection.regionIds.length > 0) {
+            continue;
+        }
+        if (selection.regionId) {
+            continue;
+        }
+
         var postal = geoPostalData[nr];
         if (postal) {
-            selectedList.push(nr + ' ' + postal.navn);
+            var displayName = getPostalDisplayName(nr);
+            if (selectedList.indexOf(displayName) === -1) {
+                selectedList.push(displayName);
+                cityCountExcludingKeywords++;
+            }
         } else {
-            selectedList.push(nr);
+            if (selectedList.indexOf(nr) === -1) {
+                selectedList.push(nr);
+                cityCountExcludingKeywords++;
+            }
         }
     }
 
     selectedList.sort();
 
+    // Update modal display (show all including keywords)
     $('#geo-panel-selected-cities').val(selectedList.join('\n'));
-    $('#geo-panel-city-count').text(selectedList.length);
+    $('#geo-panel-city-count').text(cityCountExcludingKeywords);
+
+    // Also update Step 4 display (outside modal)
+    if (selectedList.length > 0) {
+        var displayText = selectedList.slice(0, 5).join(', ');
+        if (selectedList.length > 5) {
+            displayText += ' +' + (selectedList.length - 5) + ' mere';
+        }
+        $('#geo-map-selected-cities').val(displayText);
+        // Show count excluding keyword-only areas
+        $('#geo-map-city-count').text(cityCountExcludingKeywords);
+        $('#geo-map-summary').show();
+    } else {
+        $('#geo-map-selected-cities').val('').attr('placeholder', 'Klik på knappen for at vælge områder...');
+        $('#geo-map-summary').hide();
+    }
+
+    // Sync region selection state with actual postal code selections
+    syncRegionSelectionState();
+}
+
+// Sync geo map targeting data to campaignConfig for immediate use (e.g., generate URLs)
+function syncGeoMapTargetingToConfig() {
+    // Build postal_names from tracked city names
+    var postalNames = [];
+    geoSelectedCityNames.forEach(function(city) {
+        if (postalNames.indexOf(city.name) === -1) {
+            postalNames.push(city.name);
+        }
+    });
+
+    // Build postal_codes from geoSelectedPostals
+    var postalCodes = Object.keys(geoSelectedPostals);
+
+    // Update campaignConfig
+    campaignConfig.geo_map_targeting = {
+        postal_codes: postalCodes,
+        postal_names: postalNames,
+        circles: geoCircles.map(function(c) {
+            return { lat: c.lat, lng: c.lng, radius: c.radius };
+        })
+    };
+
+    debouncedSaveState();
+
+    // Update negative city count display
+    updateNegativeCityCount();
 }
 
 // Add postal codes from input field
@@ -6771,44 +8655,619 @@ $('#open-geo-map-btn').click(function() {
     openGeoMapPanel();
 });
 
-$('#close-geo-map-panel').click(function() {
+$(document).on('click', '#close-geo-map-panel', function() {
     closeGeoMapPanel();
 });
 
-$('#geo-map-panel-overlay').click(function(e) {
+$(document).on('click', '#geo-map-panel-overlay', function(e) {
     if (e.target === this) closeGeoMapPanel();
 });
 
-$('#geo-add-postal-btn').click(function() {
+$(document).on('click', '#geo-add-postal-btn', function() {
     addPostalCodesFromInput();
 });
 
-$('#geo-postal-input').keypress(function(e) {
+$(document).on('keypress', '#geo-postal-input', function(e) {
     if (e.which === 13) {
         e.preventDefault();
         addPostalCodesFromInput();
     }
 });
 
-$('#toggle-circle-mode').click(function() {
+$(document).on('click', '#toggle-circle-mode', function() {
     toggleCircleMode();
 });
 
-$('#clear-geo-map-selection').click(function() {
+$(document).on('click', '#clear-geo-map-selection', function() {
     clearAllGeoSelections();
 });
 
-$('#save-geo-map-selection').click(function() {
-    var selectedPostals = Object.keys(geoSelectedPostals);
-    var postalNames = selectedPostals.map(function(nr) {
-        return geoPostalData[nr] ? geoPostalData[nr].navn : nr;
+// =====================================================
+// STEP 7: Programmatic Byside Functions
+// =====================================================
+
+// State for Programmatic Byside
+let programmaticState = {
+    website_url: '',
+    sitemap_urls: [],
+    city_matches: [],
+    existing_count: 0,
+    missing_count: 0,
+    selected_new_cities: [],  // Cities selected for WordPress export (user can deselect)
+    generated_meta_titles: [],  // AI-generated SEO meta titles (7 variants)
+    generated_meta_descriptions: []  // AI-generated SEO meta descriptions (7 variants)
+};
+
+// Crawl sitemap from customer website
+async function crawlSitemap() {
+    const websiteUrl = $('#programmatic-website-url').val().trim();
+    if (!websiteUrl) {
+        alert('Indtast venligst en website URL');
+        return;
+    }
+
+    // Show loading state
+    $('#sitemap-status').removeClass('hidden');
+    $('#sitemap-loading').removeClass('hidden');
+    $('#sitemap-success').addClass('hidden');
+    $('#sitemap-error').addClass('hidden');
+    $('#crawl-sitemap-btn').prop('disabled', true).addClass('opacity-50');
+
+    try {
+        const response = await $.ajax({
+            url: '/ajax/crawl-sitemap/',
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+            contentType: 'application/json',
+            data: JSON.stringify({ website_url: websiteUrl })
+        });
+
+        $('#sitemap-loading').addClass('hidden');
+
+        if (response.success) {
+            programmaticState.website_url = websiteUrl;
+            programmaticState.sitemap_urls = response.urls || [];
+
+            $('#sitemap-success').removeClass('hidden');
+            $('#sitemap-urls-count').text(`${response.urls_found} URLs fundet i sitemap`);
+
+            // Automatisk kør checkCityPages efter succesfuld sitemap crawl
+            await checkCityPages();
+        } else {
+            $('#sitemap-error').removeClass('hidden');
+            $('#sitemap-error-message').text(response.error || 'Kunne ikke crawle sitemap');
+        }
+    } catch (error) {
+        console.error('Sitemap crawl error:', error);
+        $('#sitemap-loading').addClass('hidden');
+        $('#sitemap-error').removeClass('hidden');
+        $('#sitemap-error-message').text('Fejl ved crawling af sitemap');
+    }
+
+    $('#crawl-sitemap-btn').prop('disabled', false).removeClass('opacity-50');
+}
+
+// Check which city pages exist on the website
+async function checkCityPages() {
+    const websiteUrl = programmaticState.website_url || $('#programmatic-website-url').val().trim();
+    const selectedCities = getSelectedCities();
+
+    if (!websiteUrl) {
+        alert('Crawl venligst sitemap først');
+        return;
+    }
+
+    if (selectedCities.length === 0) {
+        alert('Vælg venligst mindst én by');
+        return;
+    }
+
+    // Get the service name from campaign config
+    const serviceName = getServiceNameForProgrammatic();
+    if (!serviceName) {
+        alert('Ingen service valgt. Gå tilbage og vælg en service.');
+        return;
+    }
+
+    // Show loading
+    $('#city-page-status-section').removeClass('hidden');
+    $('#city-page-status-loading').removeClass('hidden');
+    $('#city-page-results').addClass('hidden');
+
+    try {
+        const response = await $.ajax({
+            url: '/ajax/match-city-pages/',
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+            contentType: 'application/json',
+            data: JSON.stringify({
+                website_url: websiteUrl,
+                service_name: serviceName,
+                cities: selectedCities
+            })
+        });
+
+        $('#city-page-status-loading').addClass('hidden');
+
+        if (response.success) {
+            programmaticState.city_matches = response.results || [];
+            programmaticState.existing_count = response.existing_count || 0;
+            programmaticState.missing_count = response.missing_count || 0;
+
+            // Update counters
+            $('#existing-pages-count').text(programmaticState.existing_count);
+            $('#missing-pages-count').text(programmaticState.missing_count);
+
+            // Render the two lists (existing and missing)
+            renderCityPageLists(programmaticState.city_matches);
+
+            // Update credits count
+            updateCreditsCount();
+
+            $('#city-page-results').removeClass('hidden');
+        } else {
+            alert('Fejl ved tjek af bysider: ' + (response.error || 'Ukendt fejl'));
+            $('#city-page-status-section').addClass('hidden');
+        }
+    } catch (error) {
+        console.error('City page check error:', error);
+        alert('Fejl ved tjek af bysider');
+        $('#city-page-status-loading').addClass('hidden');
+        $('#city-page-status-section').addClass('hidden');
+    }
+}
+
+// Render the city page lists (existing and missing)
+function renderCityPageLists(results) {
+    const existingList = $('#existing-pages-list');
+    const missingList = $('#missing-pages-list');
+    existingList.empty();
+    missingList.empty();
+
+    // Split results into existing and missing
+    const existingPages = results.filter(r => r.status === 'existing');
+    const missingPages = results.filter(r => r.status === 'missing');
+
+    // Render existing pages (with links, no checkboxes)
+    if (existingPages.length === 0) {
+        $('#no-existing-pages').removeClass('hidden');
+    } else {
+        $('#no-existing-pages').addClass('hidden');
+        existingPages.forEach(result => {
+            const item = `
+                <div class="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-green-100">
+                    <span class="text-sm font-medium text-gray-900">${escapeHtml(result.city)}</span>
+                    <a href="${escapeHtml(result.existing_url)}" target="_blank" class="text-xs text-blue-600 hover:underline flex items-center">
+                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                        </svg>
+                        Åbn
+                    </a>
+                </div>
+            `;
+            existingList.append(item);
+        });
+    }
+
+    // Render missing pages (with checkboxes, all checked by default)
+    if (missingPages.length === 0) {
+        $('#no-missing-pages').removeClass('hidden');
+    } else {
+        $('#no-missing-pages').addClass('hidden');
+        missingPages.forEach((result, index) => {
+            const item = `
+                <div class="flex items-center py-2 px-3 bg-white rounded-lg border border-yellow-100">
+                    <input type="checkbox"
+                           class="missing-page-checkbox w-4 h-4 text-yellow-600 rounded border-gray-300 focus:ring-yellow-500 mr-3"
+                           data-city="${escapeHtml(result.city)}"
+                           id="missing-page-${index}"
+                           checked
+                           onchange="updateCreditsCount()">
+                    <label for="missing-page-${index}" class="text-sm font-medium text-gray-900 cursor-pointer flex-1">
+                        ${escapeHtml(result.city)}
+                    </label>
+                    <span class="text-xs text-yellow-600 font-medium">+1 credit</span>
+                </div>
+            `;
+            missingList.append(item);
+        });
+    }
+}
+
+// Update credits count based on selected missing pages
+function updateCreditsCount() {
+    const selectedCount = $('.missing-page-checkbox:checked').length;
+    $('#credits-count').text(selectedCount);
+
+    // Store selected cities for export
+    programmaticState.selected_new_cities = [];
+    $('.missing-page-checkbox:checked').each(function() {
+        programmaticState.selected_new_cities.push($(this).data('city'));
+    });
+}
+
+// Select all missing pages
+function selectAllMissingPages() {
+    $('.missing-page-checkbox').prop('checked', true);
+    updateCreditsCount();
+}
+
+// Deselect all missing pages
+function deselectAllMissingPages() {
+    $('.missing-page-checkbox').prop('checked', false);
+    updateCreditsCount();
+}
+
+// Generate AI Meta Tags (7 titles + 7 descriptions)
+async function generateAIMetaTags() {
+    const serviceName = getServiceNameForProgrammatic();
+    const usps = getActiveUsps();
+
+    if (!serviceName) {
+        alert('Vælg venligst en service først');
+        return;
+    }
+
+    // Show loading
+    $('#generate-meta-tags-btn').prop('disabled', true).addClass('opacity-50');
+    $('#meta-tags-loading').removeClass('hidden');
+    $('#meta-tags-preview').addClass('hidden');
+
+    try {
+        const response = await $.ajax({
+            url: '/ajax/generate-programmatic-descriptions/',
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+            contentType: 'application/json',
+            data: JSON.stringify({
+                service_name: serviceName,
+                usps: usps,
+                generate_meta_tags: true
+            })
+        });
+
+        if (response.success) {
+            programmaticState.generated_meta_titles = response.meta_titles || [];
+            programmaticState.generated_meta_descriptions = response.meta_descriptions || [];
+
+            // Render the generated meta tags
+            renderGeneratedMetaTags();
+
+            showToast(`Genereret ${response.meta_titles.length} meta titler og ${response.meta_descriptions.length} meta beskrivelser`, 'success');
+        } else {
+            alert('Fejl ved generering: ' + (response.error || 'Ukendt fejl'));
+        }
+    } catch (error) {
+        console.error('Meta tag generation error:', error);
+        alert('Fejl ved generering af meta tags');
+    }
+
+    $('#generate-meta-tags-btn').prop('disabled', false).removeClass('opacity-50');
+    $('#meta-tags-loading').addClass('hidden');
+}
+
+// Render generated meta tags in the UI
+function renderGeneratedMetaTags() {
+    const titlesList = $('#meta-titles-list');
+    const descsList = $('#meta-descriptions-list');
+    titlesList.empty();
+    descsList.empty();
+
+    // Render meta titles - samme design som panel descriptions
+    programmaticState.generated_meta_titles.forEach((title, index) => {
+        const charCount = title.length;
+        const charClass = charCount > 60 ? 'text-red-500' : (charCount >= 50 ? 'text-green-500' : 'text-yellow-500');
+        const item = `
+            <div class="flex items-start justify-between p-3 rounded-xl transition-all duration-200 hover:shadow-sm"
+                 style="background: linear-gradient(135deg, #eff6ff, #dbeafe);">
+                <input type="text" class="meta-title-input flex-1 px-3 py-1.5 border border-transparent rounded-lg
+                       focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-transparent
+                       hover:bg-white transition-all text-sm"
+                       data-index="${index}" maxlength="100" value="${escapeHtml(title)}">
+                <div class="flex items-center space-x-2 ml-2 mt-1">
+                    <span class="text-xs ${charClass} meta-title-char-count">${charCount}/60</span>
+                    <button type="button" class="remove-meta-title-btn w-7 h-7 rounded-lg flex items-center justify-center
+                            text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-all" data-index="${index}">×</button>
+                </div>
+            </div>
+        `;
+        titlesList.append(item);
     });
 
+    // Render meta descriptions - samme design som panel descriptions
+    programmaticState.generated_meta_descriptions.forEach((desc, index) => {
+        const charCount = desc.length;
+        const charClass = charCount > 160 ? 'text-red-500' : (charCount >= 120 ? 'text-green-500' : 'text-yellow-500');
+        const item = `
+            <div class="flex items-start justify-between p-3 rounded-xl transition-all duration-200 hover:shadow-sm"
+                 style="background: linear-gradient(135deg, #f5f3ff, #ede9fe);">
+                <textarea class="meta-desc-input flex-1 px-3 py-1.5 border border-transparent rounded-lg
+                          focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-transparent
+                          hover:bg-white transition-all resize-none overflow-hidden text-sm"
+                          data-index="${index}" maxlength="250" rows="2" style="min-height: 48px;">${escapeHtml(desc)}</textarea>
+                <div class="flex items-center space-x-2 ml-2 mt-1">
+                    <span class="text-xs ${charClass} meta-desc-char-count">${charCount}/160</span>
+                    <button type="button" class="remove-meta-desc-btn w-7 h-7 rounded-lg flex items-center justify-center
+                            text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-all" data-index="${index}">×</button>
+                </div>
+            </div>
+        `;
+        descsList.append(item);
+    });
+
+    // Update counters
+    $('#meta-titles-count').text(programmaticState.generated_meta_titles.length);
+    $('#meta-descriptions-count').text(programmaticState.generated_meta_descriptions.length);
+
+    // Show preview
+    $('#meta-tags-preview').removeClass('hidden');
+}
+
+// === Meta Titel Input Handler (live update) ===
+$(document).on('input', '.meta-title-input', function() {
+    const index = $(this).data('index');
+    const value = $(this).val();
+    programmaticState.generated_meta_titles[index] = value;
+
+    // Opdater tegntæller
+    const charCount = value.length;
+    const $counter = $(this).closest('div').find('.meta-title-char-count');
+    $counter.text(`${charCount}/60`);
+    $counter.removeClass('text-gray-400 text-yellow-500 text-green-500 text-red-500');
+    if (charCount > 60) {
+        $counter.addClass('text-red-500');
+    } else if (charCount >= 50) {
+        $counter.addClass('text-green-500');
+    } else {
+        $counter.addClass('text-yellow-500');
+    }
+});
+
+// === Meta Beskrivelse Input Handler ===
+$(document).on('input', '.meta-desc-input', function() {
+    const index = $(this).data('index');
+    const value = $(this).val();
+    programmaticState.generated_meta_descriptions[index] = value;
+
+    // Auto-resize textarea
+    this.style.height = 'auto';
+    this.style.height = Math.max(48, this.scrollHeight) + 'px';
+
+    // Opdater tegntæller
+    const charCount = value.length;
+    const $counter = $(this).closest('div').find('.meta-desc-char-count');
+    $counter.text(`${charCount}/160`);
+    $counter.removeClass('text-gray-400 text-yellow-500 text-green-500 text-red-500');
+    if (charCount > 160) {
+        $counter.addClass('text-red-500');
+    } else if (charCount >= 120) {
+        $counter.addClass('text-green-500');
+    } else {
+        $counter.addClass('text-yellow-500');
+    }
+});
+
+// === Fjern Meta Titel ===
+$(document).on('click', '.remove-meta-title-btn', function() {
+    if (programmaticState.generated_meta_titles.length > 1) {
+        const index = $(this).data('index');
+        programmaticState.generated_meta_titles.splice(index, 1);
+        renderGeneratedMetaTags();
+    }
+});
+
+// === Fjern Meta Beskrivelse ===
+$(document).on('click', '.remove-meta-desc-btn', function() {
+    if (programmaticState.generated_meta_descriptions.length > 1) {
+        const index = $(this).data('index');
+        programmaticState.generated_meta_descriptions.splice(index, 1);
+        renderGeneratedMetaTags();
+    }
+});
+
+// === Tilføj Meta Titel ===
+$(document).on('click', '.add-meta-title-btn', function() {
+    if (programmaticState.generated_meta_titles.length < 10) {
+        programmaticState.generated_meta_titles.push('{SERVICE} i {BYNAVN} - Ny titel');
+        renderGeneratedMetaTags();
+    }
+});
+
+// === Tilføj Meta Beskrivelse ===
+$(document).on('click', '.add-meta-desc-btn', function() {
+    if (programmaticState.generated_meta_descriptions.length < 10) {
+        programmaticState.generated_meta_descriptions.push('Ny meta beskrivelse for {SERVICE} i {BYNAVN}. Kontakt os for mere information.');
+        renderGeneratedMetaTags();
+    }
+});
+
+// Default meta title templates (fallback if AI not used)
+function getDefaultMetaTitles(serviceName, usps) {
+    const usp1 = usps[0] ? usps[0].substring(0, 20) : 'Professionel';
+    return [
+        `${serviceName} i {BYNAVN} - Professionel Service`,
+        `{BYNAVN} ${serviceName} - Hurtig & Pålidelig`,
+        `Autoriseret ${serviceName} i {BYNAVN} - Ring Nu`,
+        `${serviceName} {BYNAVN} - ${usp1}`,
+        `Din Lokale ${serviceName} i {BYNAVN}`,
+        `${serviceName} Ekspert i {BYNAVN} - Gratis Tilbud`,
+        `Pålidelig ${serviceName} Service i {BYNAVN}`
+    ];
+}
+
+// Default meta description templates (fallback if AI not used)
+function getDefaultMetaDescriptions(serviceName, usps) {
+    const usp1 = usps[0] || 'Professionel service';
+    const usp2 = usps[1] || 'Hurtig og pålidelig';
+    return [
+        `Leder du efter professionel ${serviceName} i {BYNAVN}? ${usp1}. Ring for gratis tilbud!`,
+        `${serviceName} eksperter i {BYNAVN}. ${usp1} • ${usp2}. Kontakt os idag for et uforpligtende tilbud.`,
+        `Autoriseret ${serviceName} firma i {BYNAVN}. ${usp1}. Hurtig respons og tilfredse kunder.`,
+        `${usp1} - ${serviceName} i {BYNAVN}. ${usp2}. Få et uforpligtende tilbud på 2 minutter.`,
+        `{BYNAVN}s foretrukne ${serviceName}. ${usp1}. Ring nu for gratis rådgivning!`,
+        `${serviceName} i {BYNAVN} - ${usp1} • ${usp2}. Vi er klar til at hjælpe dig.`,
+        `Din lokale ${serviceName} i {BYNAVN}. ${usp1}. Gratis tilbud og hurtig service.`
+    ];
+}
+
+// Get selected cities - DIREKTE fra geo_map_targeting (Step 4)
+function getSelectedCities() {
+    // Brug byer valgt i Geografisk Målretning (Step 4) - 1:1 match
+    return campaignConfig.geo_map_targeting?.postal_names || [];
+}
+
+// Get active USPs from Step 2 for meta titles/descriptions
+function getActiveUsps() {
+    const usps = [];
+
+    // Template USPs (med evt. custom tekst)
+    if (campaignConfig.usp_ids && campaignConfig.usp_ids.length > 0) {
+        campaignConfig.usp_ids.forEach(uspId => {
+            const customText = campaignConfig.usp_custom_texts?.[uspId];
+            if (customText) {
+                usps.push(customText);
+            } else {
+                // Hent original tekst fra DOM
+                const original = $(`.usp-checkbox[data-usp-id="${uspId}"]`)
+                    .closest('.usp-item')
+                    .find('.usp-display-text').text().trim();
+                if (original) {
+                    usps.push(original);
+                }
+            }
+        });
+    }
+
+    // Custom USPs
+    if (campaignConfig.custom_usps && campaignConfig.custom_usps.length > 0) {
+        campaignConfig.custom_usps.forEach(usp => {
+            if (usp && usp.trim()) {
+                usps.push(usp.trim());
+            }
+        });
+    }
+
+    return usps;
+}
+
+// Get service name for programmatic geo
+function getServiceNameForProgrammatic() {
+    // Try to get from selected services
+    if (campaignConfig.service_ids && campaignConfig.service_ids.length > 0) {
+        const firstServiceId = campaignConfig.service_ids[0];
+        // Find service name from fetched data
+        for (const industryId in fetchedIndustryData) {
+            const industryData = fetchedIndustryData[industryId];
+            if (industryData && industryData.services) {
+                const service = industryData.services.find(s => s.id === firstServiceId);
+                if (service) return service.name;
+            }
+        }
+    }
+
+    // Fallback: try to get from industry name
+    if (campaignConfig.industry_ids && campaignConfig.industry_ids.length > 0) {
+        const industryId = campaignConfig.industry_ids[0];
+        const industryData = fetchedIndustryData[industryId];
+        if (industryData) return industryData.industry_name;
+    }
+
+    return null;
+}
+
+// Select all cities
+function selectAllCities() {
+    $('.city-checkbox:visible').prop('checked', true);
+    updateSelectedCitiesCount();
+}
+
+// Deselect all cities
+function deselectAllCities() {
+    $('.city-checkbox').prop('checked', false);
+    updateSelectedCitiesCount();
+}
+
+// Update selected cities count
+function updateSelectedCitiesCount() {
+    const count = $('.city-checkbox:checked').length;
+    $('#selected-cities-count').text(count);
+}
+
+// City search filter
+$(document).on('input', '#city-search', function() {
+    const searchTerm = $(this).val().toLowerCase();
+    $('.city-checkbox-label').each(function() {
+        const cityName = $(this).find('.city-checkbox').data('city-name').toLowerCase();
+        $(this).toggle(cityName.includes(searchTerm));
+    });
+});
+
+// City checkbox change handler
+$(document).on('change', '.city-checkbox', function() {
+    updateSelectedCitiesCount();
+});
+
+// =====================================================
+// END STEP 7 Functions
+// =====================================================
+
+$(document).on('click', '#save-geo-map-selection', function() {
+    var selectedPostals = Object.keys(geoSelectedPostals);
+
+    // Build display names list (consolidated + additional_names)
+    var displayNames = [];
+    var processedConsolidations = {};
+
+    selectedPostals.forEach(function(nr) {
+        var postal = geoPostalData[nr];
+        var selection = geoSelectedPostals[nr];
+
+        // Skip if this is part of a consolidated group
+        if (selection && selection.consolidated) {
+            // Find the primary code for this consolidated group
+            for (var primaryNr in geoPostalData) {
+                var primaryPostal = geoPostalData[primaryNr];
+                if (primaryPostal.consolidatedCodes && primaryPostal.consolidatedCodes.indexOf(nr) !== -1) {
+                    if (!processedConsolidations[primaryNr]) {
+                        processedConsolidations[primaryNr] = true;
+                        displayNames.push(primaryPostal.displayName);
+                    }
+                    break;
+                }
+            }
+            return;
+        }
+
+        if (postal) {
+            // Use display name
+            var displayName = postal.displayName || postal.navn;
+            displayNames.push(displayName);
+
+            // Add additional_names
+            if (postal.additionalNames && postal.additionalNames.length > 0) {
+                postal.additionalNames.forEach(function(name) {
+                    var capitalizedName = name.charAt(0).toUpperCase() + name.slice(1);
+                    displayNames.push(capitalizedName);
+                });
+            }
+        }
+    });
+
+    // Sort and remove duplicates
+    displayNames = [...new Set(displayNames)].sort();
+
+    // DEBUG: Log what names are being sent
+    console.log('=== GEO MAP SAVE DEBUG ===');
+    console.log('Selected postal codes:', selectedPostals.length);
+    console.log('Display names count:', displayNames.length);
+    console.log('Display names:', displayNames);
+    console.log('==========================');
+
     // Update the display field in step 4
-    if (selectedPostals.length > 0) {
-        $('#geo-map-selected-cities').val(postalNames.join(', '));
+    if (displayNames.length > 0) {
+        $('#geo-map-selected-cities').val(displayNames.join(', '));
         $('#geo-map-summary').show();
-        $('#geo-map-city-count').text(selectedPostals.length);
+        $('#geo-map-city-count').text(displayNames.length);
     } else {
         $('#geo-map-selected-cities').val('');
         $('#geo-map-summary').hide();
@@ -6818,7 +9277,7 @@ $('#save-geo-map-selection').click(function() {
     if (typeof campaignConfig !== 'undefined') {
         campaignConfig.geo_map_targeting = {
             postal_codes: selectedPostals,
-            postal_names: postalNames,
+            postal_names: displayNames,
             circles: geoCircles.map(function(c) {
                 return {
                     lat: c.getLatLng().lat,
@@ -6828,6 +9287,12 @@ $('#save-geo-map-selection').click(function() {
             })
         };
         console.log('Geo targeting saved to campaignConfig:', campaignConfig.geo_map_targeting);
+
+        // Save to localStorage
+        debouncedSaveState();
+
+        // Update negative city count and trigger auto-update if list is visible
+        updateNegativeCityCount();
     }
 
     closeGeoMapPanel();
@@ -6836,7 +9301,7 @@ $('#save-geo-map-selection').click(function() {
 
 <!-- Geographic Map Slide Panel -->
 <div id="geo-map-panel-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden opacity-0 transition-opacity duration-300">
-    <div id="geo-map-panel" class="fixed right-0 top-0 h-full w-[900px] bg-white shadow-2xl transform translate-x-full transition-transform duration-300 flex flex-col">
+    <div id="geo-map-panel" class="fixed right-0 top-0 h-full w-full bg-white shadow-2xl transform translate-x-full transition-transform duration-300 flex flex-col">
         <!-- Panel Header -->
         <div class="p-6 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-green-50 to-blue-50">
             <div>
@@ -6854,72 +9319,77 @@ $('#save-geo-map-selection').click(function() {
 
         <!-- Panel Content -->
         <div class="flex-1 overflow-y-auto p-6">
-            <!-- Map Container (Leaflet) -->
-            <div id="geo-modal-map" style="height: 450px; width: 100%;" class="border border-gray-300 rounded-lg mb-4"></div>
+            <!-- Map and Selected Postal Codes - Side by Side -->
+            <div class="flex gap-4 mb-4 h-full">
+                <!-- Map Container (Leaflet) - 75% width -->
+                <div id="geo-modal-map" style="width: 75%; height: 100%;" class="border border-gray-300 rounded-lg"></div>
 
-            <!-- Postnummer Input -->
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                    Tilføj postnumre manuelt:
-                </label>
-                <div class="flex gap-2">
-                    <input type="text" id="geo-postal-input"
-                           class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                           placeholder="Indtast postnummer (f.eks. 2100, 2200, 2300)">
-                    <button type="button" id="geo-add-postal-btn"
-                            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-                        Tilføj
-                    </button>
+                <!-- Right Side Panel - 25% width -->
+                <div style="width: 25%;" class="flex flex-col gap-4">
+                    <!-- Selected Postal Codes Display -->
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Valgte postnumre (<span id="geo-panel-city-count" class="font-semibold text-green-600">0</span>):
+                        </label>
+                        <textarea id="geo-panel-selected-cities" readonly
+                                  class="w-full h-48 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm"
+                                  placeholder="Vælg postnumre på kortet eller skriv dem manuelt..."></textarea>
+                    </div>
+
+                    <!-- Postnummer Input -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Tilføj postnumre manuelt:
+                        </label>
+                        <div class="flex gap-2">
+                            <input type="text" id="geo-postal-input"
+                                   class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                   placeholder="F.eks. 2100, 2200, 2300">
+                            <button type="button" id="geo-add-postal-btn"
+                                    class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                                Tilføj
+                            </button>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">Skriv et eller flere postnumre adskilt med komma</p>
+                    </div>
+
+                    <!-- Color Legend -->
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <h3 class="font-semibold text-gray-900 mb-2 flex items-center text-sm">
+                            <span class="mr-2">🎨</span> Farvekoder:
+                        </h3>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div class="flex items-center">
+                                <span class="w-3 h-3 rounded mr-2" style="background-color: #3B82F6;"></span>
+                                <span class="text-gray-700">Region-valgte</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="w-3 h-3 rounded mr-2" style="background-color: #10B981;"></span>
+                                <span class="text-gray-700">Manuelt indtastede</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="w-3 h-3 rounded mr-2" style="background-color: #8B5CF6;"></span>
+                                <span class="text-gray-700">Klikket på kort</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="w-3 h-3 rounded mr-2" style="background-color: #F59E0B;"></span>
+                                <span class="text-gray-700">Cirkel-tegning</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Instructions -->
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <h3 class="font-semibold text-blue-900 mb-2 flex items-center text-sm">
+                            <span class="mr-2">📍</span> Instruktioner:
+                        </h3>
+                        <ul class="text-xs text-blue-800 space-y-1">
+                            <li><strong>Klik</strong> på et postnummer-område for at vælge/fravælge</li>
+                            <li><strong>Skriv</strong> postnumre i feltet for at tilføje dem</li>
+                            <li><strong>Hold Shift</strong> og klik for at vælge flere områder</li>
+                        </ul>
+                    </div>
                 </div>
-                <p class="text-xs text-gray-500 mt-1">Skriv et eller flere postnumre adskilt med komma</p>
-            </div>
-
-            <!-- Color Legend -->
-            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
-                <h3 class="font-semibold text-gray-900 mb-2 flex items-center">
-                    <span class="mr-2">🎨</span> Farvekoder:
-                </h3>
-                <div class="grid grid-cols-2 gap-2 text-sm">
-                    <div class="flex items-center">
-                        <span class="w-4 h-4 rounded mr-2" style="background-color: #3B82F6;"></span>
-                        <span class="text-gray-700">Region-valgte postnumre</span>
-                    </div>
-                    <div class="flex items-center">
-                        <span class="w-4 h-4 rounded mr-2" style="background-color: #10B981;"></span>
-                        <span class="text-gray-700">Manuelt indtastede</span>
-                    </div>
-                    <div class="flex items-center">
-                        <span class="w-4 h-4 rounded mr-2" style="background-color: #8B5CF6;"></span>
-                        <span class="text-gray-700">Klikket på kort</span>
-                    </div>
-                    <div class="flex items-center">
-                        <span class="w-4 h-4 rounded mr-2" style="background-color: #F59E0B;"></span>
-                        <span class="text-gray-700">Cirkel-tegning</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Instructions -->
-            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                <h3 class="font-semibold text-blue-900 mb-2 flex items-center">
-                    <span class="mr-2">📍</span> Instruktioner:
-                </h3>
-                <ul class="text-sm text-blue-800 space-y-1">
-                    <li><strong>Klik</strong> på et postnummer-område for at vælge/fravælge</li>
-                    <li><strong>Skriv</strong> postnumre i feltet ovenfor for at tilføje dem</li>
-                    <li><strong>Hold Shift</strong> og klik for at vælge flere områder</li>
-                    <li>Region-valgte postnumre vises automatisk i blå</li>
-                </ul>
-            </div>
-
-            <!-- Selected Postal Codes Display -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                    Valgte postnumre (<span id="geo-panel-city-count" class="font-semibold text-green-600">0</span>):
-                </label>
-                <textarea id="geo-panel-selected-cities" readonly
-                          class="w-full h-24 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm"
-                          placeholder="Vælg postnumre på kortet eller skriv dem manuelt..."></textarea>
             </div>
         </div>
 

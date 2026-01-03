@@ -68,20 +68,96 @@ class DanishSlugGenerator:
     def create_full_url(cls, service: str, city: str, domain: str = "", leading_slash: bool = True) -> str:
         """
         Opret fuld landing page URL
-        
-        Eksempel: ("Fugemand", "Bagsværd", "lundsfugeservice.dk") 
+
+        Eksempel: ("Fugemand", "Bagsværd", "lundsfugeservice.dk")
         -> "https://lundsfugeservice.dk/fugemand-bagsvaerd/"
         """
         slug = cls.create_service_slug(service, city)
-        
+
         if domain:
             if not domain.startswith('http'):
                 domain = f"https://{domain}"
             url = f"{domain}/{slug}/"
         else:
             url = f"/{slug}/" if leading_slash else f"{slug}/"
-        
+
         return url
+
+    @classmethod
+    def generate_slug_variants(cls, text: str) -> List[str]:
+        """
+        Generer alle varianter af en slug til URL matching.
+
+        Eksempel: "København" -> ['kobenhavn', 'koebenhavn', 'copenhagen', 'kbh']
+
+        Returns:
+            Liste af alle slug-varianter
+        """
+        if not text:
+            return []
+
+        variants = set()
+        text_lower = text.lower().strip()
+
+        # Standard slug med æøå -> ae, oe, aa
+        standard_slug = cls.slugify(text)
+        variants.add(standard_slug)
+
+        # Uden bindestreger
+        variants.add(standard_slug.replace('-', ''))
+
+        # Med original æøå (til matching)
+        simple_slug = re.sub(r'[^a-zæøå0-9\-]', '-', text_lower)
+        simple_slug = re.sub(r'-+', '-', simple_slug).strip('-')
+        if simple_slug:
+            variants.add(simple_slug)
+            variants.add(simple_slug.replace('-', ''))
+
+        # Alternativ konvertering (ø -> o, æ -> a, å -> a)
+        alt_map = {'æ': 'a', 'ø': 'o', 'å': 'a'}
+        alt_text = text_lower
+        for char, replacement in alt_map.items():
+            alt_text = alt_text.replace(char, replacement)
+        alt_slug = re.sub(r'[^a-z0-9\-]', '-', alt_text)
+        alt_slug = re.sub(r'-+', '-', alt_slug).strip('-')
+        if alt_slug and alt_slug != standard_slug:
+            variants.add(alt_slug)
+            variants.add(alt_slug.replace('-', ''))
+
+        return list(variants)
+
+    @classmethod
+    def normalize_url_path(cls, url_path: str) -> str:
+        """
+        Normaliser en URL path til sammenligning.
+        Fjerner slashes, lowercase, og standardiserer æøå.
+
+        Eksempel: "/Elektriker-København/" -> "elektriker-koebenhavn"
+        """
+        if not url_path:
+            return ""
+
+        # Fjern slashes og lowercase
+        path = url_path.strip('/').lower()
+
+        # Erstat danske karakterer
+        for danish_char, replacement in cls.DANISH_CHAR_MAP.items():
+            path = path.replace(danish_char.lower(), replacement)
+
+        # Fjern ugyldige karakterer
+        path = re.sub(r'[^a-z0-9\-]', '', path)
+
+        return path
+
+    @classmethod
+    def urls_match(cls, url1: str, url2: str) -> bool:
+        """
+        Check om to URLs matcher (ignorerer æøå varianter og slashes).
+
+        Eksempel:
+        "/elektriker-kobenhavn/" og "/elektriker-koebenhavn" -> True
+        """
+        return cls.normalize_url_path(url1) == cls.normalize_url_path(url2)
 
 
 class GeoTemplateProcessor:

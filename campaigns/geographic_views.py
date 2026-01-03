@@ -13,7 +13,7 @@ import pandas as pd
 import io
 from decimal import Decimal
 
-from .models import GeographicRegion, DanishCity, GeographicRegionUpload
+from .models import GeographicRegion, DanishCity, GeographicRegionUpload, PostalCode, NegativeKeywordList, NegativeKeyword
 
 
 def geographic_regions_manager(request):
@@ -186,6 +186,133 @@ def delete_danish_city_ajax(request, city_id):
             'message': f'By "{city_name}" blev slettet!'
         })
         
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Fejl: {str(e)}'})
+
+
+@csrf_exempt
+def suggest_postal_code_ajax(request):
+    """
+    Suggest a postal code for a city name based on DAWA data.
+    Uses average of existing postal codes in the region to pick the closest match
+    when multiple postal codes match the same city name.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+    try:
+        city_name = request.POST.get('city_name', '').strip()
+        region_id = request.POST.get('region_id', '').strip()
+
+        if not city_name:
+            return JsonResponse({'success': False, 'error': 'Bynavn er påkrævet'})
+
+        # Check for MULTI postal code cities (København, Frederiksberg, Vesterbro)
+        # These cities have many consolidated postal codes and should be marked as MULTI
+        MULTI_POSTAL_CITIES = ['københavn', 'frederiksberg', 'vesterbro']
+        if city_name.lower() in MULTI_POSTAL_CITIES:
+            return JsonResponse({
+                'success': True,
+                'found': True,
+                'postal_code': 'MULTI',
+                'postal_name': city_name,
+                'suggestions': [],
+                'method': 'multi_postal_city',
+                'message': f'{city_name} har mange konsoliderede postnumre'
+            })
+
+        # Find all postal codes that match this city name
+        matching_postals = []
+
+        # Search in dawa_name (exact match, case-insensitive)
+        for postal in PostalCode.objects.filter(dawa_name__iexact=city_name):
+            matching_postals.append({
+                'code': postal.code,
+                'name': postal.get_display_name(),
+                'source': 'dawa_name'
+            })
+
+        # Search in display_name (exact match, case-insensitive)
+        for postal in PostalCode.objects.filter(display_name__iexact=city_name):
+            if postal.code not in [p['code'] for p in matching_postals]:
+                matching_postals.append({
+                    'code': postal.code,
+                    'name': postal.get_display_name(),
+                    'source': 'display_name'
+                })
+
+        # Search in additional_names (contains, case-insensitive)
+        for postal in PostalCode.objects.filter(additional_names__icontains=city_name):
+            # Verify exact match in the comma-separated list
+            additional = postal.get_additional_names_list()
+            if any(name.lower() == city_name.lower() for name in additional):
+                if postal.code not in [p['code'] for p in matching_postals]:
+                    matching_postals.append({
+                        'code': postal.code,
+                        'name': postal.get_display_name(),
+                        'source': 'additional_names'
+                    })
+
+        if not matching_postals:
+            return JsonResponse({
+                'success': True,
+                'found': False,
+                'message': f'Ingen postnumre fundet for "{city_name}"',
+                'suggestions': []
+            })
+
+        # If only one match, return it directly
+        if len(matching_postals) == 1:
+            return JsonResponse({
+                'success': True,
+                'found': True,
+                'postal_code': matching_postals[0]['code'],
+                'postal_name': matching_postals[0]['name'],
+                'suggestions': matching_postals,
+                'method': 'single_match'
+            })
+
+        # Multiple matches - calculate average of existing region postal codes
+        suggested_code = None
+        method = 'first_match'
+
+        if region_id:
+            try:
+                region = GeographicRegion.objects.get(id=region_id)
+                existing_codes = list(region.cities.exclude(postal_code='').values_list('postal_code', flat=True))
+
+                if existing_codes:
+                    # Calculate average of existing postal codes
+                    numeric_codes = [int(c) for c in existing_codes if c.isdigit() and len(c) == 4]
+                    if numeric_codes:
+                        avg_code = sum(numeric_codes) / len(numeric_codes)
+
+                        # Find the matching postal code closest to the average
+                        closest = min(
+                            matching_postals,
+                            key=lambda p: abs(int(p['code']) - avg_code)
+                        )
+                        suggested_code = closest['code']
+                        method = f'closest_to_average_{int(avg_code)}'
+            except GeographicRegion.DoesNotExist:
+                pass
+
+        # If no suggestion from average, use the first match
+        if not suggested_code:
+            suggested_code = matching_postals[0]['code']
+
+        suggested_postal = next((p for p in matching_postals if p['code'] == suggested_code), matching_postals[0])
+
+        return JsonResponse({
+            'success': True,
+            'found': True,
+            'postal_code': suggested_postal['code'],
+            'postal_name': suggested_postal['name'],
+            'suggestions': matching_postals,
+            'method': method,
+            'multiple_matches': True
+        })
+
     except Exception as e:
         return JsonResponse({'success': False, 'error': f'Fejl: {str(e)}'})
 
@@ -724,12 +851,12 @@ def download_danish_cities_template(request):
     import pandas as pd
     from django.http import HttpResponse
     import io
-    
+
     # Create simplified sample data - only city names in column A
     sample_data = {
         'Bynavn': [
             'København',
-            'Aarhus', 
+            'Aarhus',
             'Odense',
             'Aalborg',
             'Esbjerg',
@@ -740,18 +867,18 @@ def download_danish_cities_template(request):
             'Roskilde'
         ]
     }
-    
+
     df = pd.DataFrame(sample_data)
-    
+
     # Create Excel file in memory
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='Danske Byer')
-        
+
         # Get workbook and worksheet
         workbook = writer.book
         worksheet = writer.sheets['Danske Byer']
-        
+
         # Add some formatting
         for column in worksheet.columns:
             max_length = 0
@@ -764,13 +891,194 @@ def download_danish_cities_template(request):
                     pass
             adjusted_width = min(max_length + 2, 30)
             worksheet.column_dimensions[column_letter].width = adjusted_width
-    
+
     output.seek(0)
-    
+
     response = HttpResponse(
         output.read(),
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
     response['Content-Disposition'] = 'attachment; filename="danske_byer_template.xlsx"'
-    
+
     return response
+
+
+# ============================================================================
+# NEGATIVE CITY LIST GENERATION
+# ============================================================================
+
+def get_all_city_names():
+    """
+    Hent alle danske bynavne fra PostalCode tabellen.
+    Returnerer et set af alle unikke bynavne i lowercase.
+    """
+    all_names = set()
+    for postal in PostalCode.objects.all():
+        # Tilføj dawa_name (det officielle navn)
+        if postal.dawa_name:
+            all_names.add(postal.dawa_name.lower())
+
+        # Tilføj display_name hvis det findes
+        if postal.display_name:
+            all_names.add(postal.display_name.lower())
+
+        # Tilføj alle additional_names
+        for name in postal.get_additional_names_list():
+            if name:
+                all_names.add(name.lower())
+
+    return all_names
+
+
+@csrf_exempt
+def generate_negative_city_list(request):
+    """
+    Generer eller opdater den singleton negativ søgeordsliste for alle danske byer der IKKE er valgt.
+
+    Bruger altid den samme liste "Ekskluderede Byer" - opretter den hvis den ikke findes,
+    ellers opdateres den eksisterende.
+
+    POST data:
+    - selected_cities: Liste af valgte bynavne (fra geo_map_targeting.postal_names)
+
+    Returns:
+    - success: True/False
+    - list_id: ID på listen
+    - list_name: Navn på listen
+    - keywords_count: Antal negative keywords
+    - selected_count: Antal valgte byer
+    - updated: True hvis eksisterende liste blev opdateret
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+    try:
+        data = json.loads(request.body)
+        selected_cities_raw = data.get('selected_cities', [])
+
+        # Konverter valgte byer til lowercase for sammenligning
+        selected_cities = set(c.lower() for c in selected_cities_raw if c)
+
+        if not selected_cities:
+            return JsonResponse({
+                'success': False,
+                'error': 'Ingen byer valgt. Vælg først nogle byer/regioner.'
+            })
+
+        # Hent alle bynavne
+        all_cities = get_all_city_names()
+
+        # Simpel logik: alle byer minus de valgte = negative keywords
+        excluded = all_cities - selected_cities
+
+        # Håndter bruger (demo_user hvis ikke authenticated)
+        from django.contrib.auth.models import User
+        if not request.user.is_authenticated:
+            demo_user, _ = User.objects.get_or_create(
+                username='demo_user',
+                defaults={'email': 'demo@example.com', 'first_name': 'Demo', 'last_name': 'User'}
+            )
+        else:
+            demo_user = request.user
+
+        # SINGLETON PATTERN: Find eller opret den ene "Ekskluderede Byer" liste
+        negative_list = NegativeKeywordList.objects.filter(
+            name='Ekskluderede Byer',
+            category='location'
+        ).first()
+
+        if negative_list:
+            # Opdater eksisterende liste - slet alle keywords først
+            NegativeKeyword.objects.filter(keyword_list=negative_list).delete()
+            negative_list.description = f'Auto-genereret: {len(excluded)} byer ekskluderet, {len(selected_cities)} byer valgt'
+            negative_list.save(update_fields=['description'])
+            updated = True
+        else:
+            # Opret ny liste (første gang)
+            negative_list = NegativeKeywordList.objects.create(
+                name='Ekskluderede Byer',
+                category='location',
+                icon='🚫',
+                color='#EF4444',
+                description=f'Auto-genereret: {len(excluded)} byer ekskluderet, {len(selected_cities)} byer valgt',
+                created_by=demo_user
+            )
+            updated = False
+
+        # Tilføj keywords (bulk_create for performance) - wrapped i transaction for at sikre commit
+        keywords = [
+            NegativeKeyword(
+                keyword_list=negative_list,
+                keyword_text=city,
+                match_type='broad'
+            )
+            for city in sorted(excluded)
+        ]
+
+        with transaction.atomic():
+            NegativeKeyword.objects.bulk_create(keywords)
+
+        # Hent faktisk count fra database EFTER commit for at sikre korrekthed
+        actual_count = negative_list.negative_keywords.count()
+
+        # Opdater keywords_count på listen med database count
+        negative_list.keywords_count = actual_count
+        negative_list.save(update_fields=['keywords_count'])
+
+        action = 'opdateret' if updated else 'oprettet'
+        return JsonResponse({
+            'success': True,
+            'list_id': negative_list.id,
+            'list_name': negative_list.name,
+            'keywords_count': actual_count,  # Brug database count
+            'selected_count': len(selected_cities),
+            'updated': updated,
+            'message': f'Negativ liste "{negative_list.name}" {action} med {actual_count} byer'
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ugyldig JSON data'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Fejl: {str(e)}'})
+
+
+@csrf_exempt
+def get_negative_city_count(request):
+    """
+    Hent antal byer der ville blive ekskluderet baseret på valgte byer.
+    Bruges til live opdatering af visning uden at ændre databasen.
+
+    POST data:
+    - selected_cities: Liste af valgte bynavne
+
+    Returns:
+    - count: Antal byer der ville blive ekskluderet
+    - selected: Antal valgte byer
+    - total: Totalt antal danske bynavne
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Invalid request method'}, status=400)
+
+    try:
+        data = json.loads(request.body)
+        selected_cities_raw = data.get('selected_cities', [])
+
+        # Konverter valgte byer til lowercase for sammenligning
+        selected_cities = set(c.lower() for c in selected_cities_raw if c)
+
+        # Hent alle bynavne
+        all_cities = get_all_city_names()
+
+        # Beregn antal ekskluderede
+        excluded_count = len(all_cities - selected_cities)
+
+        return JsonResponse({
+            'count': excluded_count,
+            'selected': len(selected_cities),
+            'total': len(all_cities)
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Ugyldig JSON data'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': f'Fejl: {str(e)}'}, status=500)
