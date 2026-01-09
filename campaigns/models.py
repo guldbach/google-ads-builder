@@ -1607,3 +1607,93 @@ class PostalCode(models.Model):
         if self.additional_names:
             return [n.strip() for n in self.additional_names.split(',') if n.strip()]
         return []
+
+
+# =====================================================
+# SEO Meta Tag Eksempler (Few-Shot AI Learning)
+# =====================================================
+
+class ServiceMetaExample(models.Model):
+    """Meta tag eksempler knyttet til en specifik Service for few-shot AI prompting"""
+    service = models.ForeignKey(
+        IndustryService,
+        on_delete=models.CASCADE,
+        related_name='meta_examples',
+        help_text="Den service dette eksempel tilhører"
+    )
+    meta_title = models.CharField(
+        max_length=100,
+        help_text="Eksempel på god meta titel (50-60 tegn anbefales)"
+    )
+    meta_description = models.TextField(
+        help_text="Eksempel på god meta beskrivelse (150-160 tegn anbefales)"
+    )
+    order = models.PositiveIntegerField(
+        default=0,
+        help_text="Sorteringsrækkefølge"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['order', 'created_at']
+        verbose_name = "Meta Tag Eksempel"
+        verbose_name_plural = "Meta Tag Eksempler"
+
+    def __str__(self):
+        return f"{self.service.name}: {self.meta_title[:40]}..."
+
+
+class SchemaMarkupTemplate(models.Model):
+    """Schema markup templates til SEO"""
+    SCHEMA_TYPES = [
+        ('Product', 'Product'),
+        ('LocalBusiness', 'Local Business'),
+        ('Service', 'Service'),
+        ('Organization', 'Organization'),
+        ('AggregateRating', 'Aggregate Rating'),
+    ]
+
+    name = models.CharField(
+        max_length=100,
+        help_text="Navn på template, f.eks. 'VVS Product Schema'"
+    )
+    schema_type = models.CharField(
+        max_length=50,
+        choices=SCHEMA_TYPES,
+        help_text="Type af schema markup"
+    )
+    template_json = models.TextField(
+        help_text="JSON template med placeholders som {SERVICE_NAME}, {RATING}, {REVIEW_COUNT}"
+    )
+    industry = models.ForeignKey(
+        Industry,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='schema_templates',
+        help_text="Hvis sat, bruges denne template kun for denne branche"
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = "Schema Markup Template"
+        verbose_name_plural = "Schema Markup Templates"
+
+    def __str__(self):
+        industry_name = self.industry.name if self.industry else "Alle"
+        return f"{self.name} ({self.schema_type}) - {industry_name}"
+
+    def render(self, context):
+        """
+        Renderer template med context dict.
+        context kan indeholde: service_name, rating, review_count, etc.
+        """
+        import json
+        result = self.template_json
+        for key, value in context.items():
+            placeholder = "{" + key.upper() + "}"
+            result = result.replace(placeholder, str(value))
+        return result

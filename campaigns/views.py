@@ -3545,23 +3545,185 @@ def delete_service_seo_keyword_ajax(request, keyword_id):
     if request.method == "POST":
         try:
             from .models import ServiceSEOKeyword
-            
+
             keyword = ServiceSEOKeyword.objects.get(id=keyword_id)
             keyword_text = keyword.keyword_text
-            
+
             keyword.delete()
-            
+
             return JsonResponse({
                 "success": True,
                 "message": f"SEO keyword \"{keyword_text}\" deleted successfully!"
             })
-            
+
         except ServiceSEOKeyword.DoesNotExist:
             return JsonResponse({"success": False, "error": "SEO keyword not found"})
         except Exception as e:
             print(f"Error in delete_service_seo_keyword_ajax: {str(e)}")
             return JsonResponse({"success": False, "error": str(e)})
-    
+
+    return JsonResponse({"success": False, "error": "Invalid request method"})
+
+
+# =================================================================
+# SERVICE META TAG EXAMPLES (Few-Shot AI Learning)
+# =================================================================
+
+def get_service_meta_examples_ajax(request, service_id):
+    """Get meta tag examples for a specific service"""
+    if request.method == "GET":
+        try:
+            from .models import IndustryService, ServiceMetaExample
+
+            service = IndustryService.objects.get(id=service_id)
+            examples = service.meta_examples.all()
+
+            examples_data = []
+            for ex in examples:
+                examples_data.append({
+                    "id": ex.id,
+                    "meta_title": ex.meta_title,
+                    "meta_description": ex.meta_description,
+                    "order": ex.order,
+                    "created_at": ex.created_at.strftime("%Y-%m-%d %H:%M"),
+                })
+
+            return JsonResponse({
+                "success": True,
+                "service": {
+                    "id": service.id,
+                    "name": service.name,
+                },
+                "examples": examples_data,
+                "examples_count": len(examples_data),
+            })
+
+        except IndustryService.DoesNotExist:
+            return JsonResponse({"success": False, "error": "Service not found"})
+        except Exception as e:
+            print(f"Error in get_service_meta_examples_ajax: {str(e)}")
+            return JsonResponse({"success": False, "error": str(e)})
+
+    return JsonResponse({"success": False, "error": "Invalid request method"})
+
+
+def add_service_meta_example_ajax(request, service_id):
+    """Add meta tag example to a service (no limit)"""
+    if request.method == "POST":
+        try:
+            from .models import IndustryService, ServiceMetaExample
+            import json
+
+            service = IndustryService.objects.get(id=service_id)
+
+            # Support both form data and JSON
+            if request.content_type == 'application/json':
+                data = json.loads(request.body)
+                meta_title = data.get("meta_title", "").strip()
+                meta_description = data.get("meta_description", "").strip()
+            else:
+                meta_title = request.POST.get("meta_title", "").strip()
+                meta_description = request.POST.get("meta_description", "").strip()
+
+            if not meta_title or not meta_description:
+                return JsonResponse({"success": False, "error": "Both meta title and description are required"})
+
+            # Get next order number
+            from django.db.models import Max
+            max_order = service.meta_examples.aggregate(Max('order'))['order__max'] or 0
+
+            # Create example
+            example = ServiceMetaExample.objects.create(
+                service=service,
+                meta_title=meta_title,
+                meta_description=meta_description,
+                order=max_order + 1
+            )
+
+            return JsonResponse({
+                "success": True,
+                "example": {
+                    "id": example.id,
+                    "meta_title": example.meta_title,
+                    "meta_description": example.meta_description,
+                    "order": example.order,
+                },
+                "message": "Meta tag example added successfully!"
+            })
+
+        except IndustryService.DoesNotExist:
+            return JsonResponse({"success": False, "error": "Service not found"})
+        except Exception as e:
+            print(f"Error in add_service_meta_example_ajax: {str(e)}")
+            return JsonResponse({"success": False, "error": str(e)})
+
+    return JsonResponse({"success": False, "error": "Invalid request method"})
+
+
+def update_service_meta_example_ajax(request, example_id):
+    """Update existing meta tag example"""
+    if request.method == "POST":
+        try:
+            from .models import ServiceMetaExample
+            import json
+
+            example = ServiceMetaExample.objects.get(id=example_id)
+
+            # Support both form data and JSON
+            if request.content_type == 'application/json':
+                data = json.loads(request.body)
+                meta_title = data.get("meta_title", "").strip()
+                meta_description = data.get("meta_description", "").strip()
+            else:
+                meta_title = request.POST.get("meta_title", "").strip()
+                meta_description = request.POST.get("meta_description", "").strip()
+
+            if meta_title:
+                example.meta_title = meta_title
+            if meta_description:
+                example.meta_description = meta_description
+
+            example.save()
+
+            return JsonResponse({
+                "success": True,
+                "example": {
+                    "id": example.id,
+                    "meta_title": example.meta_title,
+                    "meta_description": example.meta_description,
+                },
+                "message": "Meta tag example updated successfully!"
+            })
+
+        except ServiceMetaExample.DoesNotExist:
+            return JsonResponse({"success": False, "error": "Meta example not found"})
+        except Exception as e:
+            print(f"Error in update_service_meta_example_ajax: {str(e)}")
+            return JsonResponse({"success": False, "error": str(e)})
+
+    return JsonResponse({"success": False, "error": "Invalid request method"})
+
+
+def delete_service_meta_example_ajax(request, example_id):
+    """Delete meta tag example"""
+    if request.method == "POST":
+        try:
+            from .models import ServiceMetaExample
+
+            example = ServiceMetaExample.objects.get(id=example_id)
+            example.delete()
+
+            return JsonResponse({
+                "success": True,
+                "message": "Meta tag example deleted successfully!"
+            })
+
+        except ServiceMetaExample.DoesNotExist:
+            return JsonResponse({"success": False, "error": "Meta example not found"})
+        except Exception as e:
+            print(f"Error in delete_service_meta_example_ajax: {str(e)}")
+            return JsonResponse({"success": False, "error": str(e)})
+
     return JsonResponse({"success": False, "error": "Invalid request method"})
 
 
@@ -4355,6 +4517,173 @@ def generate_descriptions_ajax(request):
         })
 
 
+@csrf_exempt
+def generate_company_description_ajax(request):
+    """AJAX endpoint til AI-genereret virksomhedsbeskrivelse med Perplexity research."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'})
+
+    try:
+        data = json.loads(request.body)
+        website_url = data.get('website_url', '')
+        industries = data.get('industries', [])
+        services = data.get('services', [])
+        usps = data.get('usps', [])
+        geographic_areas = data.get('geographic_areas', [])
+
+        # Step 0: Scrape the website directly (get actual content)
+        website_content = ""
+        try:
+            from ai_integration.services import WebsiteScraper
+            scraper = WebsiteScraper()
+            website_content = scraper.scrape_website(website_url)
+            if website_content:
+                print(f"Website scraping success: {len(website_content)} chars")
+        except Exception as e:
+            # Scraping failed - continue without it
+            print(f"Website scraping failed: {e}")
+
+        # Step 1: Research with Perplexity (if API key is configured)
+        online_research = ""
+        try:
+            from ai_integration.services import PerplexityResearcher
+            researcher = PerplexityResearcher()
+            online_research = researcher.research_company(website_url, industries, services)
+        except ValueError:
+            # Perplexity not configured - continue without research
+            pass
+        except Exception as e:
+            # Research failed - continue without it
+            print(f"Perplexity research step failed: {e}")
+
+        # Step 2: Generate description with GPT-4
+        from ai_integration.services import DescriptionGenerator
+        generator = DescriptionGenerator()
+        result = generator.generate_company_description(
+            website_url=website_url,
+            industries=industries,
+            services=services,
+            usps=usps,
+            geographic_areas=geographic_areas,
+            online_research=online_research,
+            website_content=website_content
+        )
+
+        return JsonResponse({
+            'success': True,
+            'description': result['description'],
+            'key_points': result.get('key_points', []),
+            'profile': result.get('profile', {}),
+            'used_research': bool(online_research)
+        })
+
+    except ValueError as e:
+        # API key not configured
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+
+@csrf_exempt
+def analyze_website_for_usps_ajax(request):
+    """
+    AJAX endpoint til at analysere hjemmeside-indhold og matche mod USP templates.
+    Bruges til smart pre-fill af USPs baseret på hjemmesidens indhold.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'})
+
+    try:
+        data = json.loads(request.body)
+        website_url = data.get('website_url', '')
+        industry_ids = data.get('industry_ids', [])
+
+        if not website_url:
+            return JsonResponse({
+                'success': True,
+                'analysis': {
+                    'matched_usps': [],
+                    'custom_usps': [],
+                    'extracted_facts': {}
+                },
+                'scraped_at': None
+            })
+
+        # Step 1: Scrape website using existing WebsiteScraper
+        from ai_integration.services import WebsiteScraper
+        scraper = WebsiteScraper(max_content_length=6000)
+        website_content = scraper.scrape_website(website_url)
+
+        if not website_content:
+            return JsonResponse({
+                'success': True,
+                'analysis': {
+                    'matched_usps': [],
+                    'custom_usps': [],
+                    'extracted_facts': {}
+                },
+                'scraped_at': None,
+                'message': 'Could not scrape website'
+            })
+
+        # Step 2: Get relevant USP templates
+        from usps.models import USPTemplate
+        from django.db.models import Q
+
+        usp_templates = USPTemplate.objects.filter(is_active=True)
+        if industry_ids:
+            usp_templates = usp_templates.filter(
+                Q(ideal_for_industries__id__in=industry_ids) |
+                Q(ideal_for_industries__isnull=True)
+            ).distinct()
+
+        # Step 3: Format templates for AI prompt
+        templates_formatted = []
+        for template in usp_templates[:60]:  # Limit to prevent token overflow
+            templates_formatted.append({
+                'id': template.id,
+                'text': template.text,
+                'keywords': template.keywords if hasattr(template, 'keywords') else '',
+                'category': template.main_category.name if template.main_category else 'Andet'
+            })
+
+        # Step 4: Call AI for analysis
+        from ai_integration.services import USPAnalyzer
+        analyzer = USPAnalyzer()
+        analysis_result = analyzer.analyze_for_usps(
+            website_content=website_content,
+            usp_templates=templates_formatted
+        )
+
+        from datetime import datetime
+        return JsonResponse({
+            'success': True,
+            'analysis': analysis_result,
+            'scraped_at': datetime.now().isoformat(),
+            'scraped_content_length': len(website_content)
+        })
+
+    except ValueError as e:
+        # API key not configured
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+
 # ==========================================
 # POSTAL CODE MANAGER VIEWS
 # ==========================================
@@ -4963,6 +5292,7 @@ def generate_programmatic_descriptions_ajax(request):
 
     try:
         from ai_integration.services import DescriptionGenerator
+        from .models import ServiceMetaExample
 
         data = json.loads(request.body)
         service_name = data.get('service_name', '')
@@ -4970,6 +5300,7 @@ def generate_programmatic_descriptions_ajax(request):
         usps = data.get('usps', [])
         keywords = data.get('keywords', [])
         generate_meta_tags = data.get('generate_meta_tags', False)
+        service_id = data.get('service_id')  # NEW: Optional service ID for few-shot examples
 
         if not service_name:
             return JsonResponse({'success': False, 'error': 'Service navn er påkrævet'})
@@ -4979,9 +5310,31 @@ def generate_programmatic_descriptions_ajax(request):
 
         # Hvis generate_meta_tags er true, generér 7 meta titler + 7 meta beskrivelser
         if generate_meta_tags:
+            # Fetch few-shot examples if service_id is provided
+            few_shot_examples = None
+            if service_id:
+                try:
+                    # Get random 10 examples from the service
+                    examples = ServiceMetaExample.objects.filter(
+                        service_id=service_id
+                    ).order_by('?')[:10]
+
+                    if examples.exists():
+                        few_shot_examples = [
+                            {
+                                'meta_title': ex.meta_title,
+                                'meta_description': ex.meta_description
+                            }
+                            for ex in examples
+                        ]
+                        print(f"Using {len(few_shot_examples)} few-shot examples for service {service_id}")
+                except Exception as e:
+                    print(f"Warning: Could not fetch few-shot examples: {e}")
+
             result = generator.generate_meta_tags(
                 service_name=service_name,
-                usps=usps
+                usps=usps,
+                few_shot_examples=few_shot_examples
             )
             return JsonResponse({
                 'success': True,
@@ -5010,6 +5363,72 @@ def generate_programmatic_descriptions_ajax(request):
 
     except ValueError as e:
         # API key ikke konfigureret
+        return JsonResponse({'success': False, 'error': str(e)})
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@csrf_exempt
+def generate_seo_meta_ajax(request):
+    """Generate SEO meta title and description using AI with few-shot examples."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'})
+
+    try:
+        data = json.loads(request.body)
+        service_name = data.get('service_name', '')
+        service_id = data.get('service_id')  # Optional: for few-shot examples
+        seo_keywords = data.get('seo_keywords', [])
+        usps = data.get('usps', [])
+
+        # Debug: Log received data
+        print(f"SEO Meta Request: service_name='{service_name}', service_id={service_id}, type={type(service_id)}")
+
+        if not service_name:
+            return JsonResponse({'success': False, 'error': 'Service name required'})
+
+        # Fetch few-shot examples if service_id is provided
+        from campaigns.models import ServiceMetaExample
+        few_shot_examples = None
+        if service_id:
+            try:
+                examples = ServiceMetaExample.objects.filter(
+                    service_id=service_id
+                ).order_by('?')[:5]
+
+                if examples.exists():
+                    few_shot_examples = [
+                        {
+                            'meta_title': ex.meta_title,
+                            'meta_description': ex.meta_description
+                        }
+                        for ex in examples
+                    ]
+                    print(f"SEO Meta: Using {len(few_shot_examples)} few-shot examples for service {service_id}")
+            except Exception as e:
+                print(f"Warning: Could not fetch few-shot examples: {e}")
+
+        # Initialize generator
+        from ai_integration.services import DescriptionGenerator
+        generator = DescriptionGenerator()
+
+        # Generate SEO meta tags (WITHOUT {BYNAVN} requirement)
+        result = generator.generate_seo_meta_tags(
+            service_name=service_name,
+            usps=usps,
+            seo_keywords=seo_keywords,
+            few_shot_examples=few_shot_examples
+        )
+
+        return JsonResponse({
+            'success': True,
+            'meta_title': result['meta_title'],
+            'meta_description': result['meta_description']
+        })
+
+    except ValueError as e:
         return JsonResponse({'success': False, 'error': str(e)})
     except json.JSONDecodeError:
         return JsonResponse({'success': False, 'error': 'Invalid JSON'})

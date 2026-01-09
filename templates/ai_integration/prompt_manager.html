@@ -1,0 +1,453 @@
+{% extends 'base.html' %}
+
+{% block title %}AI Prompt Manager - Jarvis 1.0{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Hero Section -->
+    <div class="text-center mb-12 p-12 bg-gradient-to-br from-purple-100 via-blue-50 to-pink-100 rounded-3xl">
+        <div class="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl mb-6 shadow-2xl">
+            <span class="text-5xl">🤖</span>
+        </div>
+        <h1 class="text-5xl font-bold text-gray-900 mb-4">AI Prompt Manager</h1>
+        <p class="text-xl text-gray-600 max-w-2xl mx-auto">
+            Administrer og test dine AI prompts. Rediger tekst og indstillinger uden at redigere kode.
+        </p>
+    </div>
+
+    <!-- Prompts Grid -->
+    <div class="grid gap-6">
+        {% for prompt in prompts %}
+        <div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden prompt-card" data-prompt-id="{{ prompt.id }}">
+            <!-- Card Header -->
+            <div class="p-6 border-b border-gray-100" style="background: linear-gradient(135deg, {% if prompt.prompt_type == 'generate_descriptions' %}#8B5CF620, #8B5CF610{% elif prompt.prompt_type == 'generate_meta_tags' %}#3B82F620, #3B82F610{% elif prompt.prompt_type == 'generate_company_description' %}#F5920020, #F5920010{% elif prompt.prompt_type == 'perplexity_research' %}#06B6D420, #06B6D410{% else %}#10B98120, #10B98110{% endif %});">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-14 h-14 rounded-xl flex items-center justify-center text-2xl text-white shadow-lg" style="background-color: {% if prompt.prompt_type == 'generate_descriptions' %}#8B5CF6{% elif prompt.prompt_type == 'generate_meta_tags' %}#3B82F6{% elif prompt.prompt_type == 'generate_company_description' %}#F59200{% elif prompt.prompt_type == 'perplexity_research' %}#06B6D4{% else %}#10B981{% endif %};">
+                            {% if prompt.prompt_type == 'generate_descriptions' %}📝{% elif prompt.prompt_type == 'generate_meta_tags' %}🌍{% elif prompt.prompt_type == 'generate_company_description' %}🏢{% elif prompt.prompt_type == 'perplexity_research' %}🔍{% else %}⚙️{% endif %}
+                        </div>
+                        <div>
+                            <h3 class="text-2xl font-bold text-gray-900">{{ prompt.name }}</h3>
+                            <p class="text-gray-600">
+                                {{ prompt.placeholders|length }} placeholders ·
+                                Sidst opdateret: {{ prompt.updated_at|date:"d M Y H:i" }}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <button onclick="openTestModal({{ prompt.id }})" class="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all duration-200">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <span>Test</span>
+                        </button>
+                        <button onclick="openEditPanel({{ prompt.id }})" class="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:shadow-lg transition-all duration-200">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                            </svg>
+                            <span>Rediger</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card Content - Placeholders Preview -->
+            <div class="p-6">
+                <h4 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Placeholders</h4>
+                <div class="flex flex-wrap gap-2">
+                    {% for placeholder in prompt.placeholders %}
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-mono bg-purple-100 text-purple-800" title="{{ placeholder.description }}">
+                        {{ placeholder.name }}
+                    </span>
+                    {% empty %}
+                    <span class="text-gray-500 text-sm">Ingen placeholders defineret</span>
+                    {% endfor %}
+                </div>
+
+                <!-- Model Settings Preview -->
+                <div class="mt-4 pt-4 border-t border-gray-100">
+                    <h4 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Model Indstillinger</h4>
+                    <div class="flex flex-wrap gap-4 text-sm text-gray-600">
+                        <span class="flex items-center space-x-1">
+                            <span class="font-medium">Model:</span>
+                            <span class="bg-gray-100 px-2 py-0.5 rounded">{{ prompt.model_settings.model|default:"gpt-4.1" }}</span>
+                        </span>
+                        <span class="flex items-center space-x-1">
+                            <span class="font-medium">Temperature:</span>
+                            <span class="bg-gray-100 px-2 py-0.5 rounded">{{ prompt.model_settings.temperature|default:"0.7" }}</span>
+                        </span>
+                        <span class="flex items-center space-x-1">
+                            <span class="font-medium">Max tokens:</span>
+                            <span class="bg-gray-100 px-2 py-0.5 rounded">{{ prompt.model_settings.max_tokens|default:"500" }}</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="bg-white rounded-2xl shadow-lg p-12 text-center">
+            <div class="text-6xl mb-4">🤔</div>
+            <h3 class="text-xl font-bold text-gray-900 mb-2">Ingen prompts fundet</h3>
+            <p class="text-gray-600 mb-4">Kør <code class="bg-gray-100 px-2 py-1 rounded">python manage.py seed_prompts</code> for at oprette standard prompts.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Edit Slide-in Panel -->
+<div id="edit-panel-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden opacity-0 transition-opacity duration-300" onclick="closeEditPanel()"></div>
+<div id="edit-panel" class="fixed top-0 right-0 h-full w-full max-w-4xl bg-white shadow-2xl z-50 flex flex-col transition-transform duration-300" style="transform: translateX(100%)">
+    <!-- Panel Header -->
+    <div class="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50">
+        <div>
+            <h2 id="edit-panel-title" class="text-2xl font-bold text-gray-900">Rediger Prompt</h2>
+            <p id="edit-panel-subtitle" class="text-gray-600">Opdater prompt tekst og indstillinger</p>
+        </div>
+        <div class="flex items-center space-x-3">
+            <button onclick="savePrompt()" class="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:shadow-lg transition-all duration-200">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+                <span>Gem</span>
+            </button>
+            <button onclick="closeEditPanel()" class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all duration-200">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Panel Content -->
+    <div class="flex-1 overflow-y-auto p-6">
+        <input type="hidden" id="edit-prompt-id">
+
+        <!-- Prompt Text -->
+        <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Prompt Tekst</label>
+            <textarea id="edit-prompt-text" rows="20" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono text-sm" placeholder="Indtast prompt tekst..."></textarea>
+            <p class="mt-2 text-sm text-gray-500">Brug placeholders som {service_name}, {usps_numbered} osv.</p>
+        </div>
+
+        <!-- Model Settings -->
+        <div class="mb-6 p-4 bg-gray-50 rounded-lg">
+            <h4 class="text-lg font-medium text-gray-900 mb-4">Model Indstillinger</h4>
+            <div class="grid grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Model</label>
+                    <select id="edit-model" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        <option value="gpt-4.1">GPT-4.1</option>
+                        <option value="gpt-4o">GPT-4o</option>
+                        <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                        <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Temperature</label>
+                    <input type="number" id="edit-temperature" min="0" max="2" step="0.1" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Max Tokens</label>
+                    <input type="number" id="edit-max-tokens" min="100" max="4000" step="100" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                </div>
+            </div>
+        </div>
+
+        <!-- Placeholders Section -->
+        <div class="mb-6">
+            <h4 class="text-lg font-medium text-gray-900 mb-4">Placeholders</h4>
+            <div id="placeholders-list" class="space-y-3">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Test Modal -->
+<div id="test-modal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black bg-opacity-50" onclick="closeTestModal()"></div>
+    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-900">Test Prompt</h2>
+                <p id="test-modal-subtitle" class="text-gray-600">Udfyld test-værdier og kør prompten</p>
+            </div>
+            <button onclick="closeTestModal()" class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all duration-200">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Modal Content -->
+        <div class="flex-1 overflow-y-auto p-6">
+            <input type="hidden" id="test-prompt-id">
+
+            <!-- Test Values -->
+            <div class="mb-6">
+                <h4 class="text-lg font-medium text-gray-900 mb-4">Test Værdier</h4>
+                <div id="test-values-form" class="space-y-4">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Run Button -->
+            <div class="mb-6">
+                <button onclick="runTest()" id="run-test-btn" class="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all duration-200">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span>Kør Test</span>
+                </button>
+            </div>
+
+            <!-- Results -->
+            <div id="test-results" class="hidden">
+                <h4 class="text-lg font-medium text-gray-900 mb-4">Resultat</h4>
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-medium text-gray-500">AI Output</span>
+                        <span id="tokens-used" class="text-sm text-gray-500"></span>
+                    </div>
+                    <pre id="test-output" class="whitespace-pre-wrap text-sm text-gray-800 font-mono bg-white p-4 rounded border border-gray-200 max-h-64 overflow-y-auto"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Notification -->
+<div id="toast" class="fixed bottom-4 right-4 transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+    <div class="flex items-center space-x-3 px-6 py-4 rounded-xl shadow-lg" id="toast-content">
+        <span id="toast-icon"></span>
+        <span id="toast-message" class="font-medium"></span>
+    </div>
+</div>
+
+<script>
+let currentPromptData = null;
+
+// Edit Panel Functions
+function openEditPanel(promptId) {
+    fetch(`/ai/ajax/get-prompt/${promptId}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                currentPromptData = data.prompt;
+
+                document.getElementById('edit-prompt-id').value = promptId;
+                document.getElementById('edit-panel-title').textContent = data.prompt.name;
+                document.getElementById('edit-prompt-text').value = data.prompt.prompt_text;
+
+                // Model settings
+                const settings = data.prompt.model_settings || {};
+                document.getElementById('edit-model').value = settings.model || 'gpt-4.1';
+                document.getElementById('edit-temperature').value = settings.temperature || 0.7;
+                document.getElementById('edit-max-tokens').value = settings.max_tokens || 500;
+
+                // Render placeholders
+                renderPlaceholders(data.prompt.placeholders || []);
+
+                // Show panel
+                document.getElementById('edit-panel-overlay').classList.remove('hidden');
+                setTimeout(() => {
+                    document.getElementById('edit-panel-overlay').classList.remove('opacity-0');
+                    document.getElementById('edit-panel').style.transform = 'translateX(0)';
+                }, 10);
+            } else {
+                showToast(data.error, 'error');
+            }
+        });
+}
+
+function closeEditPanel() {
+    document.getElementById('edit-panel').style.transform = 'translateX(100%)';
+    document.getElementById('edit-panel-overlay').classList.add('opacity-0');
+    setTimeout(() => {
+        document.getElementById('edit-panel-overlay').classList.add('hidden');
+    }, 300);
+}
+
+function renderPlaceholders(placeholders) {
+    const container = document.getElementById('placeholders-list');
+    container.innerHTML = placeholders.map((p, i) => `
+        <div class="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+            <span class="font-mono text-purple-600 bg-purple-100 px-2 py-1 rounded">${p.name}</span>
+            <span class="text-gray-600 flex-1">${p.description}</span>
+        </div>
+    `).join('') || '<p class="text-gray-500">Ingen placeholders defineret</p>';
+}
+
+function savePrompt() {
+    const promptId = document.getElementById('edit-prompt-id').value;
+    const data = {
+        prompt_text: document.getElementById('edit-prompt-text').value,
+        model_settings: {
+            model: document.getElementById('edit-model').value,
+            temperature: parseFloat(document.getElementById('edit-temperature').value),
+            max_tokens: parseInt(document.getElementById('edit-max-tokens').value)
+        }
+    };
+
+    fetch(`/ai/ajax/update-prompt/${promptId}/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Prompt opdateret!', 'success');
+            closeEditPanel();
+            // Refresh page to show updated data
+            setTimeout(() => location.reload(), 500);
+        } else {
+            showToast(data.error, 'error');
+        }
+    });
+}
+
+// Test Modal Functions
+function openTestModal(promptId) {
+    fetch(`/ai/ajax/get-prompt/${promptId}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                currentPromptData = data.prompt;
+                document.getElementById('test-prompt-id').value = promptId;
+                document.getElementById('test-modal-subtitle').textContent = data.prompt.name;
+
+                // Build test form
+                const placeholders = data.prompt.placeholders || [];
+                const form = document.getElementById('test-values-form');
+                form.innerHTML = placeholders.map(p => `
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            <span class="font-mono text-purple-600">${p.name}</span>
+                            <span class="text-gray-500 font-normal ml-2">${p.description}</span>
+                        </label>
+                        <textarea data-placeholder="${p.name}" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm" placeholder="Indtast test-værdi..."></textarea>
+                    </div>
+                `).join('');
+
+                // Pre-fill with sample values
+                prefillTestValues(placeholders);
+
+                // Reset results
+                document.getElementById('test-results').classList.add('hidden');
+                document.getElementById('run-test-btn').disabled = false;
+                document.getElementById('run-test-btn').innerHTML = `
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span>Kør Test</span>
+                `;
+
+                // Show modal
+                document.getElementById('test-modal').classList.remove('hidden');
+            }
+        });
+}
+
+function prefillTestValues(placeholders) {
+    const sampleValues = {
+        '{service_name}': 'Elektriker',
+        '{usps_numbered}': '1. 4,7/5 på Trustpilot\n2. +15 års erfaring\n3. Hurtig udkørsel',
+        '{usps_formatted}': '- 4,7/5 på Trustpilot\n- +15 års erfaring\n- Hurtig udkørsel',
+        '{services_list}': '- Elektriker\n- El-installation\n- El-arbejde',
+        '{keywords_section}': '\nSEO Søgeord: elektriker, el-installatør, el-arbejde\n',
+        '{examples_section}': '',
+        '{few_shot_instruction}': '',
+        '{default_examples}': '',
+        '{BYNAVN}': '{BYNAVN}'
+    };
+
+    document.querySelectorAll('#test-values-form textarea').forEach(textarea => {
+        const placeholder = textarea.dataset.placeholder;
+        if (sampleValues[placeholder]) {
+            textarea.value = sampleValues[placeholder];
+        }
+    });
+}
+
+function closeTestModal() {
+    document.getElementById('test-modal').classList.add('hidden');
+}
+
+function runTest() {
+    const promptId = document.getElementById('test-prompt-id').value;
+    const testValues = {};
+
+    document.querySelectorAll('#test-values-form textarea').forEach(textarea => {
+        testValues[textarea.dataset.placeholder] = textarea.value;
+    });
+
+    // Show loading state
+    const btn = document.getElementById('run-test-btn');
+    btn.disabled = true;
+    btn.innerHTML = `
+        <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span>Genererer...</span>
+    `;
+
+    fetch('/ai/ajax/test-prompt/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt_id: promptId, test_values: testValues })
+    })
+    .then(response => response.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = `
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span>Kør Test</span>
+        `;
+
+        if (data.success) {
+            document.getElementById('test-output').textContent = data.output;
+            document.getElementById('tokens-used').textContent = `${data.tokens_used} tokens brugt`;
+            document.getElementById('test-results').classList.remove('hidden');
+        } else {
+            showToast(data.error, 'error');
+        }
+    })
+    .catch(error => {
+        btn.disabled = false;
+        showToast('Der opstod en fejl', 'error');
+    });
+}
+
+// Toast Notification
+function showToast(message, type = 'success') {
+    const toast = document.getElementById('toast');
+    const content = document.getElementById('toast-content');
+    const icon = document.getElementById('toast-icon');
+    const msg = document.getElementById('toast-message');
+
+    if (type === 'success') {
+        content.className = 'flex items-center space-x-3 px-6 py-4 rounded-xl shadow-lg bg-green-500 text-white';
+        icon.innerHTML = '✓';
+    } else {
+        content.className = 'flex items-center space-x-3 px-6 py-4 rounded-xl shadow-lg bg-red-500 text-white';
+        icon.innerHTML = '✗';
+    }
+
+    msg.textContent = message;
+    toast.classList.remove('translate-y-20', 'opacity-0');
+
+    setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+    }, 3000);
+}
+</script>
+{% endblock %}

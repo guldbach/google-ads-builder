@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load json_filters %}
 
-{% block title %}Campaign Builder Wizard | Google Ads Builder{% endblock %}
+{% block title %}Campaign Builder Wizard | Jarvis 1.0{% endblock %}
 
 {% block content %}
 
@@ -157,6 +157,56 @@
     min-width: 100px;
 }
 
+/* AI-Suggested USP Styling */
+.usp-item.ai-suggested {
+    position: relative;
+    border-color: #8B5CF6;
+    background: linear-gradient(135deg, #8B5CF620, #8B5CF610);
+    animation: ai-highlight 0.5s ease-out;
+}
+
+.usp-item.ai-suggested::after {
+    content: '✨ AI';
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: linear-gradient(135deg, #8B5CF6, #EC4899);
+    color: white;
+    border-radius: 4px;
+    font-size: 10px;
+    padding: 2px 6px;
+    font-weight: 600;
+}
+
+/* Custom USP AI-Suggested Styling */
+.custom-usp-item.ai-suggested {
+    position: relative;
+    border-color: #8B5CF6;
+    background: linear-gradient(135deg, #8B5CF620, #8B5CF610);
+}
+
+.custom-usp-item.ai-suggested::after {
+    content: '✨ AI';
+    position: absolute;
+    top: 4px;
+    right: 40px;
+    background: linear-gradient(135deg, #8B5CF6, #EC4899);
+    color: white;
+    border-radius: 4px;
+    font-size: 10px;
+    padding: 2px 6px;
+    font-weight: 600;
+}
+
+@keyframes ai-highlight {
+    from {
+        box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.4);
+    }
+    to {
+        box-shadow: none;
+    }
+}
+
 </style>
 
 <!-- Hero Section -->
@@ -259,8 +309,39 @@
         </div>
     </div>
 
-    <!-- STEP 1: Industry & Service Selection -->
+    <!-- STEP 1 (NY): Website URL Input -->
     <div id="step-content-1" class="step-content" style="display: none;">
+        <div class="text-center mb-8">
+            <h2 class="text-3xl font-bold text-gray-900 mb-4">🌐 Din Hjemmeside</h2>
+            <p class="text-gray-600">Indtast din hjemmeside URL for at analysere eksisterende indhold</p>
+        </div>
+
+        <div class="max-w-xl mx-auto">
+            <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Website URL</label>
+                <input type="url" id="website-url-input"
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                       placeholder="https://www.dinvirksomhed.dk"
+                       oninput="crawlState.website_url = this.value; debouncedSaveState();">
+                <p class="text-sm text-gray-500 mt-2">
+                    Vi analyserer din sitemap for at finde eksisterende sider og indhold.
+                </p>
+            </div>
+
+            <!-- Optional: Skip hint -->
+            <div class="mt-6 text-center">
+                <p class="text-sm text-gray-400">
+                    <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Du kan skippe dette trin hvis du ikke har en hjemmeside endnu.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- STEP 2: Industry & Service Selection (var STEP 1) -->
+    <div id="step-content-2" class="step-content" style="display: none;">
         <div class="text-center mb-8">
             <h2 class="text-3xl font-bold text-gray-900 mb-4">🏢 Vælg Brancher og Services</h2>
             <p class="text-gray-600">Du kan vælge flere brancher og kombinere deres services</p>
@@ -320,10 +401,20 @@
         </div>
     </div>
 
-    <!-- STEP 2: USP Selection -->
-    <div id="step-content-2" class="step-content" style="display: none;">
+    <!-- STEP 3: USP Selection (var STEP 2) -->
+    <div id="step-content-3" class="step-content" style="display: none;">
         <div class="text-center mb-8">
             <h2 class="text-3xl font-bold text-gray-900 mb-4">⭐ USPs</h2>
+        </div>
+
+        <!-- USP Analysis Status (Hidden by default, shown when AI has suggestions) -->
+        <div id="usp-analysis-status" class="mb-6 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200 hidden">
+            <div class="flex items-center justify-center">
+                <span class="text-purple-600 mr-2 text-lg">✨</span>
+                <p class="text-sm text-gray-700">
+                    AI analyserede din hjemmeside og foreslog <span id="usp-suggestion-count" class="font-bold text-purple-600">0</span> USPs
+                </p>
+            </div>
         </div>
 
         <!-- Custom USPs Section -->
@@ -386,37 +477,10 @@
         </div>
     </div>
 
-    <!-- STEP 3: Company Description Info (for Virksomhedsbeskrivelse purpose) -->
-    <div id="step-content-3" class="step-content" style="display: none;">
-        <div class="text-center mb-8">
-            <h2 class="text-3xl font-bold text-gray-900 mb-4">📝 Virksomhedsinformation</h2>
-            <p class="text-gray-600">Udfyld information om virksomheden til ChatGPT prompt generering</p>
-        </div>
-
-        <div class="max-w-2xl mx-auto space-y-6">
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Firmanavn *</label>
-                <input type="text" id="company-name" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="Indtast firmanavn">
-            </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Generel information om virksomheden og dens værdisæt *</label>
-                <textarea id="core-competencies" rows="4" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="Beskriv virksomheden, dens historie, værdier og hvad der gør den unik..."></textarea>
-                <p class="text-xs text-gray-500 mt-1">Fortæl om virksomhedens baggrund, værdier og særlige kendetegn</p>
-            </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Målgruppe *</label>
-                <textarea id="target-audience" rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="F.eks. boligejere i København mellem 30-55 år, der søger pålidelig håndværkerservice til renovering og vedligeholdelse af deres hjem"></textarea>
-                <p class="text-xs text-gray-500 mt-1">Beskriv den primære målgruppe - hvem er kunderne, hvor bor de, og hvad søger de?</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- STEP 4: Geographic Targeting (FLYTTET FRA STEP 5) -->
+    <!-- STEP 4: Geographic Targeting (flyttet fra STEP 5) -->
     <div id="step-content-4" class="step-content" style="display: none;">
         <div class="text-center mb-8">
-            <h2 class="text-3xl font-bold text-gray-900 mb-4">🌍 Geografisk Målretning</h2>
+            <h2 class="text-3xl font-bold text-gray-900 mb-4">🌍 Geo-Kampagne Opsætning</h2>
             <p class="text-gray-600">Vælg geografiske regioner og konfigurer geo-kampagner</p>
         </div>
 
@@ -478,69 +542,6 @@
             </div>
         </div>
 
-        <!-- Geo Campaign Service Selection -->
-        <div class="mb-8 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 border border-blue-200">
-            <h3 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                <span class="w-8 h-8 rounded-lg mr-3 flex items-center justify-center text-white bg-gradient-to-r from-blue-600 to-purple-600">📍</span>
-                Geo-Kampagne Opsætning
-            </h3>
-            <p class="text-sm text-gray-600 mb-4">Vælg hvilke services der skal have separate geo-kampagner</p>
-
-            <div id="geo-services-container" class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
-                <!-- Services will be populated dynamically based on selected services in step 1 -->
-                <p class="text-gray-500 col-span-full text-center py-4">Vælg services i Step 1 for at se geo-kampagne muligheder</p>
-            </div>
-
-            <!-- Byside URL Toggle -->
-            <div class="border-t border-blue-200 pt-4 mt-4">
-                <label class="flex items-center cursor-pointer">
-                    <input type="checkbox" id="create-byside-urls" class="w-5 h-5 text-purple-600 rounded focus:ring-purple-500 mr-3">
-                    <span class="font-medium text-gray-900">Generer byside URLs til import</span>
-                </label>
-                <p class="text-xs text-gray-500 ml-8 mt-1">Opret URL-liste til WordPress byside import</p>
-            </div>
-
-            <!-- Byside URL Configuration (hidden by default) -->
-            <div id="byside-url-config" class="border-t border-blue-200 pt-4 mt-4" style="display: none;">
-                <div class="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <p class="text-sm text-blue-800">
-                        <span class="font-medium">URL Format:</span> /{branche}-{by}/
-                        <span class="text-blue-600 ml-2">(f.eks. /toemrer-aarhus/)</span>
-                    </p>
-                </div>
-
-                <div class="flex items-center justify-between mb-3">
-                    <h4 class="font-medium text-gray-900">📝 Byside URL Liste</h4>
-                    <div class="flex space-x-2">
-                        <button type="button" id="generate-urls-btn" class="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors">
-                            🔄 Generer
-                        </button>
-                        <button type="button" id="copy-urls-btn" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors">
-                            📋 Kopiér alle
-                        </button>
-                    </div>
-                </div>
-
-                <div id="byside-urls-table" class="bg-white rounded-lg border border-gray-200 overflow-hidden max-h-64 overflow-y-auto">
-                    <table class="w-full text-sm">
-                        <thead class="bg-gray-50 sticky top-0">
-                            <tr>
-                                <th class="px-4 py-2 text-left text-gray-600">By</th>
-                                <th class="px-4 py-2 text-left text-gray-600">URL</th>
-                                <th class="px-4 py-2 text-center text-gray-600">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="byside-urls-body">
-                            <tr>
-                                <td colspan="3" class="px-4 py-4 text-center text-gray-500">Vælg regioner og klik "Generer" for at se URLs</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-            </div>
-        </div>
-
         <!-- Negative City List Generation (Hidden - auto-generates in background) -->
         <div id="negative-city-list-section" class="mb-8 bg-gradient-to-r from-red-50 to-orange-50 rounded-xl p-6 border border-red-200" style="display: none;">
             <h3 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
@@ -576,8 +577,119 @@
         </div>
     </div>
 
-    <!-- STEP 5: Kampagne & Annoncebygger - HYBRID SIDEBAR + CARDS LAYOUT -->
+    <!-- STEP 5: Virksomhedsbeskrivelse med AI (flyttet fra STEP 4) -->
     <div id="step-content-5" class="step-content" style="display: none;">
+        <div class="text-center mb-8">
+            <h2 class="text-3xl font-bold text-gray-900 mb-4">📝 Virksomhedsbeskrivelse</h2>
+            <p class="text-gray-600">AI-genereret beskrivelse baseret på dine valg - rediger efter behov</p>
+        </div>
+
+        <div class="max-w-2xl mx-auto space-y-6">
+            <!-- AI Generation Button -->
+            <div class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-200">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">Generer med AI</h3>
+                        <p class="text-sm text-gray-600">Baseret på website, brancher, services, USPs og geografisk målretning</p>
+                    </div>
+                    <button type="button" id="generate-description-btn"
+                            class="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:shadow-lg transition-all duration-200 flex items-center space-x-2"
+                            onclick="generateCompanyDescriptionAI()">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                        </svg>
+                        <span>Generer beskrivelse</span>
+                    </button>
+                </div>
+
+                <!-- Loading State -->
+                <div id="description-loading" class="hidden flex items-center justify-center py-4">
+                    <svg class="animate-spin h-6 w-6 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span class="ml-2 text-gray-600">Genererer beskrivelse...</span>
+                </div>
+            </div>
+
+            <!-- Company Name -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Firmanavn *</label>
+                <input type="text" id="company-name"
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                       placeholder="Indtast firmanavn"
+                       oninput="updateCompanyInfo()">
+            </div>
+
+            <!-- Generated Description (editable) -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Virksomhedsbeskrivelse *
+                    <span id="description-source-badge" class="ml-2 text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-600 hidden">
+                        AI-genereret
+                    </span>
+                </label>
+                <textarea id="core-competencies" rows="6"
+                          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          placeholder="Beskriv virksomheden, dens historie, værdier og hvad der gør den unik..."
+                          oninput="updateCompanyInfo()"></textarea>
+                <p class="text-xs text-gray-500 mt-1">Fortæl om virksomhedens baggrund, værdier og særlige kendetegn</p>
+            </div>
+
+            <!-- Target Audience -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Målgruppe *</label>
+                <textarea id="target-audience" rows="3"
+                          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          placeholder="F.eks. boligejere i København mellem 30-55 år..."
+                          oninput="updateCompanyInfo()"></textarea>
+                <p class="text-xs text-gray-500 mt-1">Beskriv den primære målgruppe</p>
+            </div>
+
+            <!-- Key Points (from AI) -->
+            <div id="key-points-section" class="hidden">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Hovedpunkter fra AI</label>
+                <div id="key-points-container" class="space-y-2">
+                    <!-- AI-generated key points will be displayed here -->
+                </div>
+            </div>
+
+            <!-- Company Profile JSON (collapsible) -->
+            <div id="profile-json-section" class="hidden">
+                <button type="button" id="toggle-profile-json"
+                        class="w-full flex items-center justify-between px-4 py-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                        onclick="toggleProfileJson()">
+                    <span class="flex items-center text-sm font-medium text-gray-700">
+                        <svg class="w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
+                        </svg>
+                        Virksomhedsprofil (JSON)
+                        <span class="ml-2 text-xs text-gray-500">til brug i andre AI-prompts</span>
+                    </span>
+                    <svg id="profile-toggle-icon" class="w-5 h-5 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+                <div id="profile-json-content" class="hidden mt-2">
+                    <div class="bg-gray-900 rounded-lg p-4 overflow-x-auto">
+                        <pre id="profile-json-display" class="text-sm text-green-400 font-mono whitespace-pre-wrap"></pre>
+                    </div>
+                    <div class="flex justify-end mt-2">
+                        <button type="button" onclick="copyProfileJson()"
+                                class="text-xs text-gray-500 hover:text-blue-600 flex items-center">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                            </svg>
+                            Kopiér JSON
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- STEP 6: Kampagne & Annoncebygger (var STEP 7) -->
+    <div id="step-content-6" class="step-content" style="display: none;">
         <!-- Header with Batch Actions -->
         <div class="flex items-center justify-between mb-6">
             <div>
@@ -767,81 +879,58 @@
         </div>
     </template>
 
-    <!-- STEP 6: SEO Info (for SEO purpose) -->
-    <div id="step-content-6" class="step-content" style="display: none;">
+    <!-- STEP 7: SEO Info - Sidebar med Services -->
+    <div id="step-content-7" class="step-content" style="display: none;">
         <div class="text-center mb-8">
             <h2 class="text-3xl font-bold text-gray-900 mb-4">🔍 SEO Information</h2>
-            <p class="text-gray-600">Udfyld information til SEO analyse og metabeskrivelser</p>
+            <p class="text-gray-600">Konfigurer meta tags for hver service-underside</p>
         </div>
 
-        <div class="max-w-2xl mx-auto space-y-6">
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Website URL *</label>
-                <input type="url" id="seo-website-url" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="https://www.example.dk">
-                <p class="text-xs text-gray-500 mt-1">Den hjemmeside der skal analyseres</p>
+        <!-- SEO Builder Container with Sidebar -->
+        <div id="seo-builder-container" class="flex gap-6">
+            <!-- Sidebar Navigation -->
+            <div class="w-1/4 min-w-[280px]">
+                <div class="sticky top-4">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">📄 Undersider</h3>
+                    <div id="seo-nav-list" class="space-y-2">
+                        <!-- Dynamically populated by renderSeoSidebar() -->
+                    </div>
+                </div>
             </div>
 
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Fokus Keywords *</label>
-                <textarea id="seo-focus-keywords" rows="4" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="vvs installation&#10;blikkenslager københavn&#10;akut vvs"></textarea>
-                <p class="text-xs text-gray-500 mt-1">Ét keyword per linje - de vigtigste søgeord for virksomheden</p>
-            </div>
-
-            <div class="bg-blue-50 rounded-lg p-4">
-                <h4 class="font-medium text-blue-900 mb-2">💡 Tip til fokus keywords</h4>
-                <ul class="text-sm text-blue-800 space-y-1">
-                    <li>• Inkluder geografiske termer (by, område)</li>
-                    <li>• Brug både korte og lange søgeord</li>
-                    <li>• Tænk på hvad dine kunder søger på</li>
-                </ul>
+            <!-- Content Area -->
+            <div class="w-3/4">
+                <div id="active-seo-content">
+                    <!-- Dynamically populated by renderActiveSeoContent() -->
+                    <div class="text-center py-12 text-gray-500">
+                        <p class="text-lg">Vælg en service fra sidebaren</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- STEP 7: Programmatic Byside Setup -->
-    <div id="step-content-7" class="step-content" style="display: none;">
+    <!-- STEP 8: Programmatic Byside Setup (var STEP 9) -->
+    <div id="step-content-8" class="step-content" style="display: none;">
         <div class="text-center mb-8">
             <h2 class="text-3xl font-bold text-gray-900 mb-4">🌍 Programmatic Byside Setup</h2>
             <p class="text-gray-600">Konfigurer geo-kampagne og WordPress upload</p>
         </div>
 
         <div class="space-y-8">
-            <!-- Website URL & Sitemap Crawling -->
-            <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                <h3 class="text-xl font-semibold text-gray-900 mb-4">🌐 Website & Sitemap</h3>
-                <p class="text-sm text-gray-600 mb-4">Angiv kundens website for at finde eksisterende bysider</p>
+            <!-- Hidden inputs for compatibility -->
+            <input type="hidden" id="programmatic-website-url" value="">
+            <div id="sitemap-loading" class="hidden"></div>
+            <div id="sitemap-error" class="hidden"><span id="sitemap-error-message"></span></div>
+            <div id="sitemap-success" class="hidden"></div>
 
-                <div class="flex space-x-3">
-                    <input type="url" id="programmatic-website-url" class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="https://www.eksempel.dk">
-                    <button type="button" id="crawl-sitemap-btn" onclick="crawlSitemap()" class="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium hover:shadow-lg transition-all duration-200 flex items-center space-x-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                        </svg>
-                        <span>Crawl Sitemap</span>
-                    </button>
-                </div>
-
-                <!-- Sitemap Status -->
-                <div id="sitemap-status" class="mt-4 hidden">
-                    <div id="sitemap-loading" class="flex items-center space-x-2 text-gray-500 hidden">
-                        <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <span>Crawler sitemap...</span>
-                    </div>
-                    <div id="sitemap-success" class="flex items-center space-x-2 text-green-600 hidden">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                        </svg>
-                        <span id="sitemap-urls-count">0 URLs fundet i sitemap</span>
-                    </div>
-                    <div id="sitemap-error" class="flex items-center space-x-2 text-red-600 hidden">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                        <span id="sitemap-error-message">Kunne ikke crawle sitemap</span>
-                    </div>
+            <!-- Sitemap Status (simplified - only shows URL count when available) -->
+            <div id="sitemap-status" class="mb-4 hidden">
+                <div class="flex items-center space-x-2 text-green-600 bg-green-50 px-4 py-2 rounded-lg inline-flex">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    <span id="sitemap-urls-count">0 URLs fundet i sitemap</span>
                 </div>
             </div>
 
@@ -1000,8 +1089,8 @@
         </div>
     </div>
 
-    <!-- STEP 8: Summary and Export -->
-    <div id="step-content-8" class="step-content" style="display: none;">
+    <!-- STEP 9: Summary and Export (var STEP 10) -->
+    <div id="step-content-9" class="step-content" style="display: none;">
         <div class="text-center mb-8">
             <h2 class="text-3xl font-bold text-gray-900 mb-4">📋 Opsummering og Generering</h2>
             <p class="text-gray-600">Gennemgå dine valg og generer output</p>
@@ -1131,6 +1220,7 @@ let campaignConfig = {
     selected_purposes: [],  // ['company_description', 'google_ads', 'seo', 'programmatic']
     industry_ids: [],  // Changed from industry_id to support multiple industries
     service_ids: [],
+    service_purposes: {},  // {serviceId: {google_ads: true, seo: true, programmatic: true}}
     usp_ids: [],
     usp_custom_texts: {},  // {usp_id: "custom text"} for edited USPs
     usp_variable_values: {},  // {usp_id: {varIndex: "brugerværdi"}} for variable substitution
@@ -1144,11 +1234,18 @@ let campaignConfig = {
     company_info: {
         company_name: '',
         core_competencies: '',
-        target_audience: ''
+        target_audience: '',
+        ai_generated: false,
+        key_points: [],
+        profile: {}  // Structured JSON profile for use in other AI prompts
     },
     seo_info: {
         website_url: '',
         focus_keywords: []
+    },
+    // NYT: SEO Pages - én meta titel/beskrivelse per service underside
+    seo_pages: {
+        // service_id: { service_name, meta_title, meta_description, seo_keywords: [], keywords_loaded: false }
     },
     programmatic_info: {
         selected_cities: []
@@ -1156,7 +1253,7 @@ let campaignConfig = {
     // NYT: Geo-kampagne konfiguration (Step 4)
     geo_config: {
         enabled_services: [],  // Hvilke services får geo-kampagne
-        create_byside_urls: false,
+        create_byside_urls: true,  // Auto-genereres altid
         byside_urls: []  // [{city, url, exists, edited}]
     },
     // NYT: Kampagne & Annoncebygger (Step 5)
@@ -1170,14 +1267,37 @@ let campaignConfig = {
         industry_id: null,    // Only used when type='industry'
         service_id: null,     // Used by both types
         source_service_name: null  // Original service name for substitution
+    },
+    // USP Analysis from website scraping (Smart USP Pre-fill)
+    usp_analysis: {
+        status: 'idle',  // 'idle', 'analyzing', 'success', 'error'
+        timestamp: null,
+        matched_usps: [],
+        custom_usps: [],
+        extracted_facts: {},
+        applied: false  // Track if suggestions have been applied to UI
     }
+};
+
+// Crawl State - shared across all purposes (website analysis, programmatic, SEO)
+let crawlState = {
+    website_url: '',
+    crawl_status: 'idle', // 'idle' | 'crawling' | 'success' | 'error'
+    crawl_timestamp: null,
+    crawl_error: null,
+    sitemap_urls: [],
+    urls_found: 0,
+    city_matches: [],      // Genbruges i Programmatic step
+    existing_count: 0,
+    missing_count: 0
 };
 
 // Server data - will be populated from Django context
 let serverData = {
     negative_keyword_lists: [],
     usp_templates: [],
-    google_keywords: {}  // Gem keywords per industry
+    google_keywords: {},  // Gem keywords per industry
+    services_by_id: {}  // Lookup map: serviceId -> {id, name, description, color, industry_name, ...}
 };
 
 // ========================================
@@ -1203,8 +1323,10 @@ function debounce(func, wait) {
 function saveStateToStorage() {
     try {
         const stateToSave = {
+            version: 2,  // State version for migration
             currentStep: currentStep,
             campaignConfig: campaignConfig,
+            crawlState: crawlState,  // Include crawl state
             timestamp: Date.now()
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
@@ -1214,13 +1336,59 @@ function saveStateToStorage() {
     }
 }
 
+// Migrate state from older versions
+function migrateState(state) {
+    const currentVersion = 2;
+    const stateVersion = state.version || 1;
+
+    if (stateVersion < currentVersion) {
+        console.log(`Migrating state from v${stateVersion} to v${currentVersion}`);
+
+        // v1 -> v2: Add crawlState, offset steps
+        if (stateVersion < 2) {
+            // Initialize crawlState if not present
+            if (!state.crawlState) {
+                state.crawlState = {
+                    website_url: '',
+                    crawl_status: 'idle',
+                    crawl_timestamp: null,
+                    crawl_error: null,
+                    sitemap_urls: [],
+                    urls_found: 0,
+                    city_matches: [],
+                    existing_count: 0,
+                    missing_count: 0
+                };
+            }
+
+            // Initialize service_purposes if not present
+            if (!state.campaignConfig.service_purposes) {
+                state.campaignConfig.service_purposes = {};
+            }
+
+            // Offset step numbers (old steps 1+ become 2+, etc.)
+            // Step 0 stays 0, but we add new Step 1 (Website URL) and Step 4 (Auto-Crawl)
+            if (state.currentStep >= 1) {
+                state.currentStep += 1;  // Offset for new Step 1
+            }
+            if (state.currentStep >= 4) {
+                state.currentStep += 1;  // Offset for new Step 4
+            }
+        }
+
+        state.version = currentVersion;
+    }
+
+    return state;
+}
+
 // Load state from localStorage (returns null if expired or not found)
 function loadStateFromStorage() {
     try {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (!saved) return null;
 
-        const state = JSON.parse(saved);
+        let state = JSON.parse(saved);
         const expiryMs = STORAGE_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
 
         // Check if expired
@@ -1228,6 +1396,14 @@ function loadStateFromStorage() {
             console.log('Saved state expired, clearing');
             clearSavedState();
             return null;
+        }
+
+        // Migrate from older versions
+        state = migrateState(state);
+
+        // Restore crawlState if present
+        if (state.crawlState) {
+            crawlState = state.crawlState;
         }
 
         console.log('Loaded state from localStorage, age:', Math.round((Date.now() - state.timestamp) / 1000 / 60), 'minutes');
@@ -1368,6 +1544,31 @@ registerUIRestoreHandler('geo_map_targeting', (config) => {
     }
 }, { priority: 50 });
 
+// Step 1: Website URL (priority: 5) - Restore crawlState.website_url
+registerUIRestoreHandler('website_url', (config) => {
+    if (crawlState.website_url) {
+        $('#website-url-input').val(crawlState.website_url);
+        console.log('Restored website_url:', crawlState.website_url);
+    }
+}, { priority: 5 });
+
+// Step 2: Service Purposes (priority: 26, after services) - Restore service purpose checkboxes
+registerUIRestoreHandler('service_purposes', (config) => {
+    if (config.service_purposes && Object.keys(config.service_purposes).length > 0) {
+        Object.entries(config.service_purposes).forEach(([serviceId, purposes]) => {
+            const purposesContainer = $(`.service-purposes[data-service-id="${serviceId}"]`);
+            // Show the purposes container for selected services
+            purposesContainer.removeClass('hidden');
+            // Restore checkbox states
+            Object.entries(purposes).forEach(([purpose, isEnabled]) => {
+                const checkbox = $(`.service-purpose-checkbox[data-service-id="${serviceId}"][data-purpose="${purpose}"]`);
+                checkbox.prop('checked', isEnabled);
+            });
+        });
+        console.log('Restored service_purposes:', config.service_purposes);
+    }
+}, { priority: 26 });
+
 // Restore UI from saved state using registered handlers
 async function restoreUIFromState() {
     console.log('Restoring UI from saved state...');
@@ -1436,28 +1637,122 @@ function danishSlug(text) {
         .replace(/^-|-$/g, '');         // fjern bindestreg i start/slut
 }
 
+// Update "Anvend til" checkboxes in step 2 when purposes change in step 0
+function updateServicePurposesUI() {
+    const purposes = campaignConfig.selected_purposes || [];
+    const hasGoogleAds = purposes.includes('google_ads');
+    const hasSeo = purposes.includes('seo');
+    const hasProgrammatic = purposes.includes('programmatic');
+    const hasAnyRelevant = hasGoogleAds || hasSeo || hasProgrammatic;
+
+    // Update each service card's "Anvend til" section
+    $('.service-card.selected').each(function() {
+        const serviceId = $(this).data('service-id');
+        const purposesContainer = $(this).find('.service-purposes');
+
+        // If no relevant purposes, hide the section
+        if (!hasAnyRelevant) {
+            purposesContainer.addClass('hidden');
+            return;
+        }
+
+        // Build new checkboxes HTML based on selected purposes
+        let checkboxesHtml = '';
+        if (hasGoogleAds) {
+            const isChecked = campaignConfig.service_purposes[serviceId]?.google_ads !== false;
+            checkboxesHtml += `
+                <label class="inline-flex items-center text-xs bg-green-50 px-2 py-1 rounded cursor-pointer hover:bg-green-100 transition-colors">
+                    <input type="checkbox" class="service-purpose-checkbox w-3 h-3 mr-1"
+                           data-service-id="${serviceId}" data-purpose="google_ads" ${isChecked ? 'checked' : ''}>
+                    <span class="text-green-700">Google Ads</span>
+                </label>`;
+        }
+        if (hasSeo) {
+            const isChecked = campaignConfig.service_purposes[serviceId]?.seo !== false;
+            checkboxesHtml += `
+                <label class="inline-flex items-center text-xs bg-orange-50 px-2 py-1 rounded cursor-pointer hover:bg-orange-100 transition-colors">
+                    <input type="checkbox" class="service-purpose-checkbox w-3 h-3 mr-1"
+                           data-service-id="${serviceId}" data-purpose="seo" ${isChecked ? 'checked' : ''}>
+                    <span class="text-orange-700">SEO</span>
+                </label>`;
+        }
+        if (hasProgrammatic) {
+            const isChecked = campaignConfig.service_purposes[serviceId]?.programmatic !== false;
+            checkboxesHtml += `
+                <label class="inline-flex items-center text-xs bg-purple-50 px-2 py-1 rounded cursor-pointer hover:bg-purple-100 transition-colors">
+                    <input type="checkbox" class="service-purpose-checkbox w-3 h-3 mr-1"
+                           data-service-id="${serviceId}" data-purpose="programmatic" ${isChecked ? 'checked' : ''}>
+                    <span class="text-purple-700">Byside</span>
+                </label>`;
+        }
+
+        // Update the container content
+        purposesContainer.html(`
+            <p class="text-xs text-gray-500 mb-2">Anvend til:</p>
+            <div class="flex flex-wrap gap-2">
+                ${checkboxesHtml}
+            </div>
+        `);
+        purposesContainer.removeClass('hidden');
+
+        // Update service_purposes to match current purposes (add new ones as true)
+        if (!campaignConfig.service_purposes[serviceId]) {
+            campaignConfig.service_purposes[serviceId] = {};
+        }
+        if (hasGoogleAds && campaignConfig.service_purposes[serviceId].google_ads === undefined) {
+            campaignConfig.service_purposes[serviceId].google_ads = true;
+        }
+        if (hasSeo && campaignConfig.service_purposes[serviceId].seo === undefined) {
+            campaignConfig.service_purposes[serviceId].seo = true;
+        }
+        if (hasProgrammatic && campaignConfig.service_purposes[serviceId].programmatic === undefined) {
+            campaignConfig.service_purposes[serviceId].programmatic = true;
+        }
+    });
+}
+
+// Get services filtered by a specific purpose
+// Returns only services where that purpose is enabled
+function getServicesForPurpose(purpose) {
+    return campaignConfig.service_ids.filter(serviceId => {
+        const purposes = campaignConfig.service_purposes[serviceId];
+        // If no purposes set, include by default (backwards compatibility)
+        if (!purposes) return true;
+        return purposes[purpose] === true;
+    });
+}
+
 // Get visible steps based on selected purposes
 function getVisibleSteps() {
-    // Base steps: 0 (purpose), 1 (industry/services), 2 (USPs)
-    let steps = [0, 1, 2];
+    // Base steps: 0 (purpose), 1 (website URL), 2 (industry/services), 3 (USPs)
+    let steps = [0, 1, 2, 3];
 
-    // Add purpose-specific steps
-    if (campaignConfig.selected_purposes.includes('company_description')) {
-        steps.push(3);  // Company info step
+    // Purpose-specific steps
+    // Geo targeting for google_ads, company_description, eller programmatic
+    if (campaignConfig.selected_purposes.includes('google_ads') ||
+        campaignConfig.selected_purposes.includes('company_description') ||
+        campaignConfig.selected_purposes.includes('programmatic')) {
+        steps.push(4);  // Geo targeting step
     }
+    // Campaign builder KUN for google_ads
     if (campaignConfig.selected_purposes.includes('google_ads')) {
-        steps.push(4);  // Budget strategy step
-        steps.push(5);  // Geo targeting step
+        steps.push(6);  // Kampagne & Annoncebygger step
+    }
+    if (campaignConfig.selected_purposes.includes('company_description')) {
+        steps.push(5);  // Virksomhedsinfo med AI (efter geo targeting)
     }
     if (campaignConfig.selected_purposes.includes('seo')) {
-        steps.push(6);  // SEO info step
+        steps.push(7);  // SEO info step
     }
     if (campaignConfig.selected_purposes.includes('programmatic')) {
-        steps.push(7);  // Programmatic setup step
+        steps.push(8);  // Programmatic setup step
     }
 
     // Always add summary step at the end
-    steps.push(8);
+    steps.push(9);  // Summary step
+
+    // Sort steps to ensure correct order
+    steps.sort((a, b) => a - b);
 
     return steps;
 }
@@ -1546,6 +1841,9 @@ function setupEventListeners() {
         } else {
             $('#selected-purposes-summary').hide();
         }
+
+        // Update "Anvend til" checkboxes in step 2 to match new purposes
+        updateServicePurposesUI();
 
         console.log('Selected purposes:', campaignConfig.selected_purposes);
         debouncedSaveState(); // Auto-save on selection change
@@ -1638,20 +1936,71 @@ function setupEventListeners() {
     });
     
     // Service selection (multiple)
-    $(document).on('click', '.service-card', function() {
+    $(document).on('click', '.service-card', function(e) {
+        // Don't toggle selection when clicking on purpose checkboxes
+        if ($(e.target).hasClass('service-purpose-checkbox') || $(e.target).closest('label').find('.service-purpose-checkbox').length) {
+            return;
+        }
+
         $(this).toggleClass('selected');
 
         const serviceId = $(this).data('service-id');
+        const purposesContainer = $(this).find('.service-purposes');
+
         if ($(this).hasClass('selected')) {
             if (!campaignConfig.service_ids.includes(serviceId)) {
                 campaignConfig.service_ids.push(serviceId);
             }
+            // Initialize service_purposes based on selected purposes from step 0
+            if (!campaignConfig.service_purposes[serviceId]) {
+                const purposes = campaignConfig.selected_purposes || [];
+                campaignConfig.service_purposes[serviceId] = {
+                    google_ads: purposes.includes('google_ads'),
+                    seo: purposes.includes('seo'),
+                    programmatic: purposes.includes('programmatic')
+                };
+            }
+            // Show purpose checkboxes (only if we have relevant purposes)
+            const hasPurposes = campaignConfig.selected_purposes.some(p =>
+                ['google_ads', 'seo', 'programmatic'].includes(p)
+            );
+            if (hasPurposes) {
+                purposesContainer.removeClass('hidden');
+            }
         } else {
             campaignConfig.service_ids = campaignConfig.service_ids.filter(id => id !== serviceId);
+            // Remove service_purposes entry
+            delete campaignConfig.service_purposes[serviceId];
+            // Hide purpose checkboxes
+            purposesContainer.addClass('hidden');
         }
 
         // Step validation is handled in nextStep() function
         debouncedSaveState(); // Auto-save on selection change
+    });
+
+    // Service purpose checkbox change handler
+    $(document).on('change', '.service-purpose-checkbox', function(e) {
+        e.stopPropagation(); // Prevent triggering card click
+
+        const serviceId = $(this).data('service-id');
+        const purpose = $(this).data('purpose');
+        const isChecked = $(this).is(':checked');
+
+        // Ensure service_purposes entry exists
+        if (!campaignConfig.service_purposes[serviceId]) {
+            campaignConfig.service_purposes[serviceId] = {
+                google_ads: true,
+                seo: true,
+                programmatic: true
+            };
+        }
+
+        // Update the specific purpose
+        campaignConfig.service_purposes[serviceId][purpose] = isChecked;
+
+        console.log(`Service ${serviceId} purpose ${purpose} set to ${isChecked}`);
+        debouncedSaveState();
     });
     
     // USP selection with variable rendering
@@ -2274,6 +2623,16 @@ function processServiceResponses(responses) {
                 // Add industry info to service for display
                 service.industry_name = data.industry_name;
                 allServices.push(service);
+
+                // Store in lookup map for later use (e.g., SEO Builder)
+                serverData.services_by_id[service.id] = {
+                    id: service.id,
+                    name: service.name,
+                    description: service.description,
+                    industry_name: service.industry_name,
+                    keyword_count: service.keyword_count,
+                    color: service.color || '#8B5CF6'
+                };
             });
 
             // Track if this industry requires authorization
@@ -2321,6 +2680,50 @@ function processServiceResponses(responses) {
                                     ${service.industry_name}
                                 </span>
                             </div>
+                            <!-- Purpose checkboxes (shown when selected, only for selected purposes) -->
+                            ${(() => {
+                                const purposes = campaignConfig.selected_purposes || [];
+                                const hasGoogleAds = purposes.includes('google_ads');
+                                const hasSeo = purposes.includes('seo');
+                                const hasProgrammatic = purposes.includes('programmatic');
+
+                                // Only show section if at least one relevant purpose is selected
+                                if (!hasGoogleAds && !hasSeo && !hasProgrammatic) return '';
+
+                                let checkboxes = '';
+                                if (hasGoogleAds) {
+                                    checkboxes += `
+                                        <label class="inline-flex items-center text-xs bg-green-50 px-2 py-1 rounded cursor-pointer hover:bg-green-100 transition-colors">
+                                            <input type="checkbox" class="service-purpose-checkbox w-3 h-3 mr-1"
+                                                   data-service-id="${service.id}" data-purpose="google_ads" checked>
+                                            <span class="text-green-700">Google Ads</span>
+                                        </label>`;
+                                }
+                                if (hasSeo) {
+                                    checkboxes += `
+                                        <label class="inline-flex items-center text-xs bg-orange-50 px-2 py-1 rounded cursor-pointer hover:bg-orange-100 transition-colors">
+                                            <input type="checkbox" class="service-purpose-checkbox w-3 h-3 mr-1"
+                                                   data-service-id="${service.id}" data-purpose="seo" checked>
+                                            <span class="text-orange-700">SEO</span>
+                                        </label>`;
+                                }
+                                if (hasProgrammatic) {
+                                    checkboxes += `
+                                        <label class="inline-flex items-center text-xs bg-purple-50 px-2 py-1 rounded cursor-pointer hover:bg-purple-100 transition-colors">
+                                            <input type="checkbox" class="service-purpose-checkbox w-3 h-3 mr-1"
+                                                   data-service-id="${service.id}" data-purpose="programmatic" checked>
+                                            <span class="text-purple-700">Byside</span>
+                                        </label>`;
+                                }
+
+                                return `
+                                    <div class="service-purposes hidden mt-3 pt-3 border-t border-gray-200" data-service-id="${service.id}">
+                                        <p class="text-xs text-gray-500 mb-2">Anvend til:</p>
+                                        <div class="flex flex-wrap gap-2">
+                                            ${checkboxes}
+                                        </div>
+                                    </div>`;
+                            })()}
                         </div>
                     </div>
                 </div>
@@ -2331,7 +2734,21 @@ function processServiceResponses(responses) {
 
         // Restore service selections from saved state (after DOM is updated)
         campaignConfig.service_ids.forEach(serviceId => {
-            $(`.service-card[data-service-id="${serviceId}"]`).addClass('selected');
+            const card = $(`.service-card[data-service-id="${serviceId}"]`);
+            card.addClass('selected');
+
+            // Show the purpose checkboxes container
+            const purposesContainer = card.find('.service-purposes');
+            purposesContainer.removeClass('hidden');
+
+            // Restore checkbox states from service_purposes
+            const purposes = campaignConfig.service_purposes[serviceId];
+            if (purposes) {
+                Object.entries(purposes).forEach(([purpose, isEnabled]) => {
+                    const checkbox = purposesContainer.find(`.service-purpose-checkbox[data-purpose="${purpose}"]`);
+                    checkbox.prop('checked', isEnabled);
+                });
+            }
         });
     }
 }
@@ -2343,12 +2760,22 @@ function nextStep() {
 
     if (currentStep < lastStep) {
         if (validateCurrentStep()) {
+            // Start background USP analysis when leaving Step 1 (Website URL)
+            if (currentStep === 1 && crawlState.website_url && campaignConfig.usp_analysis.status === 'idle') {
+                startBackgroundUspAnalysis();
+            }
+
+            // Start background crawl when leaving Step 3 (USPs)
+            if (currentStep === 3 && crawlState.website_url && crawlState.crawl_status === 'idle') {
+                startBackgroundCrawl();
+            }
+
             currentStep = getNextVisibleStep(currentStep);
             updateWizardState();
             saveStateToStorage(); // Save state on step change
 
             // Special handling for final step (summary)
-            if (currentStep === 8) {
+            if (currentStep === 9) {  // Summary step (var 10, nu 9)
                 generateCampaignSummary();
             }
         }
@@ -2382,7 +2809,9 @@ function validateCurrentStep() {
                 return false;
             }
             return true;
-        case 1:  // Industry & Services
+        case 1:  // Website URL (NEW - optional, no validation required)
+            return true;
+        case 2:  // Industry & Services (was case 1)
             if (campaignConfig.industry_ids.length === 0) {
                 alert('Vælg venligst mindst én branche før du fortsætter.');
                 return false;
@@ -2409,20 +2838,40 @@ function validateCurrentStep() {
             }
 
             return true;
-        case 2:  // USPs
+        case 3:  // USPs
             if (campaignConfig.usp_ids.length === 0) {
                 alert('Vælg mindst én USP før du fortsætter.');
                 return false;
             }
             return true;
-        case 3:  // Company Info (for Virksomhedsbeskrivelse)
+        case 4:  // Geographic Targeting (flyttet fra step 5)
+            // Region is optional if user has manually selected cities via the map
+            const hasRegionsSelected = campaignConfig.geographic_region_ids.length > 0;
+            const hasManualCities = campaignConfig.geo_map_targeting?.postal_codes?.length > 0;
+
+            if (!hasRegionsSelected && !hasManualCities) {
+                alert('Vælg mindst én geografisk region eller vælg byer manuelt på kortet.');
+                return false;
+            }
+            // Save geo config settings
+            campaignConfig.geo_config.create_byside_urls = true;  // Altid auto-genereret
+            campaignConfig.geo_config.url_pattern = $('#url-pattern').val() || '/{SERVICE}/{BYNAVN}/';
+            // Collect enabled services for geo campaigns
+            campaignConfig.geo_config.enabled_services = [];
+            $('.geo-service-checkbox:checked').each(function() {
+                campaignConfig.geo_config.enabled_services.push(parseInt($(this).data('service-id')));
+            });
+            // Auto-generer byside URLs til brug i Programmatic step
+            generateBysideUrls();
+            return true;
+        case 5:  // Company Info med AI (flyttet fra step 4)
             if (!$('#company-name').val().trim()) {
                 alert('Indtast venligst firmanavn.');
                 $('#company-name').focus();
                 return false;
             }
             if (!$('#core-competencies').val().trim()) {
-                alert('Indtast venligst kernekompetencer.');
+                alert('Indtast venligst virksomhedsbeskrivelse.');
                 $('#core-competencies').focus();
                 return false;
             }
@@ -2436,53 +2885,81 @@ function validateCurrentStep() {
             campaignConfig.company_info.core_competencies = $('#core-competencies').val().trim();
             campaignConfig.company_info.target_audience = $('#target-audience').val().trim();
             return true;
-        case 4:  // Geographic Targeting (Step 4)
-            // Region is optional if user has manually selected cities via the map
-            const hasRegionsSelected = campaignConfig.geographic_region_ids.length > 0;
-            const hasManualCities = campaignConfig.geo_map_targeting?.postal_codes?.length > 0;
-
-            if (!hasRegionsSelected && !hasManualCities) {
-                alert('Vælg mindst én geografisk region eller vælg byer manuelt på kortet.');
-                return false;
-            }
-            // Save geo config settings
-            campaignConfig.geo_config.create_byside_urls = $('#create-byside-urls').is(':checked');
-            campaignConfig.geo_config.url_pattern = $('#url-pattern').val() || '/{SERVICE}/{BYNAVN}/';
-            // Collect enabled services for geo campaigns
-            campaignConfig.geo_config.enabled_services = [];
-            $('.geo-service-checkbox:checked').each(function() {
-                campaignConfig.geo_config.enabled_services.push(parseInt($(this).data('service-id')));
-            });
-            return true;
-        case 5:  // Campaign & Ad Builder (Step 5)
+        case 6:  // Campaign & Ad Builder (var 7)
             // Validate that campaigns have been initialized
             if (Object.keys(campaignConfig.campaigns).length === 0) {
                 alert('Der er ingen kampagner at konfigurere. Gå tilbage og vælg brancher og services.');
                 return false;
             }
-            // Save campaign configurations from UI
+            // Save campaign configurations from UI first
             saveCampaignsFromUI();
-            return true;
-        case 6:  // SEO Info
-            if (!$('#seo-website-url').val().trim()) {
-                alert('Indtast venligst website URL.');
-                $('#seo-website-url').focus();
+
+            // Validate each campaign is 100% complete
+            const MIN_HEADLINES = 5;
+            const MAX_HEADLINES = 15;
+            const MIN_DESCRIPTIONS = 4;
+            const validationErrors = [];
+
+            for (const [industryId, campaign] of Object.entries(campaignConfig.campaigns)) {
+                const campaignName = campaign.industry_name || `Kampagne ${industryId}`;
+
+                // Check daily budget
+                if (!campaign.daily_budget || campaign.daily_budget <= 0) {
+                    validationErrors.push(`${campaignName}: Dagligt budget er påkrævet`);
+                }
+
+                // Check each ad group
+                for (const [serviceId, adGroup] of Object.entries(campaign.ad_groups || {})) {
+                    const adGroupName = adGroup.service_name || `Annoncegruppe ${serviceId}`;
+                    const headlineCount = (adGroup.headlines || []).length;
+                    const descriptionCount = (adGroup.descriptions || []).length;
+
+                    if (headlineCount < MIN_HEADLINES) {
+                        validationErrors.push(`${campaignName} → ${adGroupName}: Mangler ${MIN_HEADLINES - headlineCount} overskrifter (har ${headlineCount}, min ${MIN_HEADLINES})`);
+                    } else if (headlineCount > MAX_HEADLINES) {
+                        validationErrors.push(`${campaignName} → ${adGroupName}: For mange overskrifter (har ${headlineCount}, maks ${MAX_HEADLINES})`);
+                    }
+                    if (descriptionCount < MIN_DESCRIPTIONS) {
+                        validationErrors.push(`${campaignName} → ${adGroupName}: Mangler ${MIN_DESCRIPTIONS - descriptionCount} beskrivelser (har ${descriptionCount}/${MIN_DESCRIPTIONS})`);
+                    }
+                }
+            }
+
+            if (validationErrors.length > 0) {
+                alert('Følgende felter mangler at blive udfyldt:\n\n' + validationErrors.join('\n'));
                 return false;
             }
-            if (!$('#seo-focus-keywords').val().trim()) {
-                alert('Indtast venligst fokus keywords.');
-                $('#seo-focus-keywords').focus();
-                return false;
-            }
-            // Save to config
-            campaignConfig.seo_info.website_url = $('#seo-website-url').val().trim();
-            campaignConfig.seo_info.focus_keywords = $('#seo-focus-keywords').val().trim().split('\n').filter(k => k.trim());
             return true;
-        case 7:  // Programmatic Byside
-            // Brug byer fra Geografisk Målretning (Step 4)
+        case 7:  // SEO Info - Sidebar med services
+            // Check that all SEO pages have meta title and description
+            const seoServiceIds = getServicesForPurpose('seo');
+            if (seoServiceIds.length === 0) {
+                // No SEO services selected, allow to continue
+                return true;
+            }
+
+            // Check each service page
+            for (const serviceId of seoServiceIds) {
+                const seoPage = campaignConfig.seo_pages[serviceId];
+                if (!seoPage || !seoPage.meta_title || !seoPage.meta_title.trim()) {
+                    const serviceName = seoPage?.service_name || `Service ${serviceId}`;
+                    alert(`Indtast venligst meta titel for "${serviceName}"`);
+                    setActiveSeoService(serviceId);
+                    return false;
+                }
+                if (!seoPage.meta_description || !seoPage.meta_description.trim()) {
+                    const serviceName = seoPage?.service_name || `Service ${serviceId}`;
+                    alert(`Indtast venligst meta beskrivelse for "${serviceName}"`);
+                    setActiveSeoService(serviceId);
+                    return false;
+                }
+            }
+            return true;
+        case 8:  // Programmatic Byside (var 9)
+            // Brug byer fra Geo-Kampagne Opsætning (Step 4)
             const cities = getSelectedCities();
             if (cities.length === 0) {
-                alert('Vælg først byer i Geografisk Målretning (Step 4)');
+                alert('Vælg først byer i Geo-Kampagne Opsætning (Step 4)');
                 return false;
             }
             // Gem byerne til programmatic_info for kompatibilitet
@@ -2513,14 +2990,15 @@ function updateWizardState() {
     // Step descriptions based on step number
     const stepDescriptions = {
         0: 'Vælg formål',
-        1: 'Brancher og services',
-        2: 'USPs',
-        3: 'Virksomhedsinformation',
-        4: 'Geografisk målretning',
-        5: 'Kampagne & Annoncebygger',
-        6: 'SEO information',
-        7: 'Programmatic byside',
-        8: 'Opsummering'
+        1: 'Website URL',
+        2: 'Brancher og services',
+        3: 'USPs',
+        4: 'Geo-Kampagne Opsætning',
+        5: 'Virksomhedsbeskrivelse',
+        6: 'Kampagne & Annoncebygger',
+        7: 'SEO information',
+        8: 'Programmatic byside',
+        9: 'Opsummering'
     };
 
     $('#current-step').text(currentStepIndex + 1);
@@ -2550,6 +3028,14 @@ function updateWizardState() {
     // Initialize Step 7 (Programmatic Byside) when shown
     if (currentStep === 7) {
         initStep7FromGeoAndUsps();
+    }
+
+    // Apply USP suggestions when entering Step 3
+    if (currentStep === 3) {
+        if (campaignConfig.usp_analysis.status === 'success' && !campaignConfig.usp_analysis.applied) {
+            setTimeout(applyUspSuggestions, 200);
+        }
+        updateUspAnalysisStatusUI();
     }
 }
 
@@ -2799,6 +3285,218 @@ function getCookie(name) {
     return cookieValue;
 }
 
+// =====================================================
+// AI Company Description Generation
+// =====================================================
+
+async function generateCompanyDescriptionAI() {
+    const btn = $('#generate-description-btn');
+    const loading = $('#description-loading');
+    const originalBtnHtml = btn.html();
+
+    // Collect data from previous steps
+    const requestData = {
+        website_url: crawlState.website_url || '',
+        industries: getSelectedIndustryNames(),
+        services: getSelectedServiceNames(),
+        usps: getSelectedUspTexts(),
+        geographic_areas: getSelectedGeographicAreas()
+    };
+
+    // Validate we have enough data
+    if (!requestData.industries.length && !requestData.services.length) {
+        showToast('Vælg brancher og services for at generere beskrivelse', 'warning');
+        return;
+    }
+
+    // Show loading state - first phase: online research
+    btn.prop('disabled', true);
+    btn.html('<span class="animate-spin inline-block mr-2">⏳</span> Søger information online...');
+    loading.removeClass('hidden');
+
+    try {
+        const response = await fetch('/ajax/generate-company-description/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(requestData)
+        });
+
+        // Update button text for generation phase
+        btn.html('<span class="animate-spin inline-block mr-2">⏳</span> Genererer beskrivelse...');
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Populate the description field
+            $('#core-competencies').val(data.description);
+            $('#description-source-badge').removeClass('hidden').text('AI-genereret');
+
+            // Save to config
+            campaignConfig.company_info.core_competencies = data.description;
+            campaignConfig.company_info.ai_generated = true;
+
+            // Save and display profile JSON if available (for use in other AI prompts)
+            if (data.profile && Object.keys(data.profile).length > 0) {
+                campaignConfig.company_info.profile = data.profile;
+                renderProfileJson(data.profile);
+                console.log('Company profile saved:', data.profile);
+            }
+
+            // Display key points if available
+            if (data.key_points && data.key_points.length > 0) {
+                renderKeyPoints(data.key_points);
+                campaignConfig.company_info.key_points = data.key_points;
+            }
+
+            // Show appropriate success message
+            if (data.used_research) {
+                showToast('Beskrivelse genereret med online research!', 'success');
+            } else {
+                showToast('Beskrivelse genereret!', 'success');
+            }
+            debouncedSaveState();
+        } else {
+            showToast('Fejl: ' + data.error, 'error');
+        }
+    } catch (error) {
+        console.error('AI generation error:', error);
+        showToast('Kunne ikke generere beskrivelse', 'error');
+    } finally {
+        btn.prop('disabled', false);
+        btn.html(originalBtnHtml);
+        loading.addClass('hidden');
+    }
+}
+
+function getSelectedIndustryNames() {
+    const names = [];
+    campaignConfig.industry_ids.forEach(id => {
+        const card = $(`.industry-card[data-industry-id="${id}"]`);
+        const name = card.find('h4').text().trim();
+        if (name) names.push(name);
+    });
+    return names;
+}
+
+function getSelectedServiceNames() {
+    const names = [];
+    campaignConfig.service_ids.forEach(id => {
+        if (serverData.services_by_id && serverData.services_by_id[id]) {
+            const service = serverData.services_by_id[id];
+            if (service && service.name) {
+                names.push(service.name);
+            }
+        }
+    });
+    return names;
+}
+
+function getSelectedUspTexts() {
+    const texts = [];
+
+    // Selected USP templates
+    campaignConfig.usp_ids.forEach(uspId => {
+        const checkbox = $(`.usp-checkbox[data-usp-id="${uspId}"]`);
+        const originalText = checkbox.data('original-text');
+        if (originalText) {
+            const finalText = getUspFinalText ? getUspFinalText(uspId, originalText) : originalText;
+            texts.push(finalText);
+        }
+    });
+
+    // Custom USPs
+    if (campaignConfig.custom_usps) {
+        campaignConfig.custom_usps.forEach(usp => {
+            texts.push(usp);
+        });
+    }
+
+    return texts;
+}
+
+function getSelectedGeographicAreas() {
+    const areas = [];
+
+    // Region names
+    campaignConfig.geographic_region_ids.forEach(id => {
+        const card = $(`.geographic-region-card[data-region-id="${id}"]`);
+        const name = card.data('region-name');
+        if (name) areas.push(name);
+    });
+
+    // Manual geo map selections
+    if (campaignConfig.geo_map_targeting && campaignConfig.geo_map_targeting.postal_names) {
+        areas.push(...campaignConfig.geo_map_targeting.postal_names);
+    }
+
+    return areas;
+}
+
+function renderKeyPoints(keyPoints) {
+    const container = $('#key-points-container');
+    container.empty();
+
+    keyPoints.forEach(point => {
+        container.append(`
+            <div class="flex items-start p-2 bg-gray-50 rounded-lg">
+                <span class="w-5 h-5 rounded-full bg-purple-100 text-purple-600 text-xs flex items-center justify-center mt-0.5 mr-2">✓</span>
+                <span class="text-sm text-gray-700">${escapeHtml(point)}</span>
+            </div>
+        `);
+    });
+
+    $('#key-points-section').removeClass('hidden');
+}
+
+function renderProfileJson(profile) {
+    if (!profile || Object.keys(profile).length === 0) {
+        $('#profile-json-section').addClass('hidden');
+        return;
+    }
+
+    // Format JSON with nice indentation
+    const formattedJson = JSON.stringify(profile, null, 2);
+    $('#profile-json-display').text(formattedJson);
+    $('#profile-json-section').removeClass('hidden');
+
+    // Collapse by default
+    $('#profile-json-content').addClass('hidden');
+    $('#profile-toggle-icon').removeClass('rotate-180');
+}
+
+function toggleProfileJson() {
+    const content = $('#profile-json-content');
+    const icon = $('#profile-toggle-icon');
+
+    if (content.hasClass('hidden')) {
+        content.removeClass('hidden');
+        icon.addClass('rotate-180');
+    } else {
+        content.addClass('hidden');
+        icon.removeClass('rotate-180');
+    }
+}
+
+function copyProfileJson() {
+    const jsonText = $('#profile-json-display').text();
+    navigator.clipboard.writeText(jsonText).then(() => {
+        showToast('JSON kopieret til udklipsholder', 'success');
+    }).catch(err => {
+        console.error('Copy failed:', err);
+        showToast('Kunne ikke kopiere JSON', 'error');
+    });
+}
+
+function updateCompanyInfo() {
+    campaignConfig.company_info.company_name = $('#company-name').val().trim();
+    campaignConfig.company_info.core_competencies = $('#core-competencies').val().trim();
+    campaignConfig.company_info.target_audience = $('#target-audience').val().trim();
+    debouncedSaveState();
+}
+
 // Export WordPress CSV - KUN manglende byer (smart eksport)
 function exportProgrammaticFiles() {
     console.log('Exporting WordPress CSV (kun manglende byer)...', programmaticState);
@@ -2832,7 +3530,7 @@ function exportProgrammaticFiles() {
     } else {
         // No sitemap crawl done - export all selected cities
         if (selectedCities.length === 0) {
-            showToast('Ingen byer valgt. Vælg først byer i Geografisk Målretning (Step 4).', 'error');
+            showToast('Ingen byer valgt. Vælg først byer i Geo-Kampagne Opsætning (Step 4).', 'error');
             return;
         }
         citiesToExport = selectedCities;
@@ -2890,7 +3588,7 @@ function exportGoogleAdsCsv() {
 
     const selectedCities = getSelectedCities();
     if (selectedCities.length === 0) {
-        showToast('Ingen byer valgt. Vælg først byer i Geografisk Målretning (Step 4).', 'error');
+        showToast('Ingen byer valgt. Vælg først byer i Geo-Kampagne Opsætning (Step 4).', 'error');
         return;
     }
 
@@ -3099,8 +3797,9 @@ async function fetchCampaignBuilderData() {
 
     promises.push(negKeywordsPromise);
 
-    // Fetch keywords for each selected service (ServiceKeyword, not IndustryKeyword)
-    const serviceKeywordsPromises = campaignConfig.service_ids.map(serviceId =>
+    // Fetch keywords for each selected service that has Google Ads enabled
+    const googleAdsServiceIds = getServicesForPurpose('google_ads');
+    const serviceKeywordsPromises = googleAdsServiceIds.map(serviceId =>
         $.ajax({
             url: `/ajax/get-service-keywords/${serviceId}/`,
             method: 'GET'
@@ -3122,10 +3821,14 @@ async function fetchCampaignBuilderData() {
 let activeCampaignKey = null;
 let allCampaignKeys = [];
 
-// Hent default negative keyword list IDs baseret på valgte services
+// State for SEO Builder (Step 7)
+let activeSeoServiceId = null;
+let allSeoServiceKeys = [];  // [{id, name, color}]
+
+// Hent default negative keyword list IDs baseret på valgte Google Ads services
 // Returnerer IDs for lister der er tilknyttet de valgte services + by-listen
 function getDefaultNegativeKeywordListIds() {
-    const selectedServiceIds = campaignConfig.service_ids || [];
+    const selectedServiceIds = getServicesForPurpose('google_ads');
     const defaultIds = [];
 
     if (!serverData.negative_keyword_lists) return defaultIds;
@@ -3152,17 +3855,22 @@ function renderCampaignsBuilder() {
     const legacyContainer = $('#campaigns-builder-container');
     legacyContainer.empty();
 
-    // Group services by industry
+    // Group services by industry - only include services enabled for Google Ads
+    const googleAdsServices = getServicesForPurpose('google_ads');
     const servicesByIndustry = {};
     campaignConfig.industry_ids.forEach(industryId => {
         const industryData = fetchedIndustryData[industryId];
         if (industryData && industryData.success) {
-            servicesByIndustry[industryId] = {
-                name: industryData.industry_name,
-                services: industryData.services.filter(s =>
-                    campaignConfig.service_ids.includes(s.id)
-                )
-            };
+            const filteredServices = industryData.services.filter(s =>
+                googleAdsServices.includes(s.id)
+            );
+            // Only add industry if it has services enabled for Google Ads
+            if (filteredServices.length > 0) {
+                servicesByIndustry[industryId] = {
+                    name: industryData.industry_name,
+                    services: filteredServices
+                };
+            }
         }
     });
 
@@ -3172,6 +3880,9 @@ function renderCampaignsBuilder() {
     // Create a campaign for each industry
     Object.keys(servicesByIndustry).forEach(industryId => {
         const industryInfo = servicesByIndustry[industryId];
+
+        // Get list of service IDs that should have Google Ads enabled
+        const googleAdsServiceIds = industryInfo.services.map(s => s.id);
 
         // Initialize campaign config if not exists
         if (!campaignConfig.campaigns[industryId]) {
@@ -3208,6 +3919,41 @@ function renderCampaignsBuilder() {
                     descriptions: [],
                     approved: false
                 };
+            });
+        } else {
+            // SYNC existing campaign with current Google Ads services
+            const existingAdGroups = campaignConfig.campaigns[industryId].ad_groups;
+
+            // Remove ad_groups for services no longer enabled for Google Ads
+            Object.keys(existingAdGroups).forEach(serviceId => {
+                if (!googleAdsServiceIds.includes(parseInt(serviceId))) {
+                    console.log(`Removing ad_group for service ${serviceId} (Google Ads disabled)`);
+                    delete existingAdGroups[serviceId];
+                }
+            });
+
+            // Add ad_groups for new services enabled for Google Ads
+            industryInfo.services.forEach(service => {
+                if (!existingAdGroups[service.id]) {
+                    console.log(`Adding ad_group for service ${service.id} (Google Ads enabled)`);
+                    const serviceKeywords = serverData.google_keywords[service.id] || [];
+
+                    const adGroupKeywords = serviceKeywords.map(kw => ({
+                        id: kw.id,
+                        keyword: kw.keyword_text,
+                        match_type: kw.match_type,
+                        is_primary: kw.is_primary
+                    }));
+
+                    existingAdGroups[service.id] = {
+                        service_id: service.id,
+                        service_name: service.name,
+                        keywords: adGroupKeywords,
+                        headlines: [],
+                        descriptions: [],
+                        approved: false
+                    };
+                }
             });
         }
 
@@ -3270,9 +4016,24 @@ function renderCampaignsBuilder() {
     // Render sidebar navigation
     renderCampaignSidebar();
 
-    // Set first campaign as active
-    if (allCampaignKeys.length > 0 && !activeCampaignKey) {
-        setActiveCampaign(allCampaignKeys[0]);
+    // Set active campaign and render content
+    if (allCampaignKeys.length > 0) {
+        if (activeCampaignKey) {
+            // Check if the active campaign still exists in the new list
+            const stillExists = allCampaignKeys.some(k =>
+                k.type === activeCampaignKey.type && k.id === activeCampaignKey.id
+            );
+            if (stillExists) {
+                // Re-render the active campaign content with updated data
+                renderActiveCampaignContent(activeCampaignKey);
+            } else {
+                // Active campaign no longer exists, switch to first
+                setActiveCampaign(allCampaignKeys[0]);
+            }
+        } else {
+            // No active campaign, set the first one
+            setActiveCampaign(allCampaignKeys[0]);
+        }
     }
 
     // Setup event handlers
@@ -3381,7 +4142,7 @@ function renderActiveCampaignContent(campaignKey) {
     if (campaignKey.type === 'industry') {
         const campaign = campaignConfig.campaigns[campaignKey.id];
         const industryData = fetchedIndustryData[campaignKey.id];
-        const services = industryData?.services?.filter(s => campaignConfig.service_ids.includes(s.id)) || [];
+        const services = industryData?.services?.filter(s => getServicesForPurpose('google_ads').includes(s.id)) || [];
 
         const html = renderIndustryCampaignContent(campaignKey.id, campaign, services);
         contentContainer.html(html);
@@ -7003,33 +7764,6 @@ function populateGeoServicesContainer() {
     container.html(servicesHtml);
 }
 
-// Setup byside URL toggle
-$(document).on('change', '#create-byside-urls', function() {
-    if ($(this).is(':checked')) {
-        $('#byside-url-config').slideDown(200);
-    } else {
-        $('#byside-url-config').slideUp(200);
-    }
-});
-
-// Generate byside URLs button click handler
-$(document).on('click', '#generate-urls-btn', function() {
-    generateBysideUrls();
-});
-
-// Copy all URLs button click handler
-$(document).on('click', '#copy-urls-btn', function() {
-    const urls = campaignConfig.geo_config.byside_urls.map(u => u.url).join('\n');
-    navigator.clipboard.writeText(urls).then(() => {
-        const btn = $(this);
-        const originalText = btn.text();
-        btn.text('Kopieret!').addClass('bg-green-200 text-green-800');
-        setTimeout(() => {
-            btn.text(originalText).removeClass('bg-green-200 text-green-800');
-        }, 1500);
-    });
-});
-
 // Generate negative city list button click handler
 $(document).on('click', '#generate-negative-cities-btn', function() {
     var selectedCities = campaignConfig.geo_map_targeting?.postal_names || [];
@@ -7255,10 +7989,9 @@ function autoUpdateNegativeCityList() {
 }
 
 // Generate byside URLs for EACH selected service - creates separate URL sets per service
+// Runs automatically when leaving step 4 - no UI elements needed
+// Respects "Anvend til: Byside" checkbox from step 2
 function generateBysideUrls() {
-    const tbody = $('#byside-urls-body');
-    tbody.empty();
-
     // Initialize data structures for multiple services
     campaignConfig.geo_config.byside_urls = [];  // Keep for backward compatibility
     campaignConfig.geo_config.byside_urls_by_service = {};
@@ -7269,21 +8002,26 @@ function generateBysideUrls() {
         : [];
 
     if (allCities.length === 0) {
-        tbody.html('<tr><td colspan="4" class="px-4 py-4 text-center text-gray-500">Vælg byer på områdekortet først</td></tr>');
-        return;
+        return;  // No cities selected, nothing to generate
     }
 
-    // Get ALL selected services from checkboxes
+    // Get services that have "Byside/Programmatic" enabled in step 2
+    const programmaticServiceIds = getServicesForPurpose('programmatic');
+
+    // Get selected services from geo checkboxes, but filter by programmatic purpose
     const selectedServices = [];
     $('.geo-service-checkbox:checked').each(function() {
         const serviceId = parseInt($(this).data('service-id'));
-        const serviceCard = $(`.service-card[data-service-id="${serviceId}"]`);
-        const serviceName = serviceCard.find('h4').text().trim() || 'service';
-        selectedServices.push({ id: serviceId, name: serviceName });
+        // Only include if "Byside" is checked for this service in step 2
+        if (programmaticServiceIds.includes(serviceId)) {
+            const serviceCard = $(`.service-card[data-service-id="${serviceId}"]`);
+            const serviceName = serviceCard.find('h4').text().trim() || 'service';
+            selectedServices.push({ id: serviceId, name: serviceName });
+        }
     });
 
-    // Fallback to industry if no services selected
-    if (selectedServices.length === 0) {
+    // Fallback to industry if no services selected (but only if programmatic is generally enabled)
+    if (selectedServices.length === 0 && programmaticServiceIds.length === 0) {
         const industryCard = $('.industry-card.selected').first();
         const industryName = industryCard.find('h4').text().trim() || 'branche';
         selectedServices.push({ id: 'industry', name: industryName });
@@ -7314,66 +8052,7 @@ function generateBysideUrls() {
 
         campaignConfig.geo_config.byside_urls_by_service[service.id] = serviceUrls;
     });
-
-    // Render table with service grouping
-    selectedServices.forEach(service => {
-        const serviceUrls = campaignConfig.geo_config.byside_urls_by_service[service.id];
-
-        // Add service header row
-        tbody.append(`
-            <tr class="bg-green-50">
-                <td colspan="4" class="px-4 py-2 font-semibold text-green-800">
-                    <span class="inline-flex items-center">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                        </svg>
-                        ${escapeHtml(service.name)} (${serviceUrls.length} URLs)
-                    </span>
-                </td>
-            </tr>
-        `);
-
-        // Add URL rows for this service (show first 5 + summary)
-        const displayUrls = serviceUrls.slice(0, 5);
-        displayUrls.forEach(urlEntry => {
-            tbody.append(`
-                <tr class="border-b border-gray-100 hover:bg-gray-50">
-                    <td class="px-4 py-2 text-gray-900 pl-8">${escapeHtml(urlEntry.city)}</td>
-                    <td class="px-4 py-2 font-mono text-sm text-purple-600">${escapeHtml(urlEntry.url)}</td>
-                    <td class="px-4 py-2 text-gray-600 text-sm">${escapeHtml(urlEntry.keyword)}</td>
-                    <td class="px-4 py-2 text-center">
-                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">Klar</span>
-                    </td>
-                </tr>
-            `);
-        });
-
-        // Show remaining count if more than 5
-        if (serviceUrls.length > 5) {
-            tbody.append(`
-                <tr class="border-b border-gray-100 bg-gray-50">
-                    <td colspan="4" class="px-4 py-2 text-center text-gray-500 text-sm pl-8">
-                        + ${serviceUrls.length - 5} flere URLs for ${escapeHtml(service.name)}...
-                    </td>
-                </tr>
-            `);
-        }
-    });
-
-    // Update summary info
-    const totalUrls = campaignConfig.geo_config.byside_urls.length;
-    const totalCampaigns = selectedServices.length;
-    $('#geo-campaign-summary').html(`
-        <div class="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-            <p class="text-sm font-medium text-blue-800">
-                Der vil blive oprettet <strong>${totalCampaigns}</strong> separate GEO kampagne${totalCampaigns > 1 ? 'r' : ''}:
-            </p>
-            <ul class="text-sm text-blue-700 mt-2 space-y-1">
-                ${selectedServices.map(s => `<li class="flex items-center"><span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>${escapeHtml(s.name)} - GEO Kampagne</li>`).join('')}
-            </ul>
-            <p class="text-xs text-blue-600 mt-2">Total: ${totalUrls} URLs fordelt på ${allCities.length} byer</p>
-        </div>
-    `);
+    // Data is now ready for use in Programmatic step
 }
 
 // Download URLs for WordPress import
@@ -7408,20 +8087,418 @@ const originalUpdateWizardState = updateWizardState;
 updateWizardState = function() {
     originalUpdateWizardState();
 
-    // Step-specific initializations
-    if (currentStep === 4) {
-        // Geo targeting step - populate services
+    // Step-specific initializations (Auto-Crawl fjernet - kører nu i baggrunden)
+    if (currentStep === 5) {
+        // Geo targeting step (var 6) - populate services
         populateGeoServicesContainer();
 
         // Preload DAWA data in background to eliminate delay when selecting regions
         loadDAWAGeoJSON().then(function() {
-            console.log('DAWA data preloaded for step 4');
+            console.log('DAWA data preloaded for step 5');
         });
-    } else if (currentStep === 5) {
-        // Campaign builder step
+    } else if (currentStep === 6) {
+        // Campaign builder step (var 7)
         initializeCampaignsBuilder();
+    } else if (currentStep === 7) {
+        // SEO Information step - render sidebar with services
+        renderSeoBuilder();
+    } else if (currentStep === 8) {
+        // Programmatic Byside step (var 9) - init from crawlState
+        initStep9FromCrawlState();
     }
 };
+
+// Step 4: Auto-Crawl - Called when step 4 is shown
+function onStep4Shown() {
+    // Show URL being analyzed
+    $('#crawl-url-display').text(crawlState.website_url || 'Ingen URL');
+
+    // Check if we have a URL
+    if (!crawlState.website_url) {
+        // No URL - show the no-url message
+        $('#autocrawl-loading').addClass('hidden');
+        $('#autocrawl-results').addClass('hidden');
+        $('#autocrawl-error').addClass('hidden');
+        $('#autocrawl-no-url').removeClass('hidden');
+        return;
+    }
+
+    // Check if already crawled
+    if (crawlState.crawl_status === 'success' && crawlState.urls_found > 0) {
+        // Show cached results
+        showAutoCrawlResults();
+        return;
+    }
+
+    // Start auto-crawl
+    if (crawlState.crawl_status === 'idle' || crawlState.crawl_status === 'error') {
+        startAutoCrawl();
+    }
+}
+
+// Start the automatic crawl process
+async function startAutoCrawl() {
+    console.log('Starting auto-crawl for:', crawlState.website_url);
+
+    // Update state
+    crawlState.crawl_status = 'crawling';
+
+    // Show loading state
+    $('#autocrawl-loading').removeClass('hidden');
+    $('#autocrawl-results').addClass('hidden');
+    $('#autocrawl-error').addClass('hidden');
+    $('#autocrawl-no-url').addClass('hidden');
+    $('#crawl-url-display').text(crawlState.website_url);
+
+    try {
+        // Call sitemap crawl endpoint
+        const response = await $.ajax({
+            url: '/ajax/crawl-sitemap/',
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+            contentType: 'application/json',
+            data: JSON.stringify({ website_url: crawlState.website_url })
+        });
+
+        if (response.success) {
+            // Update crawl state
+            crawlState.sitemap_urls = response.urls || [];
+            crawlState.urls_found = response.urls_found || 0;
+            crawlState.crawl_status = 'success';
+            crawlState.crawl_timestamp = Date.now();
+            crawlState.crawl_error = null;
+
+            // Try to match city pages if we have geo targeting data
+            await matchCityPagesAutoCrawl();
+
+            // Save state
+            debouncedSaveState();
+
+            // Show results
+            showAutoCrawlResults();
+
+        } else {
+            throw new Error(response.error || 'Kunne ikke crawle sitemap');
+        }
+
+    } catch (error) {
+        console.error('Auto-crawl error:', error);
+        crawlState.crawl_status = 'error';
+        crawlState.crawl_error = error.message || 'Ukendt fejl';
+
+        // Show error state
+        $('#autocrawl-loading').addClass('hidden');
+        $('#autocrawl-results').addClass('hidden');
+        $('#autocrawl-no-url').addClass('hidden');
+        $('#autocrawl-error').removeClass('hidden');
+        $('#autocrawl-error-message').text(crawlState.crawl_error);
+
+        debouncedSaveState();
+    }
+}
+
+// ==========================================
+// SMART USP PRE-FILL FROM WEBSITE SCRAPING
+// ==========================================
+
+// Start background USP analysis (scrape website + AI matching)
+async function startBackgroundUspAnalysis() {
+    if (!crawlState.website_url || campaignConfig.usp_analysis.status === 'analyzing') {
+        console.log('[USP Analysis] Skipped - no URL or already analyzing');
+        return;
+    }
+
+    console.log('[USP Analysis] Starting for:', crawlState.website_url);
+    campaignConfig.usp_analysis.status = 'analyzing';
+    debouncedSaveState();
+
+    try {
+        const response = await $.ajax({
+            url: '/ajax/analyze-website-usps/',
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+            contentType: 'application/json',
+            data: JSON.stringify({
+                website_url: crawlState.website_url,
+                industry_ids: campaignConfig.industry_ids
+            })
+        });
+
+        if (response.success) {
+            campaignConfig.usp_analysis = {
+                status: 'success',
+                timestamp: Date.now(),
+                matched_usps: response.analysis.matched_usps || [],
+                custom_usps: response.analysis.custom_usps || [],
+                extracted_facts: response.analysis.extracted_facts || {},
+                applied: false
+            };
+
+            console.log('[USP Analysis] Complete:',
+                campaignConfig.usp_analysis.matched_usps.length, 'matched,',
+                campaignConfig.usp_analysis.custom_usps.length, 'custom');
+
+            debouncedSaveState();
+
+            // If user is already on Step 3, apply suggestions immediately
+            if (currentStep === 3 && !campaignConfig.usp_analysis.applied) {
+                applyUspSuggestions();
+            }
+        } else {
+            throw new Error(response.error || 'Unknown error');
+        }
+    } catch (error) {
+        console.error('[USP Analysis] Error:', error);
+        campaignConfig.usp_analysis.status = 'error';
+        debouncedSaveState();
+    }
+}
+
+// Apply USP suggestions to UI (auto-check USPs and add custom USPs)
+function applyUspSuggestions() {
+    if (campaignConfig.usp_analysis.applied || campaignConfig.usp_analysis.status !== 'success') {
+        return;
+    }
+
+    const analysis = campaignConfig.usp_analysis;
+    let matchedCount = 0;
+    let customCount = 0;
+
+    // 1. Auto-select matched USPs
+    analysis.matched_usps.forEach(match => {
+        const uspId = match.usp_template_id;
+        const checkbox = $(`.usp-checkbox[data-usp-id="${uspId}"]`);
+
+        if (checkbox.length && !checkbox.is(':checked')) {
+            // Check the checkbox
+            checkbox.prop('checked', true);
+
+            // Add to campaignConfig
+            if (!campaignConfig.usp_ids.includes(uspId)) {
+                campaignConfig.usp_ids.push(uspId);
+            }
+
+            // Store variable values if provided
+            if (match.variable_values && Object.keys(match.variable_values).length > 0) {
+                campaignConfig.usp_variable_values[uspId] = match.variable_values;
+            }
+
+            // Trigger change handler to render with variables
+            checkbox.trigger('change');
+
+            // Add AI-suggested visual indicator
+            checkbox.closest('.usp-item').addClass('ai-suggested');
+            matchedCount++;
+        }
+    });
+
+    // 2. Add custom USPs
+    analysis.custom_usps.forEach(custom => {
+        if (custom.text && !campaignConfig.custom_usps.includes(custom.text)) {
+            campaignConfig.custom_usps.push(custom.text);
+            customCount++;
+        }
+    });
+
+    // 3. Re-render custom USPs if any were added
+    if (customCount > 0) {
+        renderCustomUsps();
+        // Mark AI-suggested custom USPs
+        setTimeout(() => {
+            $('#custom-usps-container .custom-usp-item').each(function() {
+                const text = $(this).find('.custom-usp-display-text').text();
+                if (analysis.custom_usps.some(c => c.text === text)) {
+                    $(this).addClass('ai-suggested');
+                }
+            });
+        }, 100);
+    }
+
+    // Mark as applied
+    campaignConfig.usp_analysis.applied = true;
+    debouncedSaveState();
+
+    // Show notification
+    if (matchedCount > 0 || customCount > 0) {
+        showUspSuggestionsNotification(matchedCount, customCount);
+    }
+
+    // Update status indicator
+    updateUspAnalysisStatusUI();
+}
+
+// Show notification when USP suggestions are applied
+function showUspSuggestionsNotification(matchedCount, customCount) {
+    const total = matchedCount + customCount;
+    if (total === 0) return;
+
+    let message = `✨ AI har valgt ${matchedCount} USP'er`;
+    if (customCount > 0) {
+        message += ` og tilføjet ${customCount} unikke fakta`;
+    }
+    message += ' fra din hjemmeside';
+
+    // Create toast notification
+    const toast = $(`
+        <div class="fixed bottom-4 right-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-4 rounded-xl shadow-lg z-50" style="animation: slideIn 0.3s ease-out">
+            <div class="flex items-center space-x-3">
+                <span class="text-2xl">✨</span>
+                <span>${message}</span>
+            </div>
+        </div>
+    `);
+
+    $('body').append(toast);
+    setTimeout(() => toast.fadeOut(300, () => toast.remove()), 5000);
+}
+
+// Update USP analysis status indicator in Step 3 header
+function updateUspAnalysisStatusUI() {
+    const statusDiv = $('#usp-analysis-status');
+    if (!statusDiv.length) return;
+
+    const icon = statusDiv.find('.usp-analysis-icon');
+    const text = statusDiv.find('.usp-analysis-text');
+
+    switch (campaignConfig.usp_analysis.status) {
+        case 'analyzing':
+            statusDiv.removeClass('hidden');
+            icon.html('<svg class="animate-spin h-5 w-5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>');
+            text.text('AI analyserer hjemmeside for USP\'er...');
+            break;
+
+        case 'success':
+            const matched = campaignConfig.usp_analysis.matched_usps.length;
+            const custom = campaignConfig.usp_analysis.custom_usps.length;
+            if (matched > 0 || custom > 0) {
+                statusDiv.removeClass('hidden');
+                icon.text('✨');
+                text.html(`AI foreslog <strong>${matched}</strong> USP'er og <strong>${custom}</strong> unikke fakta fra hjemmesiden`);
+            } else {
+                statusDiv.addClass('hidden');
+            }
+            break;
+
+        case 'error':
+            statusDiv.removeClass('hidden').removeClass('bg-purple-50 border-purple-200').addClass('bg-yellow-50 border-yellow-200');
+            icon.text('⚠️');
+            text.text('Kunne ikke analysere hjemmesiden. Vælg USP\'er manuelt.');
+            break;
+
+        default:
+            statusDiv.addClass('hidden');
+    }
+}
+
+// Start background crawl (no UI updates - runs silently)
+async function startBackgroundCrawl() {
+    if (!crawlState.website_url || crawlState.crawl_status !== 'idle') {
+        console.log('Background crawl skipped:', crawlState.crawl_status);
+        return;
+    }
+
+    console.log('Starting background crawl for:', crawlState.website_url);
+    crawlState.crawl_status = 'crawling';
+
+    try {
+        const response = await $.ajax({
+            url: '/ajax/crawl-sitemap/',
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+            contentType: 'application/json',
+            data: JSON.stringify({ website_url: crawlState.website_url })
+        });
+
+        if (response.success) {
+            crawlState.sitemap_urls = response.urls || [];
+            crawlState.urls_found = response.urls_found || 0;
+            crawlState.crawl_status = 'success';
+            crawlState.crawl_timestamp = Date.now();
+            crawlState.crawl_error = null;
+
+            // Match city pages if geo targeting is set
+            await matchCityPagesAutoCrawl();
+            debouncedSaveState();
+
+            console.log('Background crawl completed:', crawlState.urls_found, 'URLs found');
+        } else {
+            throw new Error(response.error || 'Kunne ikke crawle sitemap');
+        }
+    } catch (error) {
+        console.error('Background crawl error:', error);
+        crawlState.crawl_status = 'error';
+        crawlState.crawl_error = error.message || 'Ukendt fejl';
+        debouncedSaveState();
+    }
+}
+
+// Match city pages during auto-crawl (uses geo_map_targeting if available)
+async function matchCityPagesAutoCrawl() {
+    // Check if we have geo map targeting cities
+    const cities = campaignConfig.geo_map_targeting?.postal_names || [];
+    if (cities.length === 0) {
+        console.log('No cities to match during auto-crawl');
+        return;
+    }
+
+    // Get service name for matching
+    const serviceName = getFirstSelectedServiceName();
+    if (!serviceName) {
+        console.log('No service selected for city matching');
+        return;
+    }
+
+    try {
+        const response = await $.ajax({
+            url: '/ajax/match-city-pages/',
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+            contentType: 'application/json',
+            data: JSON.stringify({
+                website_url: crawlState.website_url,
+                service_name: serviceName,
+                cities: cities
+            })
+        });
+
+        if (response.success) {
+            crawlState.city_matches = response.results || [];
+            crawlState.existing_count = response.existing_count || 0;
+            crawlState.missing_count = response.missing_count || 0;
+            console.log('City match results:', response);
+        }
+    } catch (error) {
+        console.error('City match error during auto-crawl:', error);
+    }
+}
+
+// Get first selected service name for crawl matching
+function getFirstSelectedServiceName() {
+    // Try to get from loaded services data
+    const serviceIds = campaignConfig.service_ids || [];
+    if (serviceIds.length === 0) return null;
+
+    // Find in rendered service cards
+    const firstServiceCard = $(`.service-card[data-service-id="${serviceIds[0]}"]`);
+    if (firstServiceCard.length) {
+        return firstServiceCard.find('h4').text().trim() ||
+               firstServiceCard.find('.font-medium').first().text().trim();
+    }
+
+    return null;
+}
+
+// Show auto-crawl results
+function showAutoCrawlResults() {
+    $('#autocrawl-loading').addClass('hidden');
+    $('#autocrawl-error').addClass('hidden');
+    $('#autocrawl-no-url').addClass('hidden');
+    $('#autocrawl-results').removeClass('hidden');
+
+    // Update result counts
+    $('#autocrawl-total-urls').text(crawlState.urls_found);
+    $('#autocrawl-existing-pages').text(crawlState.existing_count);
+}
 
 // =====================================================
 // Service Keyword Edit/Delete Functions (Step 5)
@@ -8683,26 +9760,68 @@ $(document).on('click', '#clear-geo-map-selection', function() {
 });
 
 // =====================================================
-// STEP 7: Programmatic Byside Functions
+// STEP 9: Programmatic Byside Functions
 // =====================================================
 
-// State for Programmatic Byside
+// State for Programmatic Byside (only programmatic-specific data)
+// NOTE: Website crawl data is now stored in global crawlState object
 let programmaticState = {
-    website_url: '',
-    sitemap_urls: [],
-    city_matches: [],
-    existing_count: 0,
-    missing_count: 0,
     selected_new_cities: [],  // Cities selected for WordPress export (user can deselect)
     generated_meta_titles: [],  // AI-generated SEO meta titles (7 variants)
     generated_meta_descriptions: []  // AI-generated SEO meta descriptions (7 variants)
 };
 
-// Crawl sitemap from customer website
+// Initialize Step 9 with data from crawlState (called when step is shown)
+function initStep9FromCrawlState() {
+    // Pre-populate URL field from crawlState (hidden input)
+    if (crawlState.website_url) {
+        $('#programmatic-website-url').val(crawlState.website_url);
+    }
+
+    // If crawl was already done, show URL count
+    if (crawlState.crawl_status === 'success' && crawlState.urls_found > 0) {
+        $('#sitemap-status').removeClass('hidden');
+        $('#sitemap-urls-count').text(`${crawlState.urls_found} URLs fundet i sitemap`);
+
+        // If city matches exist, populate them
+        if (crawlState.city_matches.length > 0) {
+            $('#city-page-status-section').removeClass('hidden');
+            $('#existing-pages-count').text(crawlState.existing_count);
+            $('#missing-pages-count').text(crawlState.missing_count);
+            renderCityPageLists(crawlState.city_matches);
+            updateCreditsCount();
+            $('#city-page-results').removeClass('hidden');
+        } else {
+            // Only auto-check city pages if we have a service selected
+            const serviceName = getServiceNameForProgrammatic();
+            if (serviceName) {
+                checkCityPages();
+            }
+            // Otherwise user will need to ensure service is selected first
+        }
+    }
+}
+
+// Crawl sitemap from customer website (can still be called manually, but reuses crawlState if available)
 async function crawlSitemap() {
     const websiteUrl = $('#programmatic-website-url').val().trim();
     if (!websiteUrl) {
         alert('Indtast venligst en website URL');
+        return;
+    }
+
+    // Check if we already have this URL crawled in crawlState
+    if (crawlState.crawl_status === 'success' &&
+        crawlState.website_url === websiteUrl &&
+        crawlState.urls_found > 0) {
+        // Reuse existing crawl data
+        $('#sitemap-status').removeClass('hidden');
+        $('#sitemap-loading').addClass('hidden');
+        $('#sitemap-success').removeClass('hidden');
+        $('#sitemap-urls-count').text(`${crawlState.urls_found} URLs fundet i sitemap (genbrugt)`);
+
+        // Run city pages check
+        await checkCityPages();
         return;
     }
 
@@ -8725,11 +9844,18 @@ async function crawlSitemap() {
         $('#sitemap-loading').addClass('hidden');
 
         if (response.success) {
-            programmaticState.website_url = websiteUrl;
-            programmaticState.sitemap_urls = response.urls || [];
+            // Update global crawlState (not programmaticState)
+            crawlState.website_url = websiteUrl;
+            crawlState.sitemap_urls = response.urls || [];
+            crawlState.urls_found = response.urls_found || 0;
+            crawlState.crawl_status = 'success';
+            crawlState.crawl_timestamp = Date.now();
 
             $('#sitemap-success').removeClass('hidden');
             $('#sitemap-urls-count').text(`${response.urls_found} URLs fundet i sitemap`);
+
+            // Save state
+            debouncedSaveState();
 
             // Automatisk kør checkCityPages efter succesfuld sitemap crawl
             await checkCityPages();
@@ -8749,7 +9875,8 @@ async function crawlSitemap() {
 
 // Check which city pages exist on the website
 async function checkCityPages() {
-    const websiteUrl = programmaticState.website_url || $('#programmatic-website-url').val().trim();
+    // Use crawlState URL instead of programmaticState
+    const websiteUrl = crawlState.website_url || $('#programmatic-website-url').val().trim();
     const selectedCities = getSelectedCities();
 
     if (!websiteUrl) {
@@ -8901,7 +10028,11 @@ function deselectAllMissingPages() {
 // Generate AI Meta Tags (7 titles + 7 descriptions)
 async function generateAIMetaTags() {
     const serviceName = getServiceNameForProgrammatic();
+    const serviceId = getServiceIdForProgrammatic();
     const usps = getActiveUsps();
+
+    // Debug: log what's being sent to the backend
+    console.log('Generating meta tags with:', { service_id: serviceId, service_name: serviceName, usps_count: usps.length });
 
     if (!serviceName) {
         alert('Vælg venligst en service først');
@@ -8921,6 +10052,7 @@ async function generateAIMetaTags() {
             contentType: 'application/json',
             data: JSON.stringify({
                 service_name: serviceName,
+                service_id: serviceId,  // For few-shot examples from ServiceMetaExample
                 usps: usps,
                 generate_meta_tags: true
             })
@@ -8946,6 +10078,34 @@ async function generateAIMetaTags() {
     $('#meta-tags-loading').addClass('hidden');
 }
 
+// =================================================================
+// PIXEL MEASUREMENT UTILITY (Google SERP uses pixels, not chars)
+// Title: Arial 20px (matching Storybase CTR tool), Description: Arial 14px
+// =================================================================
+const SERP_FONTS = {
+    title: { font: 'Arial', size: 20, maxPixels: 600 },
+    description: { font: 'Arial', size: 14, maxPixels: 920 }
+};
+
+function measurePixelWidth(text, fontSize = 18, fontFamily = 'Arial') {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.font = `${fontSize}px ${fontFamily}`;
+    return Math.round(ctx.measureText(text).width);
+}
+
+function getTitlePixelInfo(text) {
+    const pixels = measurePixelWidth(text, SERP_FONTS.title.size, SERP_FONTS.title.font);
+    const max = SERP_FONTS.title.maxPixels;
+    return { pixels, max, isOver: pixels > max };
+}
+
+function getDescriptionPixelInfo(text) {
+    const pixels = measurePixelWidth(text, SERP_FONTS.description.size, SERP_FONTS.description.font);
+    const max = SERP_FONTS.description.maxPixels;
+    return { pixels, max, isOver: pixels > max };
+}
+
 // Render generated meta tags in the UI
 function renderGeneratedMetaTags() {
     const titlesList = $('#meta-titles-list');
@@ -8956,7 +10116,11 @@ function renderGeneratedMetaTags() {
     // Render meta titles - samme design som panel descriptions
     programmaticState.generated_meta_titles.forEach((title, index) => {
         const charCount = title.length;
-        const charClass = charCount > 60 ? 'text-red-500' : (charCount >= 50 ? 'text-green-500' : 'text-yellow-500');
+        const pixelInfo = getTitlePixelInfo(title);
+        // Color: green if optimal chars AND under pixel limit, yellow if short, red if over
+        const isOver = pixelInfo.isOver || charCount > 60;
+        const isOptimal = !isOver && charCount >= 50 && charCount <= 60;
+        const charClass = isOver ? 'text-red-500' : (isOptimal ? 'text-green-500' : 'text-yellow-500');
         const item = `
             <div class="flex items-start justify-between p-3 rounded-xl transition-all duration-200 hover:shadow-sm"
                  style="background: linear-gradient(135deg, #eff6ff, #dbeafe);">
@@ -8965,7 +10129,7 @@ function renderGeneratedMetaTags() {
                        hover:bg-white transition-all text-sm"
                        data-index="${index}" maxlength="100" value="${escapeHtml(title)}">
                 <div class="flex items-center space-x-2 ml-2 mt-1">
-                    <span class="text-xs ${charClass} meta-title-char-count">${charCount}/60</span>
+                    <span class="text-xs ${charClass} meta-title-char-count whitespace-nowrap">${charCount} tegn | ${pixelInfo.pixels}/${pixelInfo.max}px</span>
                     <button type="button" class="remove-meta-title-btn w-7 h-7 rounded-lg flex items-center justify-center
                             text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-all" data-index="${index}">×</button>
                 </div>
@@ -8977,7 +10141,11 @@ function renderGeneratedMetaTags() {
     // Render meta descriptions - samme design som panel descriptions
     programmaticState.generated_meta_descriptions.forEach((desc, index) => {
         const charCount = desc.length;
-        const charClass = charCount > 160 ? 'text-red-500' : (charCount >= 120 ? 'text-green-500' : 'text-yellow-500');
+        const pixelInfo = getDescriptionPixelInfo(desc);
+        // Color: green if optimal chars AND under pixel limit, yellow if short, red if over
+        const isOver = pixelInfo.isOver || charCount > 160;
+        const isOptimal = !isOver && charCount >= 120 && charCount <= 160;
+        const charClass = isOver ? 'text-red-500' : (isOptimal ? 'text-green-500' : 'text-yellow-500');
         const item = `
             <div class="flex items-start justify-between p-3 rounded-xl transition-all duration-200 hover:shadow-sm"
                  style="background: linear-gradient(135deg, #f5f3ff, #ede9fe);">
@@ -8986,7 +10154,7 @@ function renderGeneratedMetaTags() {
                           hover:bg-white transition-all resize-none overflow-hidden text-sm"
                           data-index="${index}" maxlength="250" rows="2" style="min-height: 48px;">${escapeHtml(desc)}</textarea>
                 <div class="flex items-center space-x-2 ml-2 mt-1">
-                    <span class="text-xs ${charClass} meta-desc-char-count">${charCount}/160</span>
+                    <span class="text-xs ${charClass} meta-desc-char-count whitespace-nowrap">${charCount} tegn | ${pixelInfo.pixels}/${pixelInfo.max}px</span>
                     <button type="button" class="remove-meta-desc-btn w-7 h-7 rounded-lg flex items-center justify-center
                             text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-all" data-index="${index}">×</button>
                 </div>
@@ -9009,14 +10177,18 @@ $(document).on('input', '.meta-title-input', function() {
     const value = $(this).val();
     programmaticState.generated_meta_titles[index] = value;
 
-    // Opdater tegntæller
+    // Opdater tegntæller med pixel-visning
     const charCount = value.length;
+    const pixelInfo = getTitlePixelInfo(value);
     const $counter = $(this).closest('div').find('.meta-title-char-count');
-    $counter.text(`${charCount}/60`);
+    $counter.text(`${charCount} tegn | ${pixelInfo.pixels}/${pixelInfo.max}px`);
     $counter.removeClass('text-gray-400 text-yellow-500 text-green-500 text-red-500');
-    if (charCount > 60) {
+
+    const isOver = pixelInfo.isOver || charCount > 60;
+    const isOptimal = !isOver && charCount >= 50 && charCount <= 60;
+    if (isOver) {
         $counter.addClass('text-red-500');
-    } else if (charCount >= 50) {
+    } else if (isOptimal) {
         $counter.addClass('text-green-500');
     } else {
         $counter.addClass('text-yellow-500');
@@ -9033,14 +10205,18 @@ $(document).on('input', '.meta-desc-input', function() {
     this.style.height = 'auto';
     this.style.height = Math.max(48, this.scrollHeight) + 'px';
 
-    // Opdater tegntæller
+    // Opdater tegntæller med pixel-visning
     const charCount = value.length;
+    const pixelInfo = getDescriptionPixelInfo(value);
     const $counter = $(this).closest('div').find('.meta-desc-char-count');
-    $counter.text(`${charCount}/160`);
+    $counter.text(`${charCount} tegn | ${pixelInfo.pixels}/${pixelInfo.max}px`);
     $counter.removeClass('text-gray-400 text-yellow-500 text-green-500 text-red-500');
-    if (charCount > 160) {
+
+    const isOver = pixelInfo.isOver || charCount > 160;
+    const isOptimal = !isOver && charCount >= 120 && charCount <= 160;
+    if (isOver) {
         $counter.addClass('text-red-500');
-    } else if (charCount >= 120) {
+    } else if (isOptimal) {
         $counter.addClass('text-green-500');
     } else {
         $counter.addClass('text-yellow-500');
@@ -9082,37 +10258,628 @@ $(document).on('click', '.add-meta-desc-btn', function() {
 });
 
 // Default meta title templates (fallback if AI not used)
+// KRAV: Meta titler skal være mellem 50-60 tegn
 function getDefaultMetaTitles(serviceName, usps) {
-    const usp1 = usps[0] ? usps[0].substring(0, 20) : 'Professionel';
+    const usp1 = usps[0] ? usps[0].substring(0, 15) : 'Kvalitet';
+    // Templates designet til at ramme 50-60 tegn med typiske service navne
     return [
-        `${serviceName} i {BYNAVN} - Professionel Service`,
-        `{BYNAVN} ${serviceName} - Hurtig & Pålidelig`,
-        `Autoriseret ${serviceName} i {BYNAVN} - Ring Nu`,
-        `${serviceName} {BYNAVN} - ${usp1}`,
-        `Din Lokale ${serviceName} i {BYNAVN}`,
-        `${serviceName} Ekspert i {BYNAVN} - Gratis Tilbud`,
-        `Pålidelig ${serviceName} Service i {BYNAVN}`
+        `${serviceName} i {BYNAVN} | Professionel Service & Rådgivning`,
+        `{BYNAVN} ${serviceName} | Hurtig Service & Gratis Tilbud`,
+        `Autoriseret ${serviceName} i {BYNAVN} | Ring for Tilbud`,
+        `${serviceName} {BYNAVN} - ${usp1} & Professionel Service`,
+        `Din Lokale ${serviceName} i {BYNAVN} | Gratis Rådgivning`,
+        `${serviceName} Ekspert i {BYNAVN} | Certificeret & Pålidelig`,
+        `Professionel ${serviceName} i {BYNAVN} | Hurtig Respons`
     ];
 }
 
 // Default meta description templates (fallback if AI not used)
+// KRAV: Meta beskrivelser skal være 150-160 tegn med vigtigste budskab i første 120 tegn
 function getDefaultMetaDescriptions(serviceName, usps) {
-    const usp1 = usps[0] || 'Professionel service';
-    const usp2 = usps[1] || 'Hurtig og pålidelig';
+    const usp1 = usps[0] || 'Professionel service med garanti';
+    const usp2 = usps[1] || 'Hurtig og pålidelig service';
+    // Templates designet til 150-160 tegn - vigtigste info før 120-tegn grænsen
     return [
-        `Leder du efter professionel ${serviceName} i {BYNAVN}? ${usp1}. Ring for gratis tilbud!`,
-        `${serviceName} eksperter i {BYNAVN}. ${usp1} • ${usp2}. Kontakt os idag for et uforpligtende tilbud.`,
-        `Autoriseret ${serviceName} firma i {BYNAVN}. ${usp1}. Hurtig respons og tilfredse kunder.`,
-        `${usp1} - ${serviceName} i {BYNAVN}. ${usp2}. Få et uforpligtende tilbud på 2 minutter.`,
-        `{BYNAVN}s foretrukne ${serviceName}. ${usp1}. Ring nu for gratis rådgivning!`,
-        `${serviceName} i {BYNAVN} - ${usp1} • ${usp2}. Vi er klar til at hjælpe dig.`,
-        `Din lokale ${serviceName} i {BYNAVN}. ${usp1}. Gratis tilbud og hurtig service.`
+        `Professionel ${serviceName} i {BYNAVN}. ${usp1}. Gratis tilbud inden for 24 timer. Ring nu og få personlig rådgivning fra vores eksperter.`,
+        `${serviceName} eksperter i {BYNAVN} med mange års erfaring. ${usp1}. Kontakt os i dag for et uforpligtende tilbud og gratis rådgivning.`,
+        `Autoriseret ${serviceName} firma i {BYNAVN}. ${usp1}. Vi garanterer kvalitet og hurtig service. Book dit gratis tilbud online nu.`,
+        `Leder du efter ${serviceName} i {BYNAVN}? ${usp1}. ${usp2}. Få et gratis tilbud inden for 2 timer. Ring eller book online i dag.`,
+        `{BYNAVN}s foretrukne ${serviceName}. ${usp1}. Over 1000 tilfredse kunder. Ring nu for gratis rådgivning og uforpligtende tilbud.`,
+        `${serviceName} i {BYNAVN} - ${usp1}. ${usp2}. Vi er klar til at hjælpe dig. Kontakt os for et gratis og uforpligtende tilbud.`,
+        `Din lokale ${serviceName} i {BYNAVN}. ${usp1}. Hurtig respons og fair priser. Book dit gratis tilbud online eller ring direkte til os.`
     ];
 }
 
+// ============================================================================
+// SEO BUILDER (Step 7) - Sidebar navigation med services
+// ============================================================================
+
+// Main orchestrator for SEO Builder
+async function renderSeoBuilder() {
+    console.log('renderSeoBuilder() called');
+
+    // Get services that are enabled for SEO (from Step 2)
+    const seoServiceIds = getServicesForPurpose('seo');
+    console.log('SEO service IDs:', seoServiceIds);
+
+    if (seoServiceIds.length === 0) {
+        $('#seo-builder-container').html(`
+            <div class="text-center py-12 text-gray-500">
+                <p class="text-lg mb-2">Ingen services valgt til SEO</p>
+                <p class="text-sm">Gå tilbage til Step 2 og vælg services med SEO formål</p>
+            </div>
+        `);
+        return;
+    }
+
+    // Build allSeoServiceKeys from selected services
+    allSeoServiceKeys = [];
+
+    for (const serviceId of seoServiceIds) {
+        // Get service info from serverData or campaignConfig
+        let serviceName = '';
+        let serviceColor = '#8B5CF6';
+
+        // Try to get service name from serverData
+        if (serverData.services_by_id && serverData.services_by_id[serviceId]) {
+            serviceName = serverData.services_by_id[serviceId].name;
+            serviceColor = serverData.services_by_id[serviceId].color || '#8B5CF6';
+        } else {
+            // Fallback: search in DOM - use h4 for service title specifically
+            const serviceCard = $(`.service-card[data-service-id="${serviceId}"]`);
+            // Get just the h4 text (service name), not other .font-medium elements
+            const h4 = serviceCard.find('h4').first();
+            if (h4.length) {
+                serviceName = h4.clone().children().remove().end().text().trim() || h4.text().trim();
+            }
+            if (!serviceName) {
+                serviceName = serviceCard.find('.service-name').first().text().trim() || `Service ${serviceId}`;
+            }
+        }
+
+        allSeoServiceKeys.push({
+            id: serviceId,
+            name: serviceName,
+            color: serviceColor
+        });
+
+        // Initialize seo_pages for this service if not exists
+        if (!campaignConfig.seo_pages[serviceId]) {
+            campaignConfig.seo_pages[serviceId] = {
+                service_name: serviceName,
+                meta_title: '',
+                meta_description: '',
+                seo_keywords: [],
+                keywords_loaded: false
+            };
+        }
+    }
+
+    // Remove services that are no longer selected
+    Object.keys(campaignConfig.seo_pages).forEach(serviceId => {
+        if (!seoServiceIds.includes(parseInt(serviceId))) {
+            delete campaignConfig.seo_pages[serviceId];
+        }
+    });
+
+    // Render sidebar
+    renderSeoSidebar();
+
+    // Set first service as active if none selected
+    if (!activeSeoServiceId && allSeoServiceKeys.length > 0) {
+        setActiveSeoService(allSeoServiceKeys[0].id);
+    } else if (activeSeoServiceId) {
+        // Re-render active content
+        renderActiveSeoContent(activeSeoServiceId);
+    }
+
+    // Setup event handlers
+    setupSeoEventHandlers();
+}
+
+// Render SEO sidebar navigation
+function renderSeoSidebar() {
+    const sidebar = $('#seo-nav-list');
+    sidebar.empty();
+
+    allSeoServiceKeys.forEach(service => {
+        const seoPage = campaignConfig.seo_pages[service.id] || {};
+        const isComplete = seoPage.meta_title && seoPage.meta_description;
+        const isActive = activeSeoServiceId === service.id;
+
+        const html = `
+            <div class="seo-nav-item selection-card cursor-pointer p-4 rounded-xl border-2 transition-all duration-200
+                        ${isActive ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-purple-300 hover:bg-gray-50'}"
+                 data-service-id="${service.id}">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-lg flex items-center justify-center text-white text-lg"
+                             style="background-color: ${service.color}">
+                            📄
+                        </div>
+                        <div>
+                            <div class="font-medium text-gray-900">${escapeHtml(service.name)}</div>
+                            <div class="text-xs text-gray-500">
+                                ${isComplete ? '✓ Meta tags udfyldt' : '○ Mangler meta tags'}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        ${isComplete ?
+                            '<span class="w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-sm">✓</span>' :
+                            '<span class="w-6 h-6 rounded-full bg-gray-200 text-gray-400 flex items-center justify-center text-sm">○</span>'
+                        }
+                    </div>
+                </div>
+            </div>
+        `;
+        sidebar.append(html);
+    });
+}
+
+// Set active SEO service
+function setActiveSeoService(serviceId) {
+    activeSeoServiceId = serviceId;
+
+    // Update sidebar highlight
+    $('.seo-nav-item').removeClass('border-purple-500 bg-purple-50')
+                      .addClass('border-gray-200');
+    $(`.seo-nav-item[data-service-id="${serviceId}"]`)
+        .removeClass('border-gray-200')
+        .addClass('border-purple-500 bg-purple-50');
+
+    // Render content for this service
+    renderActiveSeoContent(serviceId);
+}
+
+// Render active SEO service content
+async function renderActiveSeoContent(serviceId) {
+    const container = $('#active-seo-content');
+    const service = allSeoServiceKeys.find(s => s.id === serviceId);
+    const seoPage = campaignConfig.seo_pages[serviceId] || {};
+
+    if (!service) {
+        container.html('<div class="text-gray-500 p-4">Service ikke fundet</div>');
+        return;
+    }
+
+    // Calculate character counts
+    // KRAV: Meta titel 50-60 tegn, Meta beskrivelse 150-160 tegn
+    const titleLength = (seoPage.meta_title || '').length;
+    const descLength = (seoPage.meta_description || '').length;
+    const titleClass = titleLength > 60 ? 'text-red-500' : (titleLength >= 50 ? 'text-green-500' : 'text-yellow-500');
+    const descClass = descLength > 160 ? 'text-red-500' : (descLength >= 150 ? 'text-green-500' : 'text-yellow-500');
+
+    const html = `
+        <div class="seo-service-content" data-service-id="${serviceId}">
+            <!-- Header -->
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center space-x-4">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white text-2xl"
+                         style="background-color: ${service.color}">
+                        📄
+                    </div>
+                    <div>
+                        <h3 class="text-2xl font-bold text-gray-900">${escapeHtml(service.name)}</h3>
+                        <p class="text-gray-500">Konfigurer meta tags for denne underside</p>
+                    </div>
+                </div>
+                <button type="button" onclick="generateSeoMetaForService(${serviceId})"
+                        class="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium
+                               hover:shadow-lg transition-all duration-200 flex items-center space-x-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                    <span>Generer med AI</span>
+                </button>
+            </div>
+
+            <!-- SEO Keywords Section -->
+            <div class="mb-8">
+                <div class="flex items-center justify-between mb-4">
+                    <h4 class="font-semibold text-gray-900 flex items-center">
+                        <span class="w-7 h-7 rounded-lg mr-2 flex items-center justify-center text-sm" style="background: linear-gradient(135deg, #dbeafe, #bfdbfe);">🔑</span>
+                        Søgeord (<span id="seo-keywords-count-${serviceId}">${seoPage.keywords_loaded ? seoPage.seo_keywords.length : '...'}</span>)
+                    </h4>
+                    <button type="button" class="add-seo-keyword-btn text-sm px-4 py-2 rounded-xl font-medium transition-all duration-200 hover:shadow-md"
+                            style="background: linear-gradient(135deg, #d1fae520, #a7f3d020); color: #059669;"
+                            data-service-id="${serviceId}">
+                        + Tilføj
+                    </button>
+                </div>
+                <div id="seo-keywords-container-${serviceId}" class="seo-keywords-list space-y-2 max-h-48 overflow-y-auto" data-service-id="${serviceId}">
+                    ${seoPage.keywords_loaded ?
+                        renderSeoKeywordsList(seoPage.seo_keywords, serviceId) :
+                        '<div class="text-gray-400 p-3">Henter SEO keywords...</div>'
+                    }
+                </div>
+                <div class="add-seo-keyword-form hidden mt-3 p-4 rounded-xl" style="background: linear-gradient(135deg, #f9fafb, #f3f4f6);" data-service-id="${serviceId}">
+                    <div class="flex items-center space-x-2">
+                        <input type="text" class="new-seo-keyword-input flex-1 px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all" placeholder="Nyt SEO søgeord...">
+                        <select class="new-seo-keyword-type px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all">
+                            <option value="money">Money</option>
+                            <option value="price">Pris</option>
+                            <option value="info">Info</option>
+                            <option value="lsi">LSI</option>
+                        </select>
+                        <button type="button" class="save-new-seo-keyword-btn px-4 py-2.5 rounded-xl font-medium text-white transition-all duration-200 hover:shadow-lg" style="background: linear-gradient(90deg, #8b5cf6, #ec4899);" data-service-id="${serviceId}">Gem</button>
+                        <button type="button" class="cancel-seo-keyword-btn px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-all" data-service-id="${serviceId}">Annuller</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Meta Title -->
+            <div class="bg-white rounded-xl p-6 mb-4 border border-gray-200">
+                <div class="flex items-center justify-between mb-3">
+                    <label class="text-lg font-semibold text-gray-900">🏷️ Meta Titel</label>
+                    <span class="text-sm ${titleClass}" id="meta-title-count-${serviceId}">${titleLength}/60</span>
+                </div>
+                <input type="text"
+                       class="seo-meta-title w-full px-4 py-3 border border-gray-300 rounded-lg
+                              focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900"
+                       data-service-id="${serviceId}"
+                       maxlength="100"
+                       placeholder="Indtast meta titel (50-60 tegn anbefales)"
+                       value="${escapeHtml(seoPage.meta_title || '')}">
+                <p class="text-xs text-gray-500 mt-2">Vises som titlen i Google søgeresultater</p>
+            </div>
+
+            <!-- Meta Description -->
+            <div class="bg-white rounded-xl p-6 border border-gray-200">
+                <div class="flex items-center justify-between mb-3">
+                    <label class="text-lg font-semibold text-gray-900">📝 Meta Beskrivelse</label>
+                    <span class="text-sm ${descClass}" id="meta-desc-count-${serviceId}">${descLength}/160</span>
+                </div>
+                <textarea class="seo-meta-description w-full px-4 py-3 border border-gray-300 rounded-lg
+                                focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 resize-none"
+                          data-service-id="${serviceId}"
+                          rows="3"
+                          maxlength="250"
+                          placeholder="Indtast meta beskrivelse (150-160 tegn, vigtigste info inden for første 120 tegn)">${escapeHtml(seoPage.meta_description || '')}</textarea>
+                <p class="text-xs text-gray-500 mt-2">Vises som beskrivelsen under titlen i Google søgeresultater</p>
+            </div>
+        </div>
+    `;
+
+    container.html(html);
+
+    // Load SEO keywords if not already loaded
+    if (!seoPage.keywords_loaded) {
+        await loadSeoKeywordsForService(serviceId);
+    }
+}
+
+// Render SEO keywords list (new design matching Campaign Builder)
+function renderSeoKeywordsList(keywords, serviceId) {
+    if (!keywords || keywords.length === 0) {
+        return '<div class="text-gray-400 italic p-3">Ingen SEO keywords fundet for denne service</div>';
+    }
+
+    const typeLabels = {
+        'money': 'money',
+        'price': 'pris',
+        'info': 'info',
+        'lsi': 'lsi'
+    };
+
+    const typeColors = {
+        'money': 'background: linear-gradient(135deg, #d1fae5, #a7f3d0); color: #059669;',
+        'price': 'background: linear-gradient(135deg, #fef3c7, #fde68a); color: #d97706;',
+        'info': 'background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: #1d4ed8;',
+        'lsi': 'background: linear-gradient(135deg, #ede9fe, #ddd6fe); color: #7c3aed;'
+    };
+
+    return keywords.map((kw, index) => {
+        const typeLabel = typeLabels[kw.keyword_type] || kw.keyword_type;
+        const typeStyle = typeColors[kw.keyword_type] || 'background: linear-gradient(135deg, #f3f4f6, #e5e7eb); color: #4b5563;';
+
+        return `
+            <div class="flex items-center justify-between p-3 rounded-xl transition-all duration-200 hover:shadow-sm" style="background: linear-gradient(135deg, #f9fafb, #f3f4f6);">
+                <div class="flex items-center space-x-2">
+                    <span class="text-gray-900 font-medium">${escapeHtml(kw.keyword_text)}</span>
+                    <span class="text-xs px-2.5 py-1 rounded-lg font-medium" style="${typeStyle}">${typeLabel}</span>
+                    ${kw.search_volume ? `<span class="text-xs text-gray-400">(${kw.search_volume})</span>` : ''}
+                </div>
+                <button type="button" class="remove-seo-keyword-btn w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-all"
+                        data-keyword-id="${kw.id}" data-service-id="${serviceId}" data-index="${index}">×</button>
+            </div>
+        `;
+    }).join('');
+}
+
+// Legacy function for backward compatibility
+function renderSeoKeywordChips(keywords) {
+    return renderSeoKeywordsList(keywords, null);
+}
+
+// Load SEO keywords for a service from the database
+async function loadSeoKeywordsForService(serviceId) {
+    try {
+        const response = await $.ajax({
+            url: `/ajax/get-service-seo-keywords/${serviceId}/`,
+            method: 'GET',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        });
+
+        if (response.success) {
+            campaignConfig.seo_pages[serviceId].seo_keywords = response.keywords || [];
+            campaignConfig.seo_pages[serviceId].keywords_loaded = true;
+
+            // Update the UI with new list design
+            $(`#seo-keywords-container-${serviceId}`).html(
+                renderSeoKeywordsList(response.keywords, serviceId)
+            );
+            $(`#seo-keywords-count-${serviceId}`).text(response.keywords.length);
+        } else {
+            console.error('Failed to load SEO keywords:', response.error);
+            $(`#seo-keywords-container-${serviceId}`).html(
+                '<div class="text-red-400 p-3">Kunne ikke hente SEO keywords</div>'
+            );
+        }
+    } catch (error) {
+        console.error('Error loading SEO keywords:', error);
+        campaignConfig.seo_pages[serviceId].seo_keywords = [];
+        campaignConfig.seo_pages[serviceId].keywords_loaded = true;
+        $(`#seo-keywords-container-${serviceId}`).html(
+            '<div class="text-gray-400 italic p-3">Ingen SEO keywords fundet</div>'
+        );
+    }
+}
+
+// Generate SEO meta title and description with AI
+async function generateSeoMetaForService(serviceId) {
+    const service = allSeoServiceKeys.find(s => s.id === serviceId);
+    const seoPage = campaignConfig.seo_pages[serviceId];
+
+    if (!service) {
+        alert('Service ikke fundet');
+        return;
+    }
+
+    // Get keywords and USPs for context
+    const keywords = seoPage.seo_keywords || [];
+    const usps = getActiveUsps();
+
+    // Show loading state
+    const generateBtn = $(`.seo-service-content[data-service-id="${serviceId}"] button`).first();
+    const originalText = generateBtn.html();
+    generateBtn.prop('disabled', true).html(`
+        <svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span>Genererer...</span>
+    `);
+
+    try {
+        // Debug: log what we're sending
+        console.log('Generating SEO meta with:', { service_id: serviceId, service_name: service.name });
+
+        const response = await $.ajax({
+            url: '/ajax/generate-seo-meta/',
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+            contentType: 'application/json',
+            data: JSON.stringify({
+                service_name: service.name,
+                service_id: serviceId,  // For few-shot examples from ServiceMetaExample
+                seo_keywords: keywords.map(k => k.keyword_text),
+                usps: usps
+            })
+        });
+
+        if (response.success) {
+            // Update the seo_pages config
+            campaignConfig.seo_pages[serviceId].meta_title = response.meta_title || '';
+            campaignConfig.seo_pages[serviceId].meta_description = response.meta_description || '';
+
+            // Update the inputs
+            $(`.seo-meta-title[data-service-id="${serviceId}"]`).val(response.meta_title || '');
+            $(`.seo-meta-description[data-service-id="${serviceId}"]`).val(response.meta_description || '');
+
+            // Update character counts
+            updateSeoCharCount(serviceId, 'title', (response.meta_title || '').length);
+            updateSeoCharCount(serviceId, 'description', (response.meta_description || '').length);
+
+            // Update sidebar status
+            renderSeoSidebar();
+
+            showToast('Meta tags genereret med AI', 'success');
+        } else {
+            alert('Fejl ved generering: ' + (response.error || 'Ukendt fejl'));
+        }
+    } catch (error) {
+        console.error('SEO meta generation error:', error);
+        // Fallback to default templates (50-60 tegn titel, 150-160 tegn beskrivelse)
+        const usp1 = usps[0] || 'Professionel service med garanti';
+        const defaultTitle = `${service.name} i Danmark | Professionel Service & Rådgivning`;
+        const defaultDesc = `Professionel ${service.name} med ${usp1}. Gratis tilbud inden for 24 timer. Ring nu og få personlig rådgivning fra vores eksperter.`;
+
+        campaignConfig.seo_pages[serviceId].meta_title = defaultTitle;
+        campaignConfig.seo_pages[serviceId].meta_description = defaultDesc;
+
+        $(`.seo-meta-title[data-service-id="${serviceId}"]`).val(defaultTitle);
+        $(`.seo-meta-description[data-service-id="${serviceId}"]`).val(defaultDesc);
+
+        updateSeoCharCount(serviceId, 'title', defaultTitle.length);
+        updateSeoCharCount(serviceId, 'description', defaultDesc.length);
+
+        renderSeoSidebar();
+        showToast('Bruger standard meta tags (AI ikke tilgængelig)', 'warning');
+    }
+
+    generateBtn.prop('disabled', false).html(originalText);
+}
+
+// Update SEO character count display
+// KRAV: Meta titel 50-60 tegn, Meta beskrivelse 150-160 tegn
+function updateSeoCharCount(serviceId, type, length) {
+    const selector = type === 'title' ? `#meta-title-count-${serviceId}` : `#meta-desc-count-${serviceId}`;
+    const max = type === 'title' ? 60 : 160;
+    const min = type === 'title' ? 50 : 150;
+
+    let colorClass = 'text-yellow-500';
+    if (length > max) {
+        colorClass = 'text-red-500';
+    } else if (length >= min) {
+        colorClass = 'text-green-500';
+    }
+
+    $(selector).text(`${length}/${max}`).removeClass('text-red-500 text-green-500 text-yellow-500').addClass(colorClass);
+}
+
+// Setup SEO Builder event handlers
+function setupSeoEventHandlers() {
+    // Sidebar navigation click
+    $(document).off('click', '.seo-nav-item').on('click', '.seo-nav-item', function() {
+        const serviceId = parseInt($(this).data('service-id'));
+        setActiveSeoService(serviceId);
+    });
+
+    // Meta title input change
+    $(document).off('input', '.seo-meta-title').on('input', '.seo-meta-title', function() {
+        const serviceId = parseInt($(this).data('service-id'));
+        const value = $(this).val();
+
+        if (campaignConfig.seo_pages[serviceId]) {
+            campaignConfig.seo_pages[serviceId].meta_title = value;
+        }
+
+        updateSeoCharCount(serviceId, 'title', value.length);
+        renderSeoSidebar();
+        debouncedSaveState();
+    });
+
+    // Meta description input change
+    $(document).off('input', '.seo-meta-description').on('input', '.seo-meta-description', function() {
+        const serviceId = parseInt($(this).data('service-id'));
+        const value = $(this).val();
+
+        if (campaignConfig.seo_pages[serviceId]) {
+            campaignConfig.seo_pages[serviceId].meta_description = value;
+        }
+
+        updateSeoCharCount(serviceId, 'description', value.length);
+        renderSeoSidebar();
+        debouncedSaveState();
+    });
+
+    // Show add SEO keyword form
+    $(document).off('click', '.add-seo-keyword-btn').on('click', '.add-seo-keyword-btn', function() {
+        const serviceId = $(this).data('service-id');
+        $(`.add-seo-keyword-form[data-service-id="${serviceId}"]`).removeClass('hidden');
+        $(`.add-seo-keyword-form[data-service-id="${serviceId}"] .new-seo-keyword-input`).focus();
+    });
+
+    // Cancel add SEO keyword
+    $(document).off('click', '.cancel-seo-keyword-btn').on('click', '.cancel-seo-keyword-btn', function() {
+        const serviceId = $(this).data('service-id');
+        $(`.add-seo-keyword-form[data-service-id="${serviceId}"]`).addClass('hidden');
+        $(`.add-seo-keyword-form[data-service-id="${serviceId}"] .new-seo-keyword-input`).val('');
+    });
+
+    // Save new SEO keyword
+    $(document).off('click', '.save-new-seo-keyword-btn').on('click', '.save-new-seo-keyword-btn', async function() {
+        const serviceId = parseInt($(this).data('service-id'));
+        const form = $(`.add-seo-keyword-form[data-service-id="${serviceId}"]`);
+        const keywordText = form.find('.new-seo-keyword-input').val().trim();
+        const keywordType = form.find('.new-seo-keyword-type').val();
+
+        if (!keywordText) {
+            alert('Indtast et søgeord');
+            return;
+        }
+
+        try {
+            const response = await $.ajax({
+                url: `/ajax/add-service-seo-keyword/${serviceId}/`,
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+                data: {
+                    keyword_text: keywordText,
+                    keyword_type: keywordType
+                }
+            });
+
+            if (response.success) {
+                // Add to local state
+                const newKeyword = response.keyword;
+                campaignConfig.seo_pages[serviceId].seo_keywords.push(newKeyword);
+
+                // Re-render keywords list
+                $(`#seo-keywords-container-${serviceId}`).html(
+                    renderSeoKeywordsList(campaignConfig.seo_pages[serviceId].seo_keywords, serviceId)
+                );
+                $(`#seo-keywords-count-${serviceId}`).text(campaignConfig.seo_pages[serviceId].seo_keywords.length);
+
+                // Hide form and clear input
+                form.addClass('hidden');
+                form.find('.new-seo-keyword-input').val('');
+
+                showToast('SEO keyword tilføjet', 'success');
+            } else {
+                alert('Fejl: ' + (response.error || 'Kunne ikke tilføje keyword'));
+            }
+        } catch (error) {
+            console.error('Error adding SEO keyword:', error);
+            alert('Fejl ved tilføjelse af keyword');
+        }
+    });
+
+    // Remove SEO keyword
+    $(document).off('click', '.remove-seo-keyword-btn').on('click', '.remove-seo-keyword-btn', async function() {
+        const keywordId = $(this).data('keyword-id');
+        const serviceId = parseInt($(this).data('service-id'));
+
+        if (!confirm('Er du sikker på at du vil slette dette SEO keyword?')) {
+            return;
+        }
+
+        try {
+            const response = await $.ajax({
+                url: `/ajax/delete-service-seo-keyword/${keywordId}/`,
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            });
+
+            if (response.success) {
+                // Remove from local state
+                campaignConfig.seo_pages[serviceId].seo_keywords =
+                    campaignConfig.seo_pages[serviceId].seo_keywords.filter(kw => kw.id !== keywordId);
+
+                // Re-render keywords list
+                $(`#seo-keywords-container-${serviceId}`).html(
+                    renderSeoKeywordsList(campaignConfig.seo_pages[serviceId].seo_keywords, serviceId)
+                );
+                $(`#seo-keywords-count-${serviceId}`).text(campaignConfig.seo_pages[serviceId].seo_keywords.length);
+
+                showToast('SEO keyword slettet', 'success');
+            } else {
+                alert('Fejl: ' + (response.error || 'Kunne ikke slette keyword'));
+            }
+        } catch (error) {
+            console.error('Error deleting SEO keyword:', error);
+            alert('Fejl ved sletning af keyword');
+        }
+    });
+
+    // Handle Enter key in new keyword input
+    $(document).off('keypress', '.new-seo-keyword-input').on('keypress', '.new-seo-keyword-input', function(e) {
+        if (e.which === 13) {
+            e.preventDefault();
+            const serviceId = $(this).closest('.add-seo-keyword-form').data('service-id');
+            $(`.save-new-seo-keyword-btn[data-service-id="${serviceId}"]`).click();
+        }
+    });
+}
+
+// ============================================================================
+// END SEO BUILDER
+// ============================================================================
+
 // Get selected cities - DIREKTE fra geo_map_targeting (Step 4)
 function getSelectedCities() {
-    // Brug byer valgt i Geografisk Målretning (Step 4) - 1:1 match
+    // Brug byer valgt i Geo-Kampagne Opsætning (Step 4) - 1:1 match
     return campaignConfig.geo_map_targeting?.postal_names || [];
 }
 
@@ -9152,10 +10919,14 @@ function getActiveUsps() {
 
 // Get service name for programmatic geo
 function getServiceNameForProgrammatic() {
-    // Try to get from selected services
+    // 1. Try to get from selected services via serverData.services_by_id (most reliable)
     if (campaignConfig.service_ids && campaignConfig.service_ids.length > 0) {
         const firstServiceId = campaignConfig.service_ids[0];
-        // Find service name from fetched data
+        // Check serverData.services_by_id first (populated when services are rendered)
+        if (serverData.services_by_id && serverData.services_by_id[firstServiceId]) {
+            return serverData.services_by_id[firstServiceId].name;
+        }
+        // Fallback: search in fetchedIndustryData
         for (const industryId in fetchedIndustryData) {
             const industryData = fetchedIndustryData[industryId];
             if (industryData && industryData.services) {
@@ -9165,11 +10936,78 @@ function getServiceNameForProgrammatic() {
         }
     }
 
-    // Fallback: try to get from industry name
+    // 2. Try to get from geo_config enabled_services (set in step 4)
+    if (campaignConfig.geo_config && campaignConfig.geo_config.enabled_services &&
+        campaignConfig.geo_config.enabled_services.length > 0) {
+        const firstServiceId = campaignConfig.geo_config.enabled_services[0];
+        // Check serverData.services_by_id first
+        if (serverData.services_by_id && serverData.services_by_id[firstServiceId]) {
+            return serverData.services_by_id[firstServiceId].name;
+        }
+        // Fallback: search in fetchedIndustryData
+        for (const industryId in fetchedIndustryData) {
+            const industryData = fetchedIndustryData[industryId];
+            if (industryData && industryData.services) {
+                const service = industryData.services.find(s => s.id === firstServiceId);
+                if (service) return service.name;
+            }
+        }
+    }
+
+    // 3. Fallback: try to get from industry name
     if (campaignConfig.industry_ids && campaignConfig.industry_ids.length > 0) {
         const industryId = campaignConfig.industry_ids[0];
         const industryData = fetchedIndustryData[industryId];
         if (industryData) return industryData.industry_name;
+    }
+
+    // 4. Last resort: try to get first service from serverData or any industry data
+    if (serverData.services_by_id) {
+        const firstServiceId = Object.keys(serverData.services_by_id)[0];
+        if (firstServiceId) {
+            return serverData.services_by_id[firstServiceId].name;
+        }
+    }
+    for (const industryId in fetchedIndustryData) {
+        const industryData = fetchedIndustryData[industryId];
+        if (industryData && industryData.services && industryData.services.length > 0) {
+            return industryData.services[0].name;
+        }
+        if (industryData && industryData.industry_name) {
+            return industryData.industry_name;
+        }
+    }
+
+    return null;
+}
+
+// Get service ID for programmatic geo (used for few-shot examples)
+function getServiceIdForProgrammatic() {
+    // 1. Check service_ids first (user explicitly selected services)
+    if (campaignConfig.service_ids && campaignConfig.service_ids.length > 0) {
+        return campaignConfig.service_ids[0];
+    }
+
+    // 2. Check geo_config enabled_services (set in step 4)
+    if (campaignConfig.geo_config && campaignConfig.geo_config.enabled_services &&
+        campaignConfig.geo_config.enabled_services.length > 0) {
+        return campaignConfig.geo_config.enabled_services[0];
+    }
+
+    // 3. Fallback: get first service from serverData.services_by_id
+    if (serverData.services_by_id) {
+        const firstServiceId = Object.keys(serverData.services_by_id)[0];
+        if (firstServiceId) {
+            return parseInt(firstServiceId);
+        }
+    }
+
+    // 4. Fallback: find first service from fetched industry data
+    for (const industryId of (campaignConfig.industry_ids || [])) {
+        const industryData = fetchedIndustryData[industryId];
+        if (industryData && industryData.services && industryData.services.length > 0) {
+            return industryData.services[0].id;
+        }
     }
 
     return null;
@@ -9306,7 +11144,7 @@ $(document).on('click', '#save-geo-map-selection', function() {
         <div class="p-6 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-green-50 to-blue-50">
             <div>
                 <h2 class="text-xl font-bold text-gray-900 flex items-center">
-                    <span class="mr-2">🌍</span> Geografisk Målretning
+                    <span class="mr-2">🌍</span> Geo-Kampagne Opsætning
                 </h2>
                 <p class="text-sm text-gray-600">Vælg postnumre på kortet eller skriv dem manuelt</p>
             </div>

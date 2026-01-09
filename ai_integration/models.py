@@ -9,17 +9,42 @@ class AIPromptTemplate(models.Model):
         ('ad_copy_generation', 'Ad Copy Generation'),
         ('campaign_analysis', 'Campaign Analysis'),
         ('service_identification', 'Service Identification'),
+        # Generation prompts (used in services.py)
+        ('generate_descriptions', 'Google Ads Beskrivelser'),
+        ('generate_meta_tags', 'Meta Tags (Programmatic)'),
+        ('generate_seo_meta_tags', 'SEO Meta Tags'),
+        ('generate_company_description', 'Virksomhedsbeskrivelse'),
+        ('perplexity_research', 'Online Research (Perplexity)'),
     ]
-    
+
     name = models.CharField(max_length=200)
-    prompt_type = models.CharField(max_length=30, choices=PROMPT_TYPES)
-    template = models.TextField()
+    prompt_type = models.CharField(max_length=50, choices=PROMPT_TYPES, unique=True)
+    template = models.TextField(help_text="Legacy field - use prompt_text instead")
+    prompt_text = models.TextField(blank=True, help_text="The actual prompt template with placeholders")
+    placeholders = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of placeholder definitions: [{'name': '{service_name}', 'description': 'Servicens navn'}]"
+    )
+    model_settings = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="AI model settings: {'model': 'gpt-4.1', 'temperature': 0.7, 'max_tokens': 500}"
+    )
     version = models.CharField(max_length=10, default='1.0')
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
 
     def __str__(self):
         return f"{self.name} v{self.version}"
+
+    def get_prompt_text(self):
+        """Return prompt_text if available, otherwise fall back to template."""
+        return self.prompt_text if self.prompt_text else self.template
 
 
 class AIAnalysisSession(models.Model):

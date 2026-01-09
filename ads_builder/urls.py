@@ -21,4 +21,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('campaigns.urls')),
     path('usps/', include('usps.urls')),
+    path('ai/', include('ai_integration.urls')),
 ]

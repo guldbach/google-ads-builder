@@ -86,7 +86,13 @@ urlpatterns = [
     path('ajax/add-service-seo-keyword/<int:service_id>/', views.add_service_seo_keyword_ajax, name='add_service_seo_keyword_ajax'),
     path('ajax/update-service-seo-keyword/<int:keyword_id>/', views.update_service_seo_keyword_ajax, name='update_service_seo_keyword_ajax'),
     path('ajax/delete-service-seo-keyword/<int:keyword_id>/', views.delete_service_seo_keyword_ajax, name='delete_service_seo_keyword_ajax'),
-    
+
+    # Meta Tag Examples AJAX URLs (Few-Shot AI Learning)
+    path('ajax/get-service-meta-examples/<int:service_id>/', views.get_service_meta_examples_ajax, name='get_service_meta_examples_ajax'),
+    path('ajax/add-service-meta-example/<int:service_id>/', views.add_service_meta_example_ajax, name='add_service_meta_example_ajax'),
+    path('ajax/update-service-meta-example/<int:example_id>/', views.update_service_meta_example_ajax, name='update_service_meta_example_ajax'),
+    path('ajax/delete-service-meta-example/<int:example_id>/', views.delete_service_meta_example_ajax, name='delete_service_meta_example_ajax'),
+
     # Negative Keywords Integration AJAX URLs
     path('ajax/search-negative-keyword-lists/', views.search_negative_keyword_lists_ajax, name='search_negative_keyword_lists_ajax'),
     path('ajax/get-service-negative-lists/<int:service_id>/', views.get_service_negative_lists_ajax, name='get_service_negative_lists_ajax'),
@@ -114,11 +120,14 @@ urlpatterns = [
 
     # AI Description Generation
     path('ajax/generate-descriptions/', views.generate_descriptions_ajax, name='generate_descriptions_ajax'),
+    path('ajax/generate-company-description/', views.generate_company_description_ajax, name='generate_company_description_ajax'),
+    path('ajax/analyze-website-usps/', views.analyze_website_for_usps_ajax, name='analyze_website_for_usps_ajax'),
 
     # Programmatic Byside AJAX URLs
     path('ajax/crawl-sitemap/', views.crawl_sitemap_ajax, name='crawl_sitemap_ajax'),
     path('ajax/match-city-pages/', views.match_city_pages_ajax, name='match_city_pages_ajax'),
     path('ajax/generate-programmatic-descriptions/', views.generate_programmatic_descriptions_ajax, name='generate_programmatic_descriptions_ajax'),
+    path('ajax/generate-seo-meta/', views.generate_seo_meta_ajax, name='generate_seo_meta_ajax'),
 
     # Postal Code Manager URLs
     path('postal-manager/', views.postal_manager, name='postal_manager'),

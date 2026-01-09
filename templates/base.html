@@ -4,15 +4,149 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Google Ads Builder{% endblock %}</title>
+    <title>{% block title %}Jarvis 1.0{% endblock %}</title>
     <link href="{% static 'css/style.css' %}" rel="stylesheet">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
-    <!-- Inter Font (closest to Asana's actual font) -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* Clean Asana-style transitions */
+        /* Sidebar Layout */
+        .sidebar {
+            width: 280px;
+            min-height: 100vh;
+            background: linear-gradient(180deg, #1e1b4b 0%, #312e81 100%);
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 40;
+            transition: width 0.3s ease, transform 0.3s ease;
+        }
+
+        .sidebar.collapsed {
+            width: 0;
+            overflow: hidden;
+        }
+
+        .main-wrapper {
+            margin-left: 280px;
+            min-height: 100vh;
+            transition: margin-left 0.3s ease;
+        }
+
+        .main-wrapper.sidebar-collapsed {
+            margin-left: 0;
+        }
+
+        /* Sidebar link styles */
+        .sidebar-link {
+            display: flex;
+            align-items: center;
+            padding: 14px 20px;
+            color: rgba(255, 255, 255, 0.7);
+            border-radius: 8px;
+            margin: 4px 12px;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .sidebar-link:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .sidebar-link.active {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+        }
+
+        .sidebar-section-title {
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.4);
+            padding: 20px 20px 10px 20px;
+        }
+
+        /* Collapse button */
+        .sidebar-collapse-btn {
+            position: fixed;
+            left: 280px;
+            top: 20px;
+            width: 28px;
+            height: 28px;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 45;
+            transition: left 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .sidebar-collapse-btn:hover {
+            background: #f3f4f6;
+            transform: scale(1.1);
+        }
+
+        .sidebar-collapse-btn.collapsed {
+            left: 12px;
+        }
+
+        .sidebar-collapse-btn svg {
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-collapse-btn.collapsed svg {
+            transform: rotate(180deg);
+        }
+
+        /* Mobile sidebar toggle */
+        .sidebar-toggle {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                width: 280px;
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            .sidebar.collapsed {
+                width: 280px;
+                transform: translateX(-100%);
+            }
+            .main-wrapper {
+                margin-left: 0;
+            }
+            .main-wrapper.sidebar-collapsed {
+                margin-left: 0;
+            }
+            .sidebar-toggle {
+                display: flex;
+            }
+            .sidebar-collapse-btn {
+                display: none;
+            }
+            .sidebar-overlay {
+                display: none;
+                position: fixed;
+                inset: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 35;
+            }
+            .sidebar-overlay.open {
+                display: block;
+            }
+        }
+
+        /* Form transitions */
         .form-step {
             display: none;
             opacity: 0;
@@ -24,180 +158,160 @@
             opacity: 1;
             transform: translateY(0);
         }
-        
-        /* Minimal hover effects */
-        .hover-lift:hover {
-            transform: translateY(-1px);
-            transition: transform 150ms ease;
-        }
-        
-        /* Clean focus states */
-        .focus-clean:focus {
-            outline: none;
-            box-shadow: 0 0 0 2px rgba(255, 140, 0, 0.2);
-        }
     </style>
 </head>
-<body class="bg-white min-h-screen font-sans antialiased">
-    <!-- Modern Asana Navigation -->
-    <nav class="bg-white border-b border-gray-100 shadow-sm">
-        <div class="max-w-7xl mx-auto container-padding">
-            <div class="flex justify-between items-center" style="height: 64px;">
-                <div class="flex items-center space-x-4">
-                    <div class="w-12 h-12 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg">
-                        <svg class="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M13 3l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L13 17.77l-6.18 3.25L8 14.14 3 9.27l6.91-1.01L13 3z"/>
-                        </svg>
-                    </div>
-                    <div>
-                        <h1 class="text-xl font-bold text-gray-900">
-                            Google Ads Builder
-                        </h1>
-                        <p class="text-sm text-gray-500">Intelligent kampagne automation</p>
-                    </div>
+<body class="bg-gray-50 min-h-screen font-sans antialiased">
+    <!-- Mobile Overlay -->
+    <div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar Collapse Button -->
+    <button id="sidebar-collapse-btn" class="sidebar-collapse-btn" onclick="collapseSidebar()">
+        <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+    </button>
+
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar">
+        <!-- Logo Section (placeholder for custom logo) -->
+        <a href="/" class="block p-5 border-b border-white/10">
+            <!-- Add custom logo here -->
+        </a>
+
+        <!-- Navigation -->
+        <nav class="py-4">
+            <!-- VÆRKTØJER Section -->
+            <div class="sidebar-section-title">Værktøjer</div>
+            <a href="/campaign-builder/" class="sidebar-link {% if request.path == '/campaign-builder/' %}active{% endif %}">
+                Campaign Builder
+            </a>
+
+            <!-- ADMIN Section -->
+            <div class="sidebar-section-title mt-4">Admin</div>
+            <a href="/usps/manager/" class="sidebar-link {% if '/usps/manager/' in request.path %}active{% endif %}">
+                USP Manager
+            </a>
+            <a href="/industry-manager/" class="sidebar-link {% if request.path == '/industry-manager/' %}active{% endif %}">
+                Branche Manager
+            </a>
+            <a href="/geographic-regions-manager/" class="sidebar-link {% if request.path == '/geographic-regions-manager/' %}active{% endif %}">
+                GEO Lister
+            </a>
+            <a href="/negative-keywords-manager/" class="sidebar-link {% if request.path == '/negative-keywords-manager/' %}active{% endif %}">
+                Negative Keywords
+            </a>
+            <a href="/data-import/" class="sidebar-link {% if request.path == '/data-import/' %}active{% endif %}">
+                Import
+            </a>
+            <a href="/ai/prompt-manager/" class="sidebar-link {% if '/ai/prompt-manager/' in request.path %}active{% endif %}">
+                AI Prompts
+            </a>
+        </nav>
+
+        <!-- User Section at Bottom -->
+        {% if user.is_authenticated %}
+        <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-lg flex items-center justify-center">
+                    <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                    </svg>
                 </div>
-                <div class="flex items-center space-x-8">
-                    <nav class="hidden md:flex space-x-2">
-                        <a href="/" class="flex items-center space-x-2 px-4 py-2 rounded-xl text-gray-700 hover:text-gray-900 hover:bg-gray-50 transition-all duration-200">
-                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+                <div class="flex-1 min-w-0">
+                    <p class="text-white text-sm font-medium truncate">{{ user.first_name|default:user.username }}</p>
+                    <p class="text-white/50 text-xs">Administrator</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </aside>
+
+    <!-- Main Content Wrapper -->
+    <div id="main-wrapper" class="main-wrapper">
+        <!-- Top Bar (minimal, mobile toggle) -->
+        <header class="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between md:hidden">
+            <button onclick="toggleSidebar()" class="sidebar-toggle p-2 rounded-lg hover:bg-gray-100">
+                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                </svg>
+            </button>
+            <span class="font-semibold text-gray-900">Jarvis 1.0</span>
+            <div class="w-10"></div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50">
+            <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+                {% block content %}
+                {% endblock %}
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="bg-gradient-to-r from-gray-900 via-purple-900 to-gray-900 text-white">
+            <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+                <div class="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M13 3l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L13 17.77l-6.18 3.25L8 14.14 3 9.27l6.91-1.01L13 3z"/>
                             </svg>
-                            <span class="font-medium">Hjem</span>
-                        </a>
-                        <a href="/geo-builder-v2/" class="flex items-center space-x-2 px-4 py-2 rounded-xl text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transition-all duration-200 shadow-md">
-                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                            </svg>
-                            <span class="font-medium">Geo Builder</span>
-                        </a>
-                        <a href="/usps/manager/" class="flex items-center space-x-2 px-4 py-2 rounded-xl text-gray-700 hover:text-gray-900 hover:bg-gray-50 transition-all duration-200">
-                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                            </svg>
-                            <span class="font-medium">USP Manager</span>
-                        </a>
-                        <a href="/campaign-builder/" class="flex items-center space-x-2 px-4 py-2 rounded-xl text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 transition-all duration-200 shadow-md">
-                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                            </svg>
-                            <span class="font-medium">Campaign Builder</span>
-                        </a>
-                        <a href="/industry-manager/" class="flex items-center space-x-2 px-4 py-2 rounded-xl text-gray-700 hover:text-gray-900 hover:bg-gray-50 transition-all duration-200">
-                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                            </svg>
-                            <span class="font-medium">Branche Manager</span>
-                        </a>
-                        <a href="/geographic-regions-manager/" class="flex items-center space-x-2 px-4 py-2 rounded-xl text-gray-700 hover:text-gray-900 hover:bg-gray-50 transition-all duration-200">
-                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                            </svg>
-                            <span class="font-medium">GEO Lister</span>
-                        </a>
-                        <a href="/negative-keywords-manager/" class="flex items-center space-x-2 px-4 py-2 rounded-xl text-gray-700 hover:text-gray-900 hover:bg-gray-50 transition-all duration-200">
-                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                            </svg>
-                            <span class="font-medium">Negative Keywords</span>
-                        </a>
-                        <a href="/data-import/" class="flex items-center space-x-2 px-4 py-2 rounded-xl text-gray-700 hover:text-gray-900 hover:bg-gray-50 transition-all duration-200">
-                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
-                            </svg>
-                            <span class="font-medium">Import</span>
-                        </a>
-                    </nav>
-                    {% if user.is_authenticated %}
-                        <div class="flex items-center space-x-4">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-10 h-10 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-md">
-                                    <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <p class="text-sm font-medium text-gray-900">{{ user.first_name|default:user.username }}</p>
-                                    <p class="text-xs text-gray-500">Administrator</p>
-                                </div>
-                            </div>
-                            <a href="{% url 'admin:index' %}" class="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white px-4 py-2 rounded-xl flex items-center space-x-2 transition-all duration-200 shadow-md">
-                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.82,11.69,4.82,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
-                                </svg>
-                                <span class="text-sm font-medium">Admin</span>
-                            </a>
                         </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </nav>
-
-    <!-- Main Content with Modern Layout -->
-    <main class="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50">
-        <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-            {% block content %}
-            {% endblock %}
-        </div>
-    </main>
-
-    <!-- Modern Footer -->
-    <footer class="bg-gradient-to-r from-gray-900 via-purple-900 to-gray-900 text-white">
-        <div class="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div class="flex items-center space-x-4">
-                    <div class="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg">
-                        <svg class="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M13 3l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L13 17.77l-6.18 3.25L8 14.14 3 9.27l6.91-1.01L13 3z"/>
-                        </svg>
+                        <span class="font-semibold">Jarvis 1.0</span>
                     </div>
-                    <div>
-                        <h3 class="text-lg font-bold">Google Ads Builder</h3>
-                        <p class="text-sm text-gray-300">Fremtidens kampagne automation</p>
-                    </div>
-                </div>
-                <div class="flex flex-col space-y-3">
-                    <h4 class="font-semibold text-gray-100">Produkter</h4>
-                    <a href="/geo-builder-v2/" class="text-sm text-gray-300 hover:text-white transition-colors duration-200">Geo Builder</a>
-                    <a href="/data-import/" class="text-sm text-gray-300 hover:text-white transition-colors duration-200">Data Import</a>
-                    <a href="/" class="text-sm text-gray-300 hover:text-white transition-colors duration-200">Kampagne Builder</a>
-                </div>
-                <div class="flex flex-col space-y-3">
-                    <h4 class="font-semibold text-gray-100">Support</h4>
-                    <a href="#" class="text-sm text-gray-300 hover:text-white transition-colors duration-200">Hjælp & Support</a>
-                    <a href="#" class="text-sm text-gray-300 hover:text-white transition-colors duration-200">Privatlivspolitik</a>
-                    <a href="#" class="text-sm text-gray-300 hover:text-white transition-colors duration-200">Vilkår & Betingelser</a>
+                    <p class="text-sm text-gray-400">
+                        © 2025 Jarvis 1.0. Udviklet med ❤️ for danske virksomheder.
+                    </p>
                 </div>
             </div>
-            <div class="border-t border-gray-700 mt-8 pt-6">
-                <p class="text-center text-sm text-gray-400">
-                    © 2025 Google Ads Builder. Udviklet med ❤️ for danske virksomheder.
-                </p>
-            </div>
-        </div>
-    </footer>
+        </footer>
+    </div>
 
     <script>
-        // Asana-style form step navigation
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('sidebar-overlay').classList.toggle('open');
+        }
+
+        function collapseSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const mainWrapper = document.getElementById('main-wrapper');
+            const collapseBtn = document.getElementById('sidebar-collapse-btn');
+
+            sidebar.classList.toggle('collapsed');
+            mainWrapper.classList.toggle('sidebar-collapsed');
+            collapseBtn.classList.toggle('collapsed');
+
+            // Save state to localStorage
+            const isCollapsed = sidebar.classList.contains('collapsed');
+            localStorage.setItem('sidebarCollapsed', isCollapsed);
+        }
+
+        // Restore sidebar state on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+            if (isCollapsed) {
+                document.getElementById('sidebar').classList.add('collapsed');
+                document.getElementById('main-wrapper').classList.add('sidebar-collapsed');
+                document.getElementById('sidebar-collapse-btn').classList.add('collapsed');
+            }
+        });
+
+        // Form step navigation
         function showStep(stepNumber) {
-            // Hide all steps with animation
             document.querySelectorAll('.form-step').forEach(step => {
                 step.classList.remove('active');
             });
-            
-            // Show target step with animation
             setTimeout(() => {
                 document.getElementById('step-' + stepNumber).classList.add('active');
             }, 75);
-            
-            // Update progress bar with Asana timing
+
             const progress = (stepNumber / 3) * 100;
             const progressBar = document.getElementById('progress-bar');
             if (progressBar) {
                 progressBar.style.width = progress + '%';
             }
-            
-            // Update step indicators with Asana classes
+
             document.querySelectorAll('.step-indicator').forEach((indicator, index) => {
                 indicator.classList.remove('step-active', 'step-complete', 'step-inactive');
                 if (index + 1 < stepNumber) {
@@ -210,7 +324,6 @@
             });
         }
 
-        // Auto-crawl website when URL is entered
         function crawlWebsite() {
             const url = document.getElementById('website_url').value;
             if (url) {
@@ -221,8 +334,7 @@
                 });
             }
         }
-        
-        // Initialize icons after page load
+
         document.addEventListener('DOMContentLoaded', function() {
             lucide.createIcons();
         });

@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}Branche Manager | Google Ads Builder{% endblock %}
+{% block title %}Branche Manager | Jarvis 1.0{% endblock %}
 
 {% block content %}
 
@@ -1847,23 +1847,31 @@ function generateKeywordsHtml(serviceId, keywords, serviceName) {
                     📊 Google Ads Keywords
                 </button>
                 <button class="keyword-tab seo" onclick="switchKeywordTab(${serviceId}, 'seo')" data-tab="seo">
-                    🌐 SEO Keywords  
+                    🌐 SEO Keywords
+                </button>
+                <button class="keyword-tab meta" onclick="switchKeywordTab(${serviceId}, 'meta')" data-tab="meta">
+                    📝 Meta Eksempler
                 </button>
                 <button class="keyword-tab negative" onclick="switchKeywordTab(${serviceId}, 'negative')" data-tab="negative">
                     🚫 Negative Keywords
                 </button>
             </div>
-            
+
             <!-- Google Ads Tab Content -->
             <div id="tab-content-ads-${serviceId}" class="tab-content active">
                 ${generateGoogleAdsKeywordsContent(serviceId, keywords, serviceName)}
             </div>
-            
+
             <!-- SEO Tab Content -->
             <div id="tab-content-seo-${serviceId}" class="tab-content">
                 ${generateSEOKeywordsContent(serviceId, serviceName)}
             </div>
-            
+
+            <!-- Meta Examples Tab Content -->
+            <div id="tab-content-meta-${serviceId}" class="tab-content">
+                ${generateMetaExamplesContent(serviceId, serviceName)}
+            </div>
+
             <!-- Negative Keywords Tab Content -->
             <div id="tab-content-negative-${serviceId}" class="tab-content">
                 ${generateNegativeKeywordsContent(serviceId, serviceName)}
@@ -2076,6 +2084,77 @@ function generateNegativeKeywordsContent(serviceId, serviceName) {
                 <h5 class="font-medium text-gray-900 mb-3">Tilgængelige lister:</h5>
                 <div id="available-lists-${serviceId}" class="flex flex-wrap gap-2">
                     <!-- Available lists will be loaded here -->
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function generateMetaExamplesContent(serviceId, serviceName) {
+    return `
+        <div class="p-6">
+            <!-- Meta Examples Header -->
+            <div class="mb-6 bg-indigo-50 p-4 rounded-lg border border-indigo-200">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h4 class="text-lg font-medium text-indigo-900">📝 Meta Tag Eksempler for "${serviceName}"</h4>
+                        <p class="text-sm text-indigo-700 mt-1">AI vælger tilfældigt max 10 af disse som reference ved generering</p>
+                    </div>
+                    <button class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200 text-sm"
+                            onclick="showAddMetaExampleForm(${serviceId})">
+                        ➕ Tilføj Eksempel
+                    </button>
+                </div>
+            </div>
+
+            <!-- Add New Meta Example Form (hidden by default) -->
+            <div id="add-meta-example-form-${serviceId}" class="hidden mb-6 bg-white p-4 rounded-lg border border-gray-200">
+                <h5 class="font-medium text-gray-900 mb-4">Nyt Meta Tag Eksempel</h5>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Meta Titel</label>
+                        <input type="text"
+                               id="new-meta-title-${serviceId}"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                               placeholder="Skriv en meta titel (50-60 tegn anbefales)..."
+                               maxlength="100"
+                               oninput="updateMetaCharCount(${serviceId}, 'title')">
+                        <div class="flex justify-between mt-1">
+                            <span class="text-xs text-gray-500">Anbefalet: 50-60 tegn</span>
+                            <span id="meta-title-count-${serviceId}" class="text-xs text-gray-500">0/100</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Meta Beskrivelse</label>
+                        <textarea id="new-meta-desc-${serviceId}"
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                  rows="3"
+                                  placeholder="Skriv en meta beskrivelse (150-160 tegn anbefales, vigtigt budskab i første 120 tegn)..."
+                                  maxlength="250"
+                                  oninput="updateMetaCharCount(${serviceId}, 'desc')"></textarea>
+                        <div class="flex justify-between mt-1">
+                            <span class="text-xs text-gray-500">Anbefalet: 150-160 tegn (vigtigt budskab i første 120)</span>
+                            <span id="meta-desc-count-${serviceId}" class="text-xs text-gray-500">0/250</span>
+                        </div>
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-all duration-200"
+                                onclick="hideAddMetaExampleForm(${serviceId})">
+                            Annuller
+                        </button>
+                        <button class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200"
+                                onclick="addMetaExample(${serviceId})">
+                            Gem Eksempel
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Meta Examples List -->
+            <div id="meta-examples-list-${serviceId}" class="space-y-4">
+                <div class="text-center py-12 text-gray-500">
+                    <span class="text-4xl">📝</span>
+                    <p class="mt-2">Indlæser meta eksempler...</p>
                 </div>
             </div>
         </div>
@@ -2588,20 +2667,22 @@ $(document).on('keypress', '.new-service-keyword-text', function(e) {
 // Tab switching functionality
 function switchKeywordTab(serviceId, tabType) {
     console.log('Switching to tab:', tabType, 'for service:', serviceId);
-    
+
     // Update tab buttons (only for this service's tab container)
     $(`.keywords-content[data-service-id="${serviceId}"] .keyword-tabs button`).removeClass('active');
     $(`.keywords-content[data-service-id="${serviceId}"] .keyword-tabs button[data-tab="${tabType}"]`).addClass('active');
-    
+
     // Update tab content (only for this service)
-    $(`#tab-content-ads-${serviceId}, #tab-content-seo-${serviceId}, #tab-content-negative-${serviceId}`).removeClass('active');
+    $(`#tab-content-ads-${serviceId}, #tab-content-seo-${serviceId}, #tab-content-meta-${serviceId}, #tab-content-negative-${serviceId}`).removeClass('active');
     $(`#tab-content-${tabType}-${serviceId}`).addClass('active');
-    
+
     console.log(`Active tab set for service ${serviceId}:`, tabType);
-    
+
     // Load content if needed
     if (tabType === 'seo') {
         loadSEOKeywords(serviceId);
+    } else if (tabType === 'meta') {
+        loadMetaExamples(serviceId);
     } else if (tabType === 'negative') {
         loadNegativeKeywordLists(serviceId);
     }
@@ -2704,7 +2785,336 @@ function addGoogleAdsKeyword(serviceId) {
     });
 }
 
-// Negative Keywords functionality  
+// =================================================================
+// META TAG EXAMPLES FUNCTIONALITY (Few-Shot AI Learning)
+// =================================================================
+
+// Google SERP font settings for pixel-based measurement
+// Title: Arial 20px (matching Storybase CTR tool), Description: Arial 14px
+const SERP_FONTS = {
+    title: { font: 'Arial', size: 20, maxPixels: 600 },
+    description: { font: 'Arial', size: 14, maxPixels: 920 }
+};
+
+// Measure text width in pixels using canvas (Google measures SERP in pixels, not chars)
+function measurePixelWidth(text, fontSize = 18, fontFamily = 'Arial') {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.font = `${fontSize}px ${fontFamily}`;
+    return Math.round(ctx.measureText(text).width);
+}
+
+// Get pixel info for meta title
+function getTitlePixelInfo(text) {
+    const pixels = measurePixelWidth(text, SERP_FONTS.title.size, SERP_FONTS.title.font);
+    const max = SERP_FONTS.title.maxPixels;
+    return { pixels, max, isOver: pixels > max };
+}
+
+// Get pixel info for meta description
+function getDescriptionPixelInfo(text) {
+    const pixels = measurePixelWidth(text, SERP_FONTS.description.size, SERP_FONTS.description.font);
+    const max = SERP_FONTS.description.maxPixels;
+    return { pixels, max, isOver: pixels > max };
+}
+
+function loadMetaExamples(serviceId) {
+    console.log('Loading meta examples for service:', serviceId);
+
+    $.ajax({
+        url: `/ajax/get-service-meta-examples/${serviceId}/`,
+        type: 'GET',
+        success: function(response) {
+            if (response.success) {
+                renderMetaExamples(serviceId, response.examples);
+            } else {
+                showToast(response.error || 'Fejl ved indlæsning af meta eksempler', 'error');
+            }
+        },
+        error: function() {
+            showToast('Fejl ved indlæsning af meta eksempler', 'error');
+        }
+    });
+}
+
+function renderMetaExamples(serviceId, examples) {
+    const container = $(`#meta-examples-list-${serviceId}`);
+
+    if (!examples || examples.length === 0) {
+        container.html(`
+            <div class="text-center py-12 text-gray-500">
+                <span class="text-4xl">📝</span>
+                <p class="mt-2">Ingen meta eksempler endnu</p>
+                <p class="text-sm">Tilføj eksempler for at give AI bedre reference ved generering</p>
+            </div>
+        `);
+        return;
+    }
+
+    let html = '';
+    examples.forEach((example, index) => {
+        const titleText = example.meta_title || '';
+        const descText = example.meta_description || '';
+        const titleLength = titleText.length;
+        const descLength = descText.length;
+
+        // Get pixel measurements
+        const titlePixels = getTitlePixelInfo(titleText);
+        const descPixels = getDescriptionPixelInfo(descText);
+
+        // Color coding based on pixel overflow
+        const titleClass = titlePixels.isOver ? 'text-red-600' :
+                          (titleLength >= 50 && titleLength <= 60) ? 'text-green-600' : 'text-yellow-600';
+        const descClass = descPixels.isOver ? 'text-red-600' :
+                         (descLength >= 150 && descLength <= 160) ? 'text-green-600' : 'text-yellow-600';
+
+        html += `
+            <div class="meta-example-item bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-all duration-200" data-example-id="${example.id}">
+                <div class="flex items-start justify-between mb-3">
+                    <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-medium text-sm">
+                        ${index + 1}
+                    </span>
+                    <div class="flex items-center space-x-2">
+                        <button class="edit-meta-example-btn text-gray-500 hover:text-indigo-600 p-1 transition-colors"
+                                data-example-id="${example.id}"
+                                onclick="editMetaExample(${example.id}, ${serviceId})"
+                                title="Redigér eksempel">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                            </svg>
+                        </button>
+                        <button class="delete-meta-example-btn text-gray-500 hover:text-red-600 p-1 transition-colors"
+                                data-example-id="${example.id}"
+                                onclick="deleteMetaExample(${example.id}, ${serviceId})"
+                                title="Slet eksempel">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="space-y-3">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Meta Titel</span>
+                            <span class="text-xs ${titleClass}">${titleLength} tegn | ${titlePixels.pixels}/${titlePixels.max}px</span>
+                        </div>
+                        <p class="text-gray-900 font-medium">${titleText || '-'}</p>
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Meta Beskrivelse</span>
+                            <span class="text-xs ${descClass}">${descLength} tegn | ${descPixels.pixels}/${descPixels.max}px</span>
+                        </div>
+                        <p class="text-gray-600 text-sm">${descText || '-'}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    container.html(html);
+}
+
+function showAddMetaExampleForm(serviceId) {
+    $(`#add-meta-example-form-${serviceId}`).removeClass('hidden');
+    $(`#new-meta-title-${serviceId}`).focus();
+}
+
+function hideAddMetaExampleForm(serviceId) {
+    $(`#add-meta-example-form-${serviceId}`).addClass('hidden');
+    $(`#new-meta-title-${serviceId}`).val('');
+    $(`#new-meta-desc-${serviceId}`).val('');
+    updateMetaCharCount(serviceId, 'title');
+    updateMetaCharCount(serviceId, 'desc');
+}
+
+function updateMetaCharCount(serviceId, type) {
+    if (type === 'title') {
+        const text = $(`#new-meta-title-${serviceId}`).val();
+        const charCount = text.length;
+        const pixelInfo = getTitlePixelInfo(text);
+        const countEl = $(`#meta-title-count-${serviceId}`);
+
+        // Show both chars and pixels: "42 tegn | 380/600px"
+        countEl.html(`${charCount} tegn | ${pixelInfo.pixels}/${pixelInfo.max}px`);
+
+        // Color coding based on pixel overflow
+        if (pixelInfo.isOver) {
+            countEl.removeClass('text-green-600 text-yellow-600').addClass('text-red-600');
+        } else if (charCount >= 50 && charCount <= 60) {
+            countEl.removeClass('text-red-600 text-yellow-600').addClass('text-green-600');
+        } else {
+            countEl.removeClass('text-green-600 text-red-600').addClass('text-yellow-600');
+        }
+    } else {
+        const text = $(`#new-meta-desc-${serviceId}`).val();
+        const charCount = text.length;
+        const pixelInfo = getDescriptionPixelInfo(text);
+        const countEl = $(`#meta-desc-count-${serviceId}`);
+
+        // Show both chars and pixels: "135 tegn | 780/920px"
+        countEl.html(`${charCount} tegn | ${pixelInfo.pixels}/${pixelInfo.max}px`);
+
+        // Color coding based on pixel overflow
+        if (pixelInfo.isOver) {
+            countEl.removeClass('text-green-600 text-yellow-600').addClass('text-red-600');
+        } else if (charCount >= 150 && charCount <= 160) {
+            countEl.removeClass('text-red-600 text-yellow-600').addClass('text-green-600');
+        } else {
+            countEl.removeClass('text-green-600 text-red-600').addClass('text-yellow-600');
+        }
+    }
+}
+
+function addMetaExample(serviceId) {
+    const metaTitle = $(`#new-meta-title-${serviceId}`).val().trim();
+    const metaDesc = $(`#new-meta-desc-${serviceId}`).val().trim();
+
+    if (!metaTitle || !metaDesc) {
+        showToast('Udfyld både meta titel og beskrivelse', 'error');
+        return;
+    }
+
+    $.ajax({
+        url: `/ajax/add-service-meta-example/${serviceId}/`,
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            meta_title: metaTitle,
+            meta_description: metaDesc
+        }),
+        headers: {
+            'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+        },
+        success: function(response) {
+            if (response.success) {
+                hideAddMetaExampleForm(serviceId);
+                loadMetaExamples(serviceId);
+                showToast('Meta eksempel tilføjet', 'success');
+            } else {
+                showToast(response.error || 'Fejl ved tilføjelse af meta eksempel', 'error');
+            }
+        },
+        error: function() {
+            showToast('Fejl ved tilføjelse af meta eksempel', 'error');
+        }
+    });
+}
+
+function deleteMetaExample(exampleId, serviceId) {
+    if (!confirm('Er du sikker på, at du vil slette dette meta eksempel?')) {
+        return;
+    }
+
+    $.ajax({
+        url: `/ajax/delete-service-meta-example/${exampleId}/`,
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+        },
+        success: function(response) {
+            if (response.success) {
+                loadMetaExamples(serviceId);
+                showToast('Meta eksempel slettet', 'success');
+            } else {
+                showToast(response.error || 'Fejl ved sletning af meta eksempel', 'error');
+            }
+        },
+        error: function() {
+            showToast('Fejl ved sletning af meta eksempel', 'error');
+        }
+    });
+}
+
+function editMetaExample(exampleId, serviceId) {
+    // Find the current example data from the DOM
+    const container = $(`.meta-example-item[data-example-id="${exampleId}"]`);
+    const currentTitle = container.find('p.text-gray-900').text();
+    const currentDesc = container.find('p.text-gray-600').text();
+
+    // Replace the item with an edit form
+    container.html(`
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Meta Titel</label>
+                <input type="text"
+                       id="edit-meta-title-${exampleId}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                       value="${currentTitle}"
+                       maxlength="100">
+                <div class="text-xs text-gray-500 mt-1">Anbefalet: 50-60 tegn</div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Meta Beskrivelse</label>
+                <textarea id="edit-meta-desc-${exampleId}"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                          rows="3"
+                          maxlength="250">${currentDesc}</textarea>
+                <div class="text-xs text-gray-500 mt-1">Anbefalet: 150-160 tegn</div>
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-all duration-200"
+                        onclick="loadMetaExamples(${serviceId})">
+                    Annuller
+                </button>
+                <button class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200"
+                        onclick="saveMetaExample(${exampleId}, ${serviceId})">
+                    Gem Ændringer
+                </button>
+            </div>
+        </div>
+    `);
+
+    // Focus on title input
+    $(`#edit-meta-title-${exampleId}`).focus();
+}
+
+function saveMetaExample(exampleId, serviceId) {
+    const metaTitle = $(`#edit-meta-title-${exampleId}`).val().trim();
+    const metaDesc = $(`#edit-meta-desc-${exampleId}`).val().trim();
+
+    if (!metaTitle || !metaDesc) {
+        showToast('Udfyld både meta titel og beskrivelse', 'error');
+        return;
+    }
+
+    $.ajax({
+        url: `/ajax/update-service-meta-example/${exampleId}/`,
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            meta_title: metaTitle,
+            meta_description: metaDesc
+        }),
+        headers: {
+            'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+        },
+        success: function(response) {
+            if (response.success) {
+                loadMetaExamples(serviceId);
+                showToast('Meta eksempel opdateret', 'success');
+            } else {
+                showToast(response.error || 'Fejl ved opdatering af meta eksempel', 'error');
+            }
+        },
+        error: function() {
+            showToast('Fejl ved opdatering af meta eksempel', 'error');
+        }
+    });
+}
+
+// Make meta example functions globally available
+window.loadMetaExamples = loadMetaExamples;
+window.showAddMetaExampleForm = showAddMetaExampleForm;
+window.hideAddMetaExampleForm = hideAddMetaExampleForm;
+window.updateMetaCharCount = updateMetaCharCount;
+window.addMetaExample = addMetaExample;
+window.deleteMetaExample = deleteMetaExample;
+window.editMetaExample = editMetaExample;
+window.saveMetaExample = saveMetaExample;
+
+// Negative Keywords functionality
 function loadNegativeKeywordLists(serviceId) {
     console.log('Loading negative keyword lists for service:', serviceId);
     
@@ -3260,6 +3670,9 @@ function loadServiceKeywords(serviceId) {
                     <button class="keyword-tab seo" data-tab="seo" onclick="switchKeywordTab(${serviceId}, 'seo')">
                         🌐 SEO Keywords
                     </button>
+                    <button class="keyword-tab meta" data-tab="meta" onclick="switchKeywordTab(${serviceId}, 'meta')">
+                        📝 Meta Eksempler
+                    </button>
                     <button class="keyword-tab negative" data-tab="negative" onclick="switchKeywordTab(${serviceId}, 'negative')">
                         🚫 Negative Keywords
                     </button>
@@ -3337,7 +3750,77 @@ function loadServiceKeywords(serviceId) {
                         </div>
                     </div>
                 </div>
-                
+
+                <!-- Meta Examples Tab Content -->
+                <div class="tab-content" id="tab-content-meta-${serviceId}">
+                    <div class="p-6">
+                        <!-- Meta Examples Header -->
+                        <div class="mb-6 bg-indigo-50 p-4 rounded-lg border border-indigo-200">
+                            <div class="flex items-center justify-between mb-4">
+                                <div>
+                                    <h4 class="text-lg font-medium text-indigo-900">📝 Meta Tag Eksempler</h4>
+                                    <p class="text-sm text-indigo-700 mt-1">AI vælger tilfældigt max 10 af disse som reference ved generering</p>
+                                </div>
+                                <button class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200 text-sm"
+                                        onclick="showAddMetaExampleForm(${serviceId})">
+                                    ➕ Tilføj Eksempel
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Add New Meta Example Form (hidden by default) -->
+                        <div id="add-meta-example-form-${serviceId}" class="hidden mb-6 bg-white p-4 rounded-lg border border-gray-200">
+                            <h5 class="font-medium text-gray-900 mb-4">Nyt Meta Tag Eksempel</h5>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Meta Titel</label>
+                                    <input type="text"
+                                           id="new-meta-title-${serviceId}"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                           placeholder="Skriv en meta titel (50-60 tegn anbefales)..."
+                                           maxlength="100"
+                                           oninput="updateMetaCharCount(${serviceId}, 'title')">
+                                    <div class="flex justify-between mt-1">
+                                        <span class="text-xs text-gray-500">Anbefalet: 50-60 tegn</span>
+                                        <span id="meta-title-count-${serviceId}" class="text-xs text-gray-500">0/100</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Meta Beskrivelse</label>
+                                    <textarea id="new-meta-desc-${serviceId}"
+                                              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                              rows="3"
+                                              placeholder="Skriv en meta beskrivelse (150-160 tegn anbefales, vigtigt budskab i første 120 tegn)..."
+                                              maxlength="250"
+                                              oninput="updateMetaCharCount(${serviceId}, 'desc')"></textarea>
+                                    <div class="flex justify-between mt-1">
+                                        <span class="text-xs text-gray-500">Anbefalet: 150-160 tegn (vigtigt budskab i første 120)</span>
+                                        <span id="meta-desc-count-${serviceId}" class="text-xs text-gray-500">0/250</span>
+                                    </div>
+                                </div>
+                                <div class="flex justify-end space-x-3">
+                                    <button class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-all duration-200"
+                                            onclick="hideAddMetaExampleForm(${serviceId})">
+                                        Annuller
+                                    </button>
+                                    <button class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200"
+                                            onclick="addMetaExample(${serviceId})">
+                                        Gem Eksempel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Meta Examples List -->
+                        <div id="meta-examples-list-${serviceId}" class="space-y-4">
+                            <div class="text-center py-12 text-gray-500">
+                                <span class="text-4xl">📝</span>
+                                <p class="mt-2">Indlæser meta eksempler...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="tab-content" id="tab-content-negative-${serviceId}">
                     <div class="p-6">
                         <!-- Negative Keywords Header -->

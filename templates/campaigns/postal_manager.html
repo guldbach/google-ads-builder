@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block title %}Postnummer Manager{% endblock %}
+
+{% block content %}
+<!-- Include jQuery -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<div class="max-w-7xl mx-auto px-4 py-8">
+    <!-- Hero Section -->
+    <div class="text-center mb-8 p-8 bg-gradient-to-br from-purple-100 via-blue-50 to-pink-100 rounded-3xl">
+        <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl mb-4 shadow-xl">
+            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+        </div>
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">Postnummer Manager</h1>
+        <p class="text-gray-600">Administrer postnumre, bynavne og synonymer</p>
+        <p class="text-sm text-gray-500 mt-2">{{ total_count }} postnumre i databasen</p>
+    </div>
+
+    <!-- Search and Filter -->
+    <div class="bg-white rounded-2xl shadow-lg p-6 mb-6 border border-gray-100">
+        <div class="flex flex-wrap gap-4 items-center justify-between">
+            <div class="flex-1 min-w-[300px]">
+                <div class="relative">
+                    <input type="text" id="postal-search" placeholder="Søg postnummer eller bynavn..."
+                           class="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    <svg class="w-5 h-5 text-gray-400 absolute left-4 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </div>
+            </div>
+            <div class="flex gap-3">
+                <button id="sync-dawa-btn" class="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    Sync fra DAWA
+                </button>
+                <button id="save-all-btn" class="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    Gem alle ændringer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Postal Codes Table -->
+    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-24">Postnr</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-48">DAWA Navn</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-48">Visningsnavn</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Ekstra bynavne</th>
+                        <th class="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider w-24">Status</th>
+                    </tr>
+                </thead>
+                <tbody id="postal-table-body" class="divide-y divide-gray-100">
+                    {% for postal in postal_codes %}
+                    <tr class="postal-row hover:bg-gray-50 transition-colors duration-150" data-code="{{ postal.code }}">
+                        <td class="px-6 py-4">
+                            <span class="font-mono font-semibold text-gray-900">{{ postal.code }}</span>
+                        </td>
+                        <td class="px-6 py-4 text-gray-600">{{ postal.dawa_name }}</td>
+                        <td class="px-6 py-4">
+                            <input type="text"
+                                   class="display-name-input w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                                   value="{{ postal.display_name }}"
+                                   placeholder="{{ postal.dawa_name }}"
+                                   data-code="{{ postal.code }}"
+                                   data-original="{{ postal.display_name }}">
+                        </td>
+                        <td class="px-6 py-4">
+                            <input type="text"
+                                   class="additional-names-input w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                                   value="{{ postal.additional_names }}"
+                                   placeholder="Husum, Bellahøj..."
+                                   data-code="{{ postal.code }}"
+                                   data-original="{{ postal.additional_names }}">
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="save-status hidden text-green-600">
+                                <svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                            </span>
+                            <span class="modified-indicator hidden text-yellow-500">
+                                <svg class="w-5 h-5 inline" fill="currentColor" viewBox="0 0 20 20">
+                                    <circle cx="10" cy="10" r="5"></circle>
+                                </svg>
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Help Section -->
+    <div class="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-100">
+        <h3 class="font-semibold text-blue-900 mb-2">Sådan bruger du Postnummer Manager</h3>
+        <ul class="text-sm text-blue-800 space-y-1">
+            <li><strong>Visningsnavn:</strong> Overskriv DAWA-navnet med et synonym (fx "Nørrebro" i stedet for "København N")</li>
+            <li><strong>Ekstra bynavne:</strong> Tilføj kommaseparerede bynavne der hører til postnummeret (fx "Husum, Bellahøj" for 2700)</li>
+            <li><strong>Auto-gem:</strong> Ændringer gemmes automatisk når du forlader et felt</li>
+        </ul>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    // Track modified rows
+    const modifiedRows = new Set();
+
+    // Search functionality
+    $('#postal-search').on('input', function() {
+        const searchTerm = $(this).val().toLowerCase();
+
+        $('.postal-row').each(function() {
+            const code = $(this).data('code').toString();
+            const dawaName = $(this).find('td:eq(1)').text().toLowerCase();
+            const displayName = $(this).find('.display-name-input').val().toLowerCase();
+            const additionalNames = $(this).find('.additional-names-input').val().toLowerCase();
+
+            const matches = code.includes(searchTerm) ||
+                           dawaName.includes(searchTerm) ||
+                           displayName.includes(searchTerm) ||
+                           additionalNames.includes(searchTerm);
+
+            $(this).toggle(matches);
+        });
+    });
+
+    // Mark row as modified
+    function markModified(row) {
+        const code = row.data('code');
+        modifiedRows.add(code);
+        row.find('.modified-indicator').removeClass('hidden');
+        row.find('.save-status').addClass('hidden');
+    }
+
+    // Save single postal code
+    function savePostalCode(code, displayName, additionalNames, row) {
+        $.ajax({
+            url: '{% url "update_postal_code_ajax" %}',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                code: code,
+                display_name: displayName,
+                additional_names: additionalNames
+            }),
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.success) {
+                    modifiedRows.delete(code);
+                    row.find('.modified-indicator').addClass('hidden');
+                    row.find('.save-status').removeClass('hidden');
+
+                    // Update original values
+                    row.find('.display-name-input').data('original', displayName);
+                    row.find('.additional-names-input').data('original', additionalNames);
+
+                    // Hide checkmark after 2 seconds
+                    setTimeout(function() {
+                        row.find('.save-status').addClass('hidden');
+                    }, 2000);
+                }
+            },
+            error: function() {
+                alert('Fejl ved gem af postnummer ' + code);
+            }
+        });
+    }
+
+    // Auto-save on blur
+    $('.display-name-input, .additional-names-input').on('blur', function() {
+        const input = $(this);
+        const row = input.closest('.postal-row');
+        const code = row.data('code');
+
+        const displayName = row.find('.display-name-input').val();
+        const additionalNames = row.find('.additional-names-input').val();
+
+        const originalDisplay = row.find('.display-name-input').data('original');
+        const originalAdditional = row.find('.additional-names-input').data('original');
+
+        // Only save if something changed
+        if (displayName !== originalDisplay || additionalNames !== originalAdditional) {
+            savePostalCode(code, displayName, additionalNames, row);
+        }
+    });
+
+    // Track changes on input
+    $('.display-name-input, .additional-names-input').on('input', function() {
+        const input = $(this);
+        const row = input.closest('.postal-row');
+
+        const displayName = row.find('.display-name-input').val();
+        const additionalNames = row.find('.additional-names-input').val();
+
+        const originalDisplay = row.find('.display-name-input').data('original');
+        const originalAdditional = row.find('.additional-names-input').data('original');
+
+        if (displayName !== originalDisplay || additionalNames !== originalAdditional) {
+            markModified(row);
+        } else {
+            row.find('.modified-indicator').addClass('hidden');
+            modifiedRows.delete(row.data('code'));
+        }
+    });
+
+    // Save on Enter key
+    $('.display-name-input, .additional-names-input').on('keypress', function(e) {
+        if (e.which === 13) {
+            $(this).blur();
+        }
+    });
+
+    // Save all button
+    $('#save-all-btn').on('click', function() {
+        const button = $(this);
+        button.prop('disabled', true).html('<svg class="w-4 h-4 animate-spin inline mr-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Gemmer...');
+
+        modifiedRows.forEach(function(code) {
+            const row = $(`.postal-row[data-code="${code}"]`);
+            const displayName = row.find('.display-name-input').val();
+            const additionalNames = row.find('.additional-names-input').val();
+            savePostalCode(code, displayName, additionalNames, row);
+        });
+
+        setTimeout(function() {
+            button.prop('disabled', false).html('<svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Gem alle ændringer');
+        }, 1000);
+    });
+
+    // Sync from DAWA button (placeholder - requires management command)
+    $('#sync-dawa-btn').on('click', function() {
+        alert('Kør følgende kommando i terminal for at synkronisere:\n\npython manage.py sync_postal_codes');
+    });
+});
+</script>
+{% endblock %}

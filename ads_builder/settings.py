@@ -159,6 +159,9 @@ CELERY_TIMEZONE = 'UTC'
 # OpenAI Configuration
 OPENAI_API_KEY = config('OPENAI_API_KEY', default='')
 
+# Perplexity Configuration (for online research)
+PERPLEXITY_API_KEY = config('PERPLEXITY_API_KEY', default='')
+
 # Google Ads Configuration
 GOOGLE_ADS_DEVELOPER_TOKEN = config('GOOGLE_ADS_DEVELOPER_TOKEN', default='')
 GOOGLE_ADS_CLIENT_ID = config('GOOGLE_ADS_CLIENT_ID', default='')
