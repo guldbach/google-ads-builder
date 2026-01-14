@@ -70,6 +70,14 @@ source venv/bin/activate
 python test_your_feature.py
 ```
 
+## 🔀 Git Workflow
+
+**VIGTIGT**: Når en feature eller fix er implementeret og testet succesfuldt, skal du ALTID spørge brugeren:
+
+> "Skal vi pushe ændringerne til git?"
+
+Dette sikrer at brugeren har kontrol over hvornår ændringer committes og pushes til repository.
+
 ## 📋 Generelle Development Guidelines
 
 ### Code Conventions
