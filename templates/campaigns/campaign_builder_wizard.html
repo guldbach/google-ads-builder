@@ -326,6 +326,41 @@
                 <p class="text-sm text-gray-500 mt-2">
                     Vi analyserer din sitemap for at finde eksisterende sider og indhold.
                 </p>
+
+                <!-- Scrape Mode Selection -->
+                <div class="mt-6 pt-6 border-t border-gray-200">
+                    <label class="block text-sm font-medium text-gray-700 mb-3">Antal sider at scrape</label>
+                    <div class="space-y-2">
+                        <label class="flex items-center cursor-pointer p-2 rounded-lg hover:bg-gray-50 transition-colors">
+                            <input type="radio" name="scrape-mode" value="10" checked
+                                   class="w-4 h-4 text-purple-600 focus:ring-purple-500"
+                                   onchange="crawlState.scrape_mode = 10; debouncedSaveState();">
+                            <span class="ml-3 text-sm text-gray-700">10 sider <span class="text-gray-400">(hurtig)</span></span>
+                        </label>
+                        <label class="flex items-center cursor-pointer p-2 rounded-lg hover:bg-gray-50 transition-colors">
+                            <input type="radio" name="scrape-mode" value="50"
+                                   class="w-4 h-4 text-purple-600 focus:ring-purple-500"
+                                   onchange="crawlState.scrape_mode = 50; debouncedSaveState();">
+                            <span class="ml-3 text-sm text-gray-700">50 sider <span class="text-gray-400">(standard)</span></span>
+                        </label>
+                        <label class="flex items-center cursor-pointer p-2 rounded-lg hover:bg-gray-50 transition-colors">
+                            <input type="radio" name="scrape-mode" value="100"
+                                   class="w-4 h-4 text-purple-600 focus:ring-purple-500"
+                                   onchange="crawlState.scrape_mode = 100; debouncedSaveState();">
+                            <span class="ml-3 text-sm text-gray-700">100 sider</span>
+                        </label>
+                        <label class="flex items-center cursor-pointer p-2 rounded-lg hover:bg-gray-50 transition-colors">
+                            <input type="radio" name="scrape-mode" value="0"
+                                   class="w-4 h-4 text-purple-600 focus:ring-purple-500"
+                                   onchange="crawlState.scrape_mode = 0; debouncedSaveState();">
+                            <span class="ml-3 text-sm text-gray-700">Alle sider <span class="text-gray-400">(kan tage længere tid)</span></span>
+                        </label>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-2">
+                        Nøglesider (forside, om os, ydelser) scrapes altid først.
+                    </p>
+                </div>
+
             </div>
 
             <!-- Optional: Skip hint -->
@@ -391,12 +426,33 @@
                 {% endfor %}
             </div>
         </div>
-        
+
         <!-- Service Selection (Hidden initially) -->
         <div id="services-section" class="mb-8" style="display: none;">
             <h3 class="text-xl font-semibold text-gray-900 mb-4">⚙️ Vælg Services</h3>
             <div id="services-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <!-- Services will be loaded dynamically -->
+            </div>
+        </div>
+
+        <!-- AI-Suggested Section (separator + industries + services) -->
+        <div id="ai-suggestions-section" class="hidden">
+            <!-- Separator line -->
+            <div class="border-t border-gray-200 pt-6 mt-2">
+                <!-- AI-Suggested Industries -->
+                <div id="suggested-industries-section" class="mb-6 hidden">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                        <span class="mr-2">✨</span>
+                        AI-Foreslåede Brancher
+                        <span class="ml-2 text-sm font-normal text-gray-500">(ikke i databasen)</span>
+                    </h3>
+                    <div id="suggested-industries-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- Suggested industry cards will be rendered here -->
+                    </div>
+                </div>
+
+                <!-- AI-Suggested Services (rendered by JavaScript) -->
+                <!-- The #custom-services-section will be appended here by renderCustomServices() -->
             </div>
         </div>
     </div>
@@ -602,14 +658,7 @@
                     </button>
                 </div>
 
-                <!-- Loading State -->
-                <div id="description-loading" class="hidden flex items-center justify-center py-4">
-                    <svg class="animate-spin h-6 w-6 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <span class="ml-2 text-gray-600">Genererer beskrivelse...</span>
-                </div>
+                <!-- Loading State - Now uses Roberto modal instead -->
             </div>
 
             <!-- Company Name -->
@@ -882,14 +931,24 @@
     <!-- STEP 7: SEO Info - Sidebar med Services -->
     <div id="step-content-7" class="step-content" style="display: none;">
         <div class="text-center mb-8">
-            <h2 class="text-3xl font-bold text-gray-900 mb-4">🔍 SEO Information</h2>
+            <div class="flex items-center justify-center gap-4 mb-4">
+                <h2 class="text-3xl font-bold text-gray-900">🔍 SEO Information</h2>
+                <button type="button" onclick="exportSeoContentCSV()"
+                        class="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-medium
+                               hover:shadow-lg transition-all duration-200 flex items-center space-x-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                    <span>Eksporter til WordPress CSV</span>
+                </button>
+            </div>
             <p class="text-gray-600">Konfigurer meta tags for hver service-underside</p>
         </div>
 
         <!-- SEO Builder Container with Sidebar -->
-        <div id="seo-builder-container" class="flex gap-6">
+        <div id="seo-builder-container" class="flex gap-6 max-w-[2000px]">
             <!-- Sidebar Navigation -->
-            <div class="w-1/4 min-w-[280px]">
+            <div class="w-[280px] flex-shrink-0">
                 <div class="sticky top-4">
                     <h3 class="text-lg font-semibold text-gray-900 mb-4">📄 Undersider</h3>
                     <div id="seo-nav-list" class="space-y-2">
@@ -899,7 +958,7 @@
             </div>
 
             <!-- Content Area -->
-            <div class="w-3/4">
+            <div class="flex-1 min-w-0">
                 <div id="active-seo-content">
                     <!-- Dynamically populated by renderActiveSeoContent() -->
                     <div class="text-center py-12 text-gray-500">
@@ -1030,14 +1089,7 @@
                     </button>
                 </div>
 
-                <!-- Loading state -->
-                <div id="meta-tags-loading" class="hidden flex items-center justify-center py-8">
-                    <svg class="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <span class="ml-3 text-gray-600">Genererer meta tags med AI...</span>
-                </div>
+                <!-- Loading state - Now uses Roberto modal -->
 
                 <!-- Preview af genererede meta tags -->
                 <div id="meta-tags-preview" class="hidden">
@@ -1212,6 +1264,261 @@
     </div>
 </div>
 
+<!-- Roberto Loading Modal - Typing Robot Animation -->
+<div id="roberto-loading-modal" class="fixed inset-0 flex items-center justify-center" style="z-index: 2147483648; display: none;">
+    <!-- Backdrop -->
+    <div class="absolute inset-0 bg-black bg-opacity-50 backdrop-blur-sm"></div>
+    <!-- Modal content -->
+    <div class="relative flex flex-col items-center justify-center p-8 bg-white rounded-xl max-w-sm mx-auto" style="border: 1px solid #444; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);">
+        <div id="roberto-svg-container">
+        <svg viewBox="0 0 200 200" class="w-64 h-64">
+            <!-- Robot Body -->
+            <rect x="70" y="80" width="60" height="50" rx="8" fill="#64748b" />
+
+            <!-- Robot Head -->
+            <rect x="65" y="35" width="70" height="50" rx="10" fill="#94a3b8" />
+
+            <!-- Antenna -->
+            <line x1="100" y1="35" x2="100" y2="20" stroke="#64748b" stroke-width="3" />
+            <circle cx="100" cy="16" r="5" fill="#f59e0b">
+                <animate attributeName="fill" values="#f59e0b;#fbbf24;#f59e0b" dur="1s" repeatCount="indefinite" />
+            </circle>
+
+            <!-- Eyes -->
+            <circle cx="82" cy="55" r="8" fill="#1e293b" />
+            <circle cx="118" cy="55" r="8" fill="#1e293b" />
+            <circle cx="84" cy="53" r="3" fill="#22d3ee">
+                <animate attributeName="cy" values="53;55;53" dur="2s" repeatCount="indefinite" />
+            </circle>
+            <circle cx="120" cy="53" r="3" fill="#22d3ee">
+                <animate attributeName="cy" values="53;55;53" dur="2s" repeatCount="indefinite" />
+            </circle>
+
+            <!-- Mouth -->
+            <rect x="88" y="68" width="24" height="4" rx="2" fill="#1e293b" />
+
+            <!-- Left Arm with typing animation -->
+            <g>
+                <rect x="40" y="90" width="30" height="12" rx="6" fill="#64748b">
+                    <animateTransform attributeName="transform" type="rotate" values="0 70 96;-5 70 96;0 70 96" dur="0.3s" repeatCount="indefinite" />
+                </rect>
+                <circle cx="42" cy="96" r="6" fill="#94a3b8">
+                    <animate attributeName="cy" values="96;92;96" dur="0.3s" repeatCount="indefinite" />
+                </circle>
+            </g>
+
+            <!-- Right Arm with typing animation -->
+            <g>
+                <rect x="130" y="90" width="30" height="12" rx="6" fill="#64748b">
+                    <animateTransform attributeName="transform" type="rotate" values="0 130 96;5 130 96;0 130 96" dur="0.3s" repeatCount="indefinite" begin="0.15s" />
+                </rect>
+                <circle cx="158" cy="96" r="6" fill="#94a3b8">
+                    <animate attributeName="cy" values="96;92;96" dur="0.3s" repeatCount="indefinite" begin="0.15s" />
+                </circle>
+            </g>
+
+            <!-- Typewriter Base -->
+            <rect x="30" y="140" width="140" height="25" rx="4" fill="#374151" />
+            <rect x="35" y="135" width="130" height="10" rx="2" fill="#4b5563" />
+
+            <!-- Typewriter Keys -->
+            <rect x="45" y="142" width="10" height="6" rx="1" fill="#6b7280"><animate attributeName="y" values="142;140;142" dur="0.15s" repeatCount="indefinite" begin="0s" /></rect>
+            <rect x="59" y="142" width="10" height="6" rx="1" fill="#6b7280"><animate attributeName="y" values="142;140;142" dur="0.15s" repeatCount="indefinite" begin="0.05s" /></rect>
+            <rect x="73" y="142" width="10" height="6" rx="1" fill="#6b7280"><animate attributeName="y" values="142;140;142" dur="0.15s" repeatCount="indefinite" begin="0.1s" /></rect>
+            <rect x="87" y="142" width="10" height="6" rx="1" fill="#6b7280"><animate attributeName="y" values="142;140;142" dur="0.15s" repeatCount="indefinite" begin="0.15s" /></rect>
+            <rect x="101" y="142" width="10" height="6" rx="1" fill="#6b7280"><animate attributeName="y" values="142;140;142" dur="0.15s" repeatCount="indefinite" begin="0.2s" /></rect>
+            <rect x="115" y="142" width="10" height="6" rx="1" fill="#6b7280"><animate attributeName="y" values="142;140;142" dur="0.15s" repeatCount="indefinite" begin="0.25s" /></rect>
+            <rect x="129" y="142" width="10" height="6" rx="1" fill="#6b7280"><animate attributeName="y" values="142;140;142" dur="0.15s" repeatCount="indefinite" begin="0.3s" /></rect>
+            <rect x="143" y="142" width="10" height="6" rx="1" fill="#6b7280"><animate attributeName="y" values="142;140;142" dur="0.15s" repeatCount="indefinite" begin="0.35s" /></rect>
+
+            <!-- Paper/Screen with prompt -->
+            <rect x="40" y="102" width="120" height="44" fill="#1e293b" rx="3" />
+            <rect x="43" y="105" width="114" height="38" fill="#0f172a" rx="2" />
+
+            <!-- Prompt text lines -->
+            <text x="48" y="117" font-size="5.5" fill="#22d3ee" font-family="monospace" id="roberto-line1">&gt; Analyserer data...</text>
+            <text x="48" y="127" font-size="5.5" fill="#a5f3fc" font-family="monospace" id="roberto-line2">&gt; Bygger kampagne</text>
+            <text x="48" y="137" font-size="5.5" fill="#a5f3fc" font-family="monospace">
+                <tspan id="roberto-line3">  struktur</tspan>
+                <tspan fill="#22d3ee">_</tspan>
+                <animate attributeName="opacity" values="1;0;1" dur="1s" repeatCount="indefinite" />
+            </text>
+
+            <!-- Carriage -->
+            <rect x="50" y="105" width="100" height="8" rx="2" fill="#1f2937">
+                <animate attributeName="x" values="50;55;50" dur="4s" repeatCount="indefinite" />
+            </rect>
+        </svg>
+        </div>
+
+        <!-- Loading text with animated dots -->
+        <div class="mt-6 text-slate-700 text-lg font-mono" id="roberto-loading-text">
+            Woosaah<span id="roberto-dots"></span>
+        </div>
+
+        <p class="mt-2 text-slate-500 text-sm" id="roberto-subtitle">
+            Roberto din Co-manager - Arbejder så hurtigt han kan
+        </p>
+    </div>
+</div>
+
+<script>
+// Roberto Loading Modal - Backend Widget Manager
+let loadedRobertoWidgets = {};
+let robertoDotsInterval = null;
+let lastShownWidgetIndex = {};  // Track last shown widget per operation type for variety
+
+// Load widgets from backend on page load
+async function loadRobertoWidgets() {
+    try {
+        const response = await fetch('/ai/ajax/widgets-for-operation/');
+        const data = await response.json();
+        if (data.success) {
+            loadedRobertoWidgets = data.widgets;
+            console.log('[Roberto] Loaded widgets from backend:', Object.keys(loadedRobertoWidgets));
+        }
+    } catch (error) {
+        console.error('[Roberto] Failed to load widgets:', error);
+    }
+}
+
+// Initialize widgets on page load
+loadRobertoWidgets();
+
+function showRobertoLoading(operationTypeOrCustomTexts = 'random') {
+    const modal = document.getElementById('roberto-loading-modal');
+    if (!modal) return;
+
+    let widget = null;
+    let texts = null;
+
+    // Check if we received custom texts (legacy support) or operation type
+    if (typeof operationTypeOrCustomTexts === 'object' && operationTypeOrCustomTexts !== null) {
+        // Legacy: custom texts object passed directly
+        texts = operationTypeOrCustomTexts;
+    } else {
+        // New: operation type string
+        const operationType = operationTypeOrCustomTexts;
+
+        // Get widgets ONLY for this specific operation type (no fallback to random)
+        let availableWidgets = loadedRobertoWidgets[operationType] || [];
+
+        if (availableWidgets.length === 0) {
+            // No active widgets for this operation type - show blank modal
+            texts = {
+                loadingText: 'Ingen Loading Widget',
+                subtitle: `Ingen aktiv widget for: ${operationType}`
+            };
+            // Clear the SVG container to show blank
+            const svgContainer = document.getElementById('roberto-svg-container');
+            if (svgContainer) {
+                svgContainer.innerHTML = '';
+            }
+            console.log('[Roberto] No active widgets for operation type:', operationType);
+        } else {
+            // Select widget with variety - avoid showing same widget twice in a row
+            let widgetIndex = 0;
+            const maxIndex = Math.min(3, availableWidgets.length);  // Only consider top 3 by priority
+
+            if (maxIndex > 1) {
+                // Get last shown index for this operation type
+                const lastIndex = lastShownWidgetIndex[operationType];
+
+                // Build array of available indices (excluding last shown)
+                const availableIndices = [];
+                for (let i = 0; i < maxIndex; i++) {
+                    if (i !== lastIndex) {
+                        availableIndices.push(i);
+                    }
+                }
+
+                // Select randomly from available indices
+                widgetIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+            }
+
+            // Store the selected index for next time
+            lastShownWidgetIndex[operationType] = widgetIndex;
+
+            widget = availableWidgets[widgetIndex];
+            texts = widget.text_config;
+            console.log('[Roberto] Selected widget:', widget.name, 'index:', widgetIndex, 'for:', operationType);
+        }
+    }
+
+    // Update SVG if widget has one
+    if (widget && widget.svg_content) {
+        const svgContainer = document.getElementById('roberto-svg-container');
+        if (svgContainer) {
+            svgContainer.innerHTML = widget.svg_content;
+            console.log('[Roberto] Swapped SVG for widget:', widget.name);
+        }
+    }
+
+    // Update text content (check if elements exist - they may not exist in all SVG widgets)
+    const line1El = document.getElementById('roberto-line1');
+    const line2El = document.getElementById('roberto-line2');
+    const line3El = document.getElementById('roberto-line3');
+    const loadingTextEl = document.getElementById('roberto-loading-text');
+    const subtitleEl = document.getElementById('roberto-subtitle');
+
+    if (line1El) line1El.textContent = texts.line1 || '> Loading...';
+    if (line2El) line2El.textContent = texts.line2 || '> Arbejder';
+    if (line3El) line3El.textContent = texts.line3 || '  på det';
+    if (loadingTextEl) loadingTextEl.innerHTML = (texts.loadingText || 'Vent') + '<span id="roberto-dots"></span>';
+    if (subtitleEl) subtitleEl.textContent = texts.subtitle || 'Roberto arbejder';
+
+    // Start dots animation
+    let dots = '';
+    robertoDotsInterval = setInterval(() => {
+        dots = dots.length >= 3 ? '' : dots + '.';
+        const dotsEl = document.getElementById('roberto-dots');
+        if (dotsEl) dotsEl.textContent = dots;
+    }, 400);
+
+    // Show modal
+    modal.style.display = 'flex';
+    console.log('[Roberto] Modal shown, operation:', operationTypeOrCustomTexts);
+}
+
+function hideRobertoLoading() {
+    const modal = document.getElementById('roberto-loading-modal');
+    if (!modal) return;
+
+    // Hide modal immediately - it stays visible until operation completes
+    modal.style.display = 'none';
+    if (robertoDotsInterval) {
+        clearInterval(robertoDotsInterval);
+        robertoDotsInterval = null;
+    }
+    console.log('[Roberto] Modal hidden');
+}
+
+// Convenience functions for specific loading contexts (using operation types)
+function showRobertoScraping() {
+    showRobertoLoading('crawling');
+}
+
+function showRobertoDetecting() {
+    showRobertoLoading('service_detection');
+}
+
+function showRobertoGenerating() {
+    showRobertoLoading('company_description');
+}
+
+function showRobertoMetaTags() {
+    showRobertoLoading('meta_tags');
+}
+
+function showRobertoSeoContent() {
+    showRobertoLoading('seo_content');
+}
+
+function showRobertoUspAnalysis() {
+    showRobertoLoading('usp_analysis');
+}
+</script>
+
 <script>
 // Wizard State Management
 let currentStep = 0;  // Start at step 0 (purpose selection)
@@ -1225,6 +1532,9 @@ let campaignConfig = {
     usp_custom_texts: {},  // {usp_id: "custom text"} for edited USPs
     usp_variable_values: {},  // {usp_id: {varIndex: "brugerværdi"}} for variable substitution
     custom_usps: [],  // Array of custom USP texts added by user
+    custom_services: [],  // Array of custom services detected by AI: [{name, industry, confidence}]
+    custom_service_purposes: {},  // {index: {google_ads: true, seo: true, programmatic: true}} - purpose settings for custom services
+    suggested_industries: [],  // Array of AI-suggested industries not in database
     negative_keyword_list_ids: [],
     budget_strategy_id: null,
     ad_template_id: null,
@@ -1275,13 +1585,30 @@ let campaignConfig = {
         matched_usps: [],
         custom_usps: [],
         extracted_facts: {},
-        applied: false  // Track if suggestions have been applied to UI
+        applied: false,  // Track if suggestions have been applied to UI
+        pages_scraped: 0,
+        total_urls_found: 0,
+        content_length: 0
+    },
+    // Service Detection from website scraping (Auto-select industries/services)
+    service_detection: {
+        status: 'idle',  // 'idle', 'detecting', 'success', 'error'
+        timestamp: null,
+        detected_services: [],
+        detected_service_ids: [],
+        suggested_services: [],  // Services not in DB but detected on website
+        detected_industries: [],
+        detected_industry_ids: [],
+        primary_industry: null,
+        confidence_scores: {},
+        applied: false  // Track if detection has been applied to UI
     }
 };
 
 // Crawl State - shared across all purposes (website analysis, programmatic, SEO)
 let crawlState = {
     website_url: '',
+    scrape_mode: 10,  // 10, 50, 100, or 0 (all pages)
     crawl_status: 'idle', // 'idle' | 'crawling' | 'success' | 'error'
     crawl_timestamp: null,
     crawl_error: null,
@@ -1289,7 +1616,9 @@ let crawlState = {
     urls_found: 0,
     city_matches: [],      // Genbruges i Programmatic step
     existing_count: 0,
-    missing_count: 0
+    missing_count: 0,
+    scraped_pages: {},      // Pages with meta_title, meta_description, content
+    extracted_reviews: []   // Reviews extracted via Playwright (Trustpilot, Google etc.)
 };
 
 // Server data - will be populated from Django context
@@ -1350,6 +1679,7 @@ function migrateState(state) {
             if (!state.crawlState) {
                 state.crawlState = {
                     website_url: '',
+                    scrape_mode: 10,
                     crawl_status: 'idle',
                     crawl_timestamp: null,
                     crawl_error: null,
@@ -1359,6 +1689,10 @@ function migrateState(state) {
                     existing_count: 0,
                     missing_count: 0
                 };
+            }
+            // Add scrape_mode to existing crawlState if missing
+            if (state.crawlState && state.crawlState.scrape_mode === undefined) {
+                state.crawlState.scrape_mode = 10;
             }
 
             // Initialize service_purposes if not present
@@ -1552,6 +1886,14 @@ registerUIRestoreHandler('website_url', (config) => {
     }
 }, { priority: 5 });
 
+// Step 1: Scrape Mode (priority: 6) - Restore crawlState.scrape_mode
+registerUIRestoreHandler('scrape_mode', (config) => {
+    if (crawlState.scrape_mode !== undefined) {
+        $(`input[name="scrape-mode"][value="${crawlState.scrape_mode}"]`).prop('checked', true);
+        console.log('Restored scrape_mode:', crawlState.scrape_mode);
+    }
+}, { priority: 6 });
+
 // Step 2: Service Purposes (priority: 26, after services) - Restore service purpose checkboxes
 registerUIRestoreHandler('service_purposes', (config) => {
     if (config.service_purposes && Object.keys(config.service_purposes).length > 0) {
@@ -1568,6 +1910,16 @@ registerUIRestoreHandler('service_purposes', (config) => {
         console.log('Restored service_purposes:', config.service_purposes);
     }
 }, { priority: 26 });
+
+// Step 2: Custom Service Purposes (priority: 27, after service_purposes) - Restore custom service purpose checkboxes
+registerUIRestoreHandler('custom_service_purposes', (config) => {
+    if (config.custom_service_purposes && Object.keys(config.custom_service_purposes).length > 0) {
+        // Re-render custom services to show the checkboxes with correct state
+        // The checkbox states are already stored in campaignConfig.custom_service_purposes
+        renderCustomServices();
+        console.log('Restored custom_service_purposes:', config.custom_service_purposes);
+    }
+}, { priority: 27 });
 
 // Restore UI from saved state using registered handlers
 async function restoreUIFromState() {
@@ -1709,6 +2061,12 @@ function updateServicePurposesUI() {
             campaignConfig.service_purposes[serviceId].programmatic = true;
         }
     });
+
+    // Also update custom service purposes when purposes change
+    // Re-render custom services to show updated purpose checkboxes
+    if (campaignConfig.custom_services.length > 0) {
+        renderCustomServices();
+    }
 }
 
 // Get services filtered by a specific purpose
@@ -1720,6 +2078,32 @@ function getServicesForPurpose(purpose) {
         if (!purposes) return true;
         return purposes[purpose] === true;
     });
+}
+
+// Get custom services (AI-suggested) filtered by a specific purpose
+// Returns array of custom services where that purpose is enabled
+function getCustomServicesForPurpose(purpose) {
+    // Check if the purpose is in the user's selected purposes
+    const isPurposeSelected = (campaignConfig.selected_purposes || []).includes(purpose);
+
+    return campaignConfig.custom_services.filter((service, index) => {
+        const purposes = campaignConfig.custom_service_purposes[index];
+
+        // If no purposes set for this service, default to true if purpose is selected
+        if (!purposes) {
+            return isPurposeSelected;
+        }
+
+        // If the specific purpose is not defined, default to true if purpose is selected
+        if (purposes[purpose] === undefined) {
+            return isPurposeSelected;
+        }
+
+        return purposes[purpose] === true;
+    }).map((service, index) => ({
+        ...service,
+        customIndex: campaignConfig.custom_services.indexOf(service)  // Track original index
+    }));
 }
 
 // Get visible steps based on selected purposes
@@ -1816,6 +2200,7 @@ $(document).ready(async function() {
             location.reload();
         }
     });
+
 });
 
 // Setup event listeners
@@ -2536,13 +2921,32 @@ function cancelFullTextEdit($input) {
 // Load services for all selected industries
 function loadServicesForSelectedIndustries() {
     const servicesContainer = $('#services-container');
-    
-    if (campaignConfig.industry_ids.length === 0) {
+
+    // Check if we have any industries (DB or AI-suggested)
+    const hasDbIndustries = campaignConfig.industry_ids.length > 0;
+    const hasAiIndustries = (campaignConfig.suggested_industries || []).length > 0;
+
+    if (!hasDbIndustries && !hasAiIndustries) {
         servicesContainer.html(`
             <div class="col-span-full text-center py-8">
                 <p class="text-gray-500">Vælg mindst én branche for at se services</p>
             </div>
         `);
+        return Promise.resolve();
+    }
+
+    // If only AI-suggested industries (no DB industries), show message and rely on custom_services
+    if (!hasDbIndustries && hasAiIndustries) {
+        servicesContainer.html(`
+            <div class="col-span-full text-center py-8">
+                <div class="w-16 h-16 mx-auto mb-4 bg-amber-100 rounded-full flex items-center justify-center">
+                    <span class="text-2xl">✨</span>
+                </div>
+                <p class="text-gray-700 font-medium">Kun AI-foreslåede brancher valgt</p>
+                <p class="text-gray-500 text-sm mt-1">Dine services vises i "AI-Foreslåede Services" sektionen nedenfor</p>
+            </div>
+        `);
+        $('#services-section').show();
         return Promise.resolve();
     }
     
@@ -2754,12 +3158,33 @@ function processServiceResponses(responses) {
 }
 
 // Navigation functions
-function nextStep() {
+async function nextStep() {
     const visibleSteps = getVisibleSteps();
     const lastStep = visibleSteps[visibleSteps.length - 1];
 
     if (currentStep < lastStep) {
         if (validateCurrentStep()) {
+            // When leaving Step 1 (Website URL) with a URL, scrape and detect services first
+            if (currentStep === 1 && crawlState.website_url && campaignConfig.service_detection.status === 'idle') {
+                // Show loading state
+                $('#next-btn').prop('disabled', true).html(`
+                    <svg class="animate-spin -ml-1 mr-2 h-5 w-5 text-white inline-block" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Analyserer hjemmeside...
+                `);
+
+                try {
+                    await scrapeAndDetectServices();
+                } catch (error) {
+                    console.error('[Service Detection] Error:', error);
+                }
+
+                // Reset button
+                $('#next-btn').prop('disabled', false).text('Næste →');
+            }
+
             // Start background USP analysis when leaving Step 1 (Website URL)
             if (currentStep === 1 && crawlState.website_url && campaignConfig.usp_analysis.status === 'idle') {
                 startBackgroundUspAnalysis();
@@ -2773,6 +3198,11 @@ function nextStep() {
             currentStep = getNextVisibleStep(currentStep);
             updateWizardState();
             saveStateToStorage(); // Save state on step change
+
+            // Apply service detection when arriving at Step 2 (Industries/Services)
+            if (currentStep === 2 && campaignConfig.service_detection.status === 'success' && !campaignConfig.service_detection.applied) {
+                applyServiceDetection();
+            }
 
             // Special handling for final step (summary)
             if (currentStep === 9) {  // Summary step (var 10, nu 9)
@@ -2812,11 +3242,17 @@ function validateCurrentStep() {
         case 1:  // Website URL (NEW - optional, no validation required)
             return true;
         case 2:  // Industry & Services (was case 1)
-            if (campaignConfig.industry_ids.length === 0) {
+            // Check if user has selected at least one industry (from DB OR AI-suggested)
+            const hasDbIndustry = campaignConfig.industry_ids.length > 0;
+            const hasAiIndustry = (campaignConfig.suggested_industries || []).length > 0;
+            if (!hasDbIndustry && !hasAiIndustry) {
                 alert('Vælg venligst mindst én branche før du fortsætter.');
                 return false;
             }
-            if (campaignConfig.service_ids.length === 0) {
+            // Check if user has selected at least one service (from DB OR AI-suggested/custom)
+            const hasDbService = campaignConfig.service_ids.length > 0;
+            const hasAiService = (campaignConfig.custom_services || []).length > 0;
+            if (!hasDbService && !hasAiService) {
                 alert('Vælg mindst én service før du fortsætter.');
                 return false;
             }
@@ -2900,8 +3336,27 @@ function validateCurrentStep() {
             const MIN_DESCRIPTIONS = 4;
             const validationErrors = [];
 
+            // Get custom services that have Google Ads enabled for filtering
+            const googleAdsCustomServices = getCustomServicesForPurpose('google_ads');
+            const googleAdsCustomServiceNames = new Set(
+                googleAdsCustomServices.map(s => s.name.toLowerCase())
+            );
+
             for (const [industryId, campaign] of Object.entries(campaignConfig.campaigns)) {
                 const campaignName = campaign.industry_name || `Kampagne ${industryId}`;
+                const isAiCampaign = industryId.startsWith('ai_');
+
+                // For AI campaigns, check if any of its services have Google Ads enabled
+                if (isAiCampaign) {
+                    const hasGoogleAdsServices = Object.values(campaign.ad_groups || {}).some(adGroup => {
+                        const serviceName = (adGroup.service_name || '').toLowerCase();
+                        return googleAdsCustomServiceNames.has(serviceName);
+                    });
+                    // Skip entire AI campaign if no services have Google Ads enabled
+                    if (!hasGoogleAdsServices) {
+                        continue;
+                    }
+                }
 
                 // Check daily budget
                 if (!campaign.daily_budget || campaign.daily_budget <= 0) {
@@ -2911,6 +3366,15 @@ function validateCurrentStep() {
                 // Check each ad group
                 for (const [serviceId, adGroup] of Object.entries(campaign.ad_groups || {})) {
                     const adGroupName = adGroup.service_name || `Annoncegruppe ${serviceId}`;
+
+                    // For AI ad groups, skip validation if the service doesn't have Google Ads enabled
+                    if (isAiCampaign) {
+                        const serviceName = (adGroup.service_name || '').toLowerCase();
+                        if (!googleAdsCustomServiceNames.has(serviceName)) {
+                            continue;  // Skip this ad group - service doesn't have Google Ads enabled
+                        }
+                    }
+
                     const headlineCount = (adGroup.headlines || []).length;
                     const descriptionCount = (adGroup.descriptions || []).length;
 
@@ -3067,8 +3531,8 @@ function generateCampaignSummary() {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <h4 class="font-medium text-gray-900 mb-2">🏢 Brancher & Services</h4>
-                    <p class="text-sm text-gray-600 mb-1">Brancher: ${campaignConfig.industry_ids.length} valgt</p>
-                    <p class="text-sm text-gray-600">Services: ${campaignConfig.service_ids.length} valgt</p>
+                    <p class="text-sm text-gray-600 mb-1">Brancher: ${campaignConfig.industry_ids.length + (campaignConfig.suggested_industries || []).length} valgt${(campaignConfig.suggested_industries || []).length > 0 ? ` <span class="text-amber-600">(${(campaignConfig.suggested_industries || []).length} AI)</span>` : ''}</p>
+                    <p class="text-sm text-gray-600">Services: ${campaignConfig.service_ids.length + (campaignConfig.custom_services || []).length} valgt${(campaignConfig.custom_services || []).length > 0 ? ` <span class="text-purple-600">(${(campaignConfig.custom_services || []).length} AI)</span>` : ''}</p>
                 </div>
 
                 <div>
@@ -3244,14 +3708,23 @@ function showToast(message, type = 'success') {
     $('.toast-notification').remove();
 
     const bgColor = type === 'success' ? 'bg-green-500' :
-                    type === 'error' ? 'bg-red-500' : 'bg-blue-500';
-    const iconSvg = type === 'success' ?
-        `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    type === 'error' ? 'bg-red-500' :
+                    type === 'warning' ? 'bg-amber-500' : 'bg-blue-500';
+
+    let iconSvg;
+    if (type === 'success') {
+        iconSvg = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-        </svg>` :
-        `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        </svg>`;
+    } else if (type === 'warning') {
+        iconSvg = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+        </svg>`;
+    } else {
+        iconSvg = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
         </svg>`;
+    }
 
     const toast = $(`
         <div class="toast-notification fixed bottom-4 right-4 ${bgColor} text-white px-4 py-3 rounded-lg shadow-lg flex items-center space-x-2 z-50 transform translate-y-0 opacity-100 transition-all duration-300">
@@ -3291,7 +3764,6 @@ function getCookie(name) {
 
 async function generateCompanyDescriptionAI() {
     const btn = $('#generate-description-btn');
-    const loading = $('#description-loading');
     const originalBtnHtml = btn.html();
 
     // Collect data from previous steps
@@ -3309,10 +3781,12 @@ async function generateCompanyDescriptionAI() {
         return;
     }
 
-    // Show loading state - first phase: online research
+    // Show loading state with Roberto
     btn.prop('disabled', true);
-    btn.html('<span class="animate-spin inline-block mr-2">⏳</span> Søger information online...');
-    loading.removeClass('hidden');
+    btn.html('<span class="animate-spin inline-block mr-2">⏳</span> Roberto arbejder...');
+
+    // Show Roberto loading animation
+    showRobertoLoading('company_research');
 
     try {
         const response = await fetch('/ajax/generate-company-description/', {
@@ -3340,9 +3814,53 @@ async function generateCompanyDescriptionAI() {
 
             // Save and display profile JSON if available (for use in other AI prompts)
             if (data.profile && Object.keys(data.profile).length > 0) {
+                // Ensure ALL selected cities are included (AI may truncate the list)
+                const allSelectedAreas = getSelectedGeographicAreas();
+                if (allSelectedAreas.length > 0) {
+                    if (!data.profile.geografisk_daekning) {
+                        data.profile.geografisk_daekning = {};
+                    }
+                    // Always use the actual selected cities, not AI's truncated version
+                    data.profile.geografisk_daekning.alle_byer = allSelectedAreas;
+                }
+
+                // Also ensure ALL USPs are included
+                const allUsps = getSelectedUspTexts();
+                if (allUsps.length > 0 && data.profile.usps) {
+                    // Add any USPs that AI missed
+                    const existingUspTexts = data.profile.usps.map(u => u.usp || u);
+                    allUsps.forEach(uspText => {
+                        if (!existingUspTexts.includes(uspText)) {
+                            data.profile.usps.push({
+                                usp: uspText,
+                                kategori: 'andet',
+                                konkret_detalje: null
+                            });
+                        }
+                    });
+                }
+
+                // Ensure ALL services are included (AI may truncate the list)
+                const allServices = getSelectedServiceNames();
+                if (allServices.length > 0) {
+                    if (!data.profile.virksomhed) {
+                        data.profile.virksomhed = {};
+                    }
+                    // Always use the actual selected services, not AI's truncated version
+                    data.profile.virksomhed.alle_services = allServices;
+                }
+
+                // Also ensure ALL industries are included
+                const allIndustries = getSelectedIndustryNames();
+                if (allIndustries.length > 0) {
+                    if (!data.profile.virksomhed) {
+                        data.profile.virksomhed = {};
+                    }
+                    data.profile.virksomhed.alle_brancher = allIndustries;
+                }
+
                 campaignConfig.company_info.profile = data.profile;
                 renderProfileJson(data.profile);
-                console.log('Company profile saved:', data.profile);
             }
 
             // Display key points if available
@@ -3367,22 +3885,32 @@ async function generateCompanyDescriptionAI() {
     } finally {
         btn.prop('disabled', false);
         btn.html(originalBtnHtml);
-        loading.addClass('hidden');
+        hideRobertoLoading();
     }
 }
 
 function getSelectedIndustryNames() {
     const names = [];
+    // Database industries
     campaignConfig.industry_ids.forEach(id => {
         const card = $(`.industry-card[data-industry-id="${id}"]`);
         const name = card.find('h4').text().trim();
         if (name) names.push(name);
     });
+    // AI-suggested industries (not in database)
+    if (campaignConfig.suggested_industries && campaignConfig.suggested_industries.length > 0) {
+        campaignConfig.suggested_industries.forEach(industryName => {
+            if (industryName && !names.includes(industryName)) {
+                names.push(industryName);
+            }
+        });
+    }
     return names;
 }
 
 function getSelectedServiceNames() {
     const names = [];
+    // Database services
     campaignConfig.service_ids.forEach(id => {
         if (serverData.services_by_id && serverData.services_by_id[id]) {
             const service = serverData.services_by_id[id];
@@ -3391,27 +3919,69 @@ function getSelectedServiceNames() {
             }
         }
     });
+    // AI-suggested/custom services (not in database)
+    if (campaignConfig.custom_services && campaignConfig.custom_services.length > 0) {
+        campaignConfig.custom_services.forEach(cs => {
+            if (cs && cs.name && !names.includes(cs.name)) {
+                names.push(cs.name);
+            }
+        });
+    }
     return names;
 }
 
 function getSelectedUspTexts() {
     const texts = [];
+    const addedTexts = new Set(); // Avoid duplicates
 
-    // Selected USP templates
+    // 1. Selected USP templates from usp_ids
     campaignConfig.usp_ids.forEach(uspId => {
-        const checkbox = $(`.usp-checkbox[data-usp-id="${uspId}"]`);
-        const originalText = checkbox.data('original-text');
-        if (originalText) {
-            const finalText = getUspFinalText ? getUspFinalText(uspId, originalText) : originalText;
-            texts.push(finalText);
+        let text = null;
+
+        // First check for custom edited text
+        if (campaignConfig.usp_custom_texts && campaignConfig.usp_custom_texts[uspId]) {
+            text = campaignConfig.usp_custom_texts[uspId];
+        } else {
+            // Try to get from DOM
+            const checkbox = $(`.usp-checkbox[data-usp-id="${uspId}"]`);
+            const originalText = checkbox.data('original-text');
+            if (originalText) {
+                text = getUspFinalText ? getUspFinalText(uspId, originalText) : originalText;
+            } else {
+                // Fallback: try display text
+                const displayText = checkbox.closest('.usp-item').find('.usp-display-text').text().trim();
+                if (displayText) text = displayText;
+            }
+        }
+
+        if (text && !addedTexts.has(text)) {
+            texts.push(text);
+            addedTexts.add(text);
         }
     });
 
-    // Custom USPs
-    if (campaignConfig.custom_usps) {
+    // 2. Custom USPs (user-added and AI-suggested)
+    if (campaignConfig.custom_usps && campaignConfig.custom_usps.length > 0) {
         campaignConfig.custom_usps.forEach(usp => {
-            texts.push(usp);
+            if (usp && !addedTexts.has(usp)) {
+                texts.push(usp);
+                addedTexts.add(usp);
+            }
         });
+    }
+
+    // 3. AI-analyzed USPs that may not have been applied yet
+    if (campaignConfig.usp_analysis && campaignConfig.usp_analysis.status === 'success') {
+        // Add custom USPs from AI analysis
+        if (campaignConfig.usp_analysis.custom_usps) {
+            campaignConfig.usp_analysis.custom_usps.forEach(item => {
+                const uspText = item.text || item;
+                if (uspText && !addedTexts.has(uspText)) {
+                    texts.push(uspText);
+                    addedTexts.add(uspText);
+                }
+            });
+        }
     }
 
     return texts;
@@ -3419,17 +3989,43 @@ function getSelectedUspTexts() {
 
 function getSelectedGeographicAreas() {
     const areas = [];
+    const addedAreas = new Set(); // Avoid duplicates
 
-    // Region names
+    // 1. Region names from geographic_region_ids
     campaignConfig.geographic_region_ids.forEach(id => {
+        // Try to get from DOM
         const card = $(`.geographic-region-card[data-region-id="${id}"]`);
-        const name = card.data('region-name');
-        if (name) areas.push(name);
+        let name = card.data('region-name');
+
+        // Fallback: try to get from card title
+        if (!name) {
+            name = card.find('h4').text().trim();
+        }
+
+        if (name && !addedAreas.has(name)) {
+            areas.push(name);
+            addedAreas.add(name);
+        }
     });
 
-    // Manual geo map selections
+    // 2. Manual geo map selections (postal names = city names)
     if (campaignConfig.geo_map_targeting && campaignConfig.geo_map_targeting.postal_names) {
-        areas.push(...campaignConfig.geo_map_targeting.postal_names);
+        campaignConfig.geo_map_targeting.postal_names.forEach(name => {
+            if (name && !addedAreas.has(name)) {
+                areas.push(name);
+                addedAreas.add(name);
+            }
+        });
+    }
+
+    // 3. Also include negative city list source cities if available
+    if (campaignConfig.negative_city_source_cities && campaignConfig.negative_city_source_cities.length > 0) {
+        campaignConfig.negative_city_source_cities.forEach(name => {
+            if (name && !addedAreas.has(name)) {
+                areas.push(name);
+                addedAreas.add(name);
+            }
+        });
     }
 
     return areas;
@@ -3821,9 +4417,9 @@ async function fetchCampaignBuilderData() {
 let activeCampaignKey = null;
 let allCampaignKeys = [];
 
-// State for SEO Builder (Step 7)
-let activeSeoServiceId = null;
-let allSeoServiceKeys = [];  // [{id, name, color}]
+// State for SEO Builder (Step 7) - PAGE-BASED structure
+let activeSeoPagePath = null;  // Active page path (e.g., "/", "/privatflytning/")
+let allSeoPageKeys = [];  // [{path, page_title, services: [{name, color, isCustom}], color}]
 
 // Hent default negative keyword list IDs baseret på valgte Google Ads services
 // Returnerer IDs for lister der er tilknyttet de valgte services + by-listen
@@ -3858,6 +4454,8 @@ function renderCampaignsBuilder() {
     // Group services by industry - only include services enabled for Google Ads
     const googleAdsServices = getServicesForPurpose('google_ads');
     const servicesByIndustry = {};
+
+    // Add DB industries
     campaignConfig.industry_ids.forEach(industryId => {
         const industryData = fetchedIndustryData[industryId];
         if (industryData && industryData.success) {
@@ -3873,6 +4471,64 @@ function renderCampaignsBuilder() {
             }
         }
     });
+
+    // Add AI-suggested industries with their custom services
+    // ONLY include custom services that have Google Ads enabled in their purpose settings
+    const googleAdsCustomServices = getCustomServicesForPurpose('google_ads');
+    const assignedCustomServices = new Set();
+
+    (campaignConfig.suggested_industries || []).forEach(industryName => {
+        // Create a unique key for AI-suggested industries (use name as key with prefix)
+        const aiIndustryKey = `ai_${industryName.toLowerCase().replace(/\s+/g, '_')}`;
+
+        // Get custom services for this AI industry (only those with Google Ads enabled)
+        const aiServices = googleAdsCustomServices
+            .filter(s => s.industry?.toLowerCase() === industryName.toLowerCase())
+            .map((s) => {
+                assignedCustomServices.add(s.name.toLowerCase());
+                const originalIndex = s.customIndex !== undefined ? s.customIndex : campaignConfig.custom_services.indexOf(s);
+                return {
+                    id: `ai_${originalIndex}_${s.name.toLowerCase().replace(/\s+/g, '_')}`,
+                    name: s.name,
+                    description: s.evidence || '',
+                    ai_suggested: true,
+                    confidence: s.confidence,
+                    customIndex: originalIndex
+                };
+            });
+
+        if (aiServices.length > 0) {
+            servicesByIndustry[aiIndustryKey] = {
+                name: `${industryName} ✨`,
+                services: aiServices,
+                ai_suggested: true
+            };
+        }
+    });
+
+    // Handle orphan custom services (services without a matching suggested industry)
+    // Only include those with Google Ads enabled
+    const orphanServices = googleAdsCustomServices
+        .filter(s => !assignedCustomServices.has(s.name.toLowerCase()))
+        .map((s) => {
+            const originalIndex = s.customIndex !== undefined ? s.customIndex : campaignConfig.custom_services.indexOf(s);
+            return {
+                id: `ai_orphan_${originalIndex}_${s.name.toLowerCase().replace(/\s+/g, '_')}`,
+                name: s.name,
+                description: s.evidence || '',
+                ai_suggested: true,
+                confidence: s.confidence,
+                customIndex: originalIndex
+            };
+        });
+
+    if (orphanServices.length > 0) {
+        servicesByIndustry['ai_other'] = {
+            name: 'Andre AI Services ✨',
+            services: orphanServices,
+            ai_suggested: true
+        };
+    }
 
     // Reset campaign keys
     allCampaignKeys = [];
@@ -4141,8 +4797,20 @@ function renderActiveCampaignContent(campaignKey) {
 
     if (campaignKey.type === 'industry') {
         const campaign = campaignConfig.campaigns[campaignKey.id];
-        const industryData = fetchedIndustryData[campaignKey.id];
-        const services = industryData?.services?.filter(s => getServicesForPurpose('google_ads').includes(s.id)) || [];
+        const isAiCampaign = campaignKey.id.startsWith('ai_');
+
+        let services = [];
+        if (isAiCampaign) {
+            // For AI campaigns, build services array from ad_groups
+            services = Object.entries(campaign.ad_groups || {}).map(([serviceKey, adGroup]) => ({
+                id: serviceKey,
+                name: adGroup.service_name || serviceKey
+            }));
+        } else {
+            // For database campaigns, use fetchedIndustryData
+            const industryData = fetchedIndustryData[campaignKey.id];
+            services = industryData?.services?.filter(s => getServicesForPurpose('google_ads').includes(s.id)) || [];
+        }
 
         const html = renderIndustryCampaignContent(campaignKey.id, campaign, services);
         contentContainer.html(html);
@@ -8212,6 +8880,9 @@ async function startBackgroundUspAnalysis() {
     campaignConfig.usp_analysis.status = 'analyzing';
     debouncedSaveState();
 
+    // Show Roberto loading animation
+    showRobertoLoading('usp_analysis');
+
     try {
         const response = await $.ajax({
             url: '/ajax/analyze-website-usps/',
@@ -8220,7 +8891,8 @@ async function startBackgroundUspAnalysis() {
             contentType: 'application/json',
             data: JSON.stringify({
                 website_url: crawlState.website_url,
-                industry_ids: campaignConfig.industry_ids
+                industry_ids: campaignConfig.industry_ids,
+                scrape_mode: crawlState.scrape_mode !== undefined ? crawlState.scrape_mode : 10
             })
         });
 
@@ -8231,14 +8903,19 @@ async function startBackgroundUspAnalysis() {
                 matched_usps: response.analysis.matched_usps || [],
                 custom_usps: response.analysis.custom_usps || [],
                 extracted_facts: response.analysis.extracted_facts || {},
-                applied: false
+                applied: false,
+                pages_scraped: response.pages_scraped || 1,
+                total_urls_found: response.total_urls_found || 1,
+                content_length: response.scraped_content_length || 0
             };
 
             console.log('[USP Analysis] Complete:',
                 campaignConfig.usp_analysis.matched_usps.length, 'matched,',
-                campaignConfig.usp_analysis.custom_usps.length, 'custom');
+                campaignConfig.usp_analysis.custom_usps.length, 'custom,',
+                campaignConfig.usp_analysis.pages_scraped, 'pages scraped');
 
             debouncedSaveState();
+            hideRobertoLoading();
 
             // If user is already on Step 3, apply suggestions immediately
             if (currentStep === 3 && !campaignConfig.usp_analysis.applied) {
@@ -8251,6 +8928,7 @@ async function startBackgroundUspAnalysis() {
         console.error('[USP Analysis] Error:', error);
         campaignConfig.usp_analysis.status = 'error';
         debouncedSaveState();
+        hideRobertoLoading();
     }
 }
 
@@ -8389,6 +9067,692 @@ function updateUspAnalysisStatusUI() {
             statusDiv.addClass('hidden');
     }
 }
+
+
+// ==========================================
+// SERVICE DETECTION (Auto-select industries/services from website)
+// ==========================================
+
+// Scrape website and detect services (called when leaving Step 1)
+async function scrapeAndDetectServices() {
+    if (!crawlState.website_url || campaignConfig.service_detection.status === 'detecting') {
+        console.log('[Service Detection] Skipped - no URL or already detecting');
+        return;
+    }
+
+    console.log('[Service Detection] Starting for:', crawlState.website_url);
+    console.log('[Roberto] About to show Roberto loading modal...');
+    campaignConfig.service_detection.status = 'detecting';
+    debouncedSaveState();
+
+    // Show Roberto loading animation
+    showRobertoDetecting();
+    console.log('[Roberto] showRobertoDetecting() called, display:', document.getElementById('roberto-loading-modal')?.style.display);
+
+    try {
+        const response = await $.ajax({
+            url: '/ajax/scrape-detect-services/',
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+            contentType: 'application/json',
+            data: JSON.stringify({
+                website_url: crawlState.website_url,
+                scrape_mode: crawlState.scrape_mode !== undefined ? crawlState.scrape_mode : 10
+            })
+        });
+
+        if (response.success) {
+            campaignConfig.service_detection = {
+                status: 'success',
+                timestamp: Date.now(),
+                detected_services: response.detected_services || [],
+                detected_service_ids: response.detected_service_ids || [],
+                suggested_services: response.suggested_services || [],
+                detected_industries: response.detected_industries || [],
+                detected_industry_ids: response.detected_industry_ids || [],
+                primary_industry: response.primary_industry,
+                suggested_industry: response.suggested_industry,  // For industries not in DB
+                confidence_scores: response.confidence_scores || {},
+                applied: false,
+                pages_scraped: response.pages_scraped || 1,
+                content_length: response.content_length || 0
+            };
+
+            // Store scraped pages with meta tags in crawlState
+            if (response.scraped_pages) {
+                crawlState.scraped_pages = response.scraped_pages;
+                console.log('[Service Detection] Stored scraped_pages:', Object.keys(response.scraped_pages).length, 'pages');
+            }
+
+            // Store extracted reviews (from Trustpilot, Google etc. via Playwright)
+            if (response.extracted_reviews && response.extracted_reviews.length > 0) {
+                crawlState.extracted_reviews = response.extracted_reviews;
+                console.log('[Service Detection] Extracted reviews:', response.extracted_reviews.length);
+            }
+
+            console.log('[Service Detection] Complete:',
+                campaignConfig.service_detection.detected_service_ids.length, 'services detected,',
+                campaignConfig.service_detection.suggested_services.length, 'suggested services,',
+                campaignConfig.service_detection.detected_industry_ids.length, 'industries detected,',
+                campaignConfig.service_detection.pages_scraped, 'pages scraped');
+
+            debouncedSaveState();
+            hideRobertoLoading();
+        } else {
+            throw new Error(response.error || 'Unknown error');
+        }
+    } catch (error) {
+        console.error('[Service Detection] Error:', error);
+        campaignConfig.service_detection.status = 'error';
+        debouncedSaveState();
+        hideRobertoLoading();
+    }
+}
+
+/**
+ * Get scraped page data for a specific path.
+ * @param {string} path - The path to look up (e.g., '/vedvarende-energi/')
+ * @returns {object|null} - Page data with content, meta_title, meta_description, or null if not found
+ */
+function getScrapedPageData(path) {
+    if (!path || !crawlState.scraped_pages) {
+        return null;
+    }
+
+    // Try exact match first
+    if (crawlState.scraped_pages[path]) {
+        return crawlState.scraped_pages[path];
+    }
+
+    // Try with/without trailing slash
+    const pathWithSlash = path.endsWith('/') ? path : path + '/';
+    const pathWithoutSlash = path.endsWith('/') ? path.slice(0, -1) : path;
+
+    return crawlState.scraped_pages[pathWithSlash] ||
+           crawlState.scraped_pages[pathWithoutSlash] ||
+           null;
+}
+
+// Track which source paths are already assigned to services (to prevent duplicates)
+let usedSourcePaths = new Set();
+
+/**
+ * Reset the used source paths tracker.
+ * Should be called when services list changes.
+ */
+function resetUsedSourcePaths() {
+    usedSourcePaths = new Set();
+}
+
+/**
+ * Mark a source path as used by a service.
+ * @param {string} path - The path being used
+ */
+function markSourcePathUsed(path) {
+    if (path && path !== '/' && path !== '') {
+        usedSourcePaths.add(path);
+    }
+}
+
+/**
+ * Check if a source path is already used.
+ * @param {string} path - The path to check
+ * @returns {boolean} - True if already used
+ */
+function isSourcePathUsed(path) {
+    return usedSourcePaths.has(path);
+}
+
+/**
+ * Find the best matching scraped page for a service name.
+ * Used when source_path is "/" or not specific enough.
+ * Excludes homepage and already-used paths.
+ * @param {string} serviceName - The service name to match
+ * @param {boolean} markAsUsed - Whether to mark the found path as used (default: true)
+ * @returns {object|null} - Best matching page data, or null if no good match
+ */
+function findBestMatchingPage(serviceName, markAsUsed = true) {
+    if (!serviceName || !crawlState.scraped_pages) {
+        return null;
+    }
+
+    const normalizedServiceName = serviceName.toLowerCase()
+        .replace(/[æ]/g, 'ae').replace(/[ø]/g, 'o').replace(/[å]/g, 'aa')
+        .replace(/[^a-z0-9]/g, '');
+
+    let bestMatch = null;
+    let bestScore = 0;
+
+    for (const [path, pageData] of Object.entries(crawlState.scraped_pages)) {
+        // Skip homepage - never use it as source
+        if (path === '/' || path === '') continue;
+
+        // Skip already used paths - each page can only be used by one service
+        if (isSourcePathUsed(path)) continue;
+
+        // Normalize path for comparison
+        const normalizedPath = path.toLowerCase()
+            .replace(/[æ]/g, 'ae').replace(/[ø]/g, 'o').replace(/[å]/g, 'aa')
+            .replace(/[^a-z0-9]/g, '');
+
+        // Also check meta_title
+        const normalizedTitle = (pageData.meta_title || '').toLowerCase()
+            .replace(/[æ]/g, 'ae').replace(/[ø]/g, 'o').replace(/[å]/g, 'aa')
+            .replace(/[^a-z0-9]/g, '');
+
+        // Calculate match score
+        let score = 0;
+
+        // Exact service name in path
+        if (normalizedPath.includes(normalizedServiceName)) {
+            score += 10;
+        }
+
+        // Service name in title
+        if (normalizedTitle.includes(normalizedServiceName)) {
+            score += 5;
+        }
+
+        // Partial word matches in path
+        const serviceWords = normalizedServiceName.match(/[a-z]{3,}/g) || [];
+        serviceWords.forEach(word => {
+            if (normalizedPath.includes(word)) score += 2;
+            if (normalizedTitle.includes(word)) score += 1;
+        });
+
+        if (score > bestScore) {
+            bestScore = score;
+            bestMatch = { path, pageData, score };
+        }
+    }
+
+    // Only return if we have a reasonable match (score > 2)
+    if (bestMatch && bestMatch.score > 2) {
+        console.log(`[SEO] Auto-matched service "${serviceName}" to page "${bestMatch.path}" (score: ${bestMatch.score})`);
+        // Mark this path as used so other services don't get it
+        if (markAsUsed) {
+            markSourcePathUsed(bestMatch.path);
+        }
+        // Return pageData with path attached for reference
+        return { ...bestMatch.pageData, path: bestMatch.path };
+    }
+
+    return null;
+}
+
+// Apply detected services to UI (auto-select industries and services)
+function applyServiceDetection() {
+    if (campaignConfig.service_detection.applied || campaignConfig.service_detection.status !== 'success') {
+        return;
+    }
+
+    const detection = campaignConfig.service_detection;
+    let industriesSelected = 0;
+    let servicesSelected = 0;
+    let customServicesAdded = 0;
+
+    // 1. Auto-select detected industries
+    detection.detected_industry_ids.forEach(industryId => {
+        const industryCard = $(`.industry-card[data-industry-id="${industryId}"]`);
+
+        if (industryCard.length && !industryCard.hasClass('selected')) {
+            // Click the industry card to select it
+            industryCard.click();
+            industriesSelected++;
+
+            // Add AI-suggested visual indicator
+            industryCard.addClass('ai-suggested');
+        }
+    });
+
+    // Wait a bit for services to load after industry selection
+    setTimeout(() => {
+        // 2. Auto-select detected services
+        detection.detected_service_ids.forEach(serviceId => {
+            const serviceCard = $(`.service-card[data-service-id="${serviceId}"]`);
+
+            if (serviceCard.length && !serviceCard.hasClass('selected')) {
+                // Click the service card to select it
+                serviceCard.click();
+                servicesSelected++;
+
+                // Add AI-suggested visual indicator
+                serviceCard.addClass('ai-suggested');
+
+                // Add confidence badge
+                const confidence = detection.confidence_scores[serviceId];
+                if (confidence && confidence > 0.8) {
+                    serviceCard.find('.service-name, h4').first().append(
+                        `<span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                            ✨ AI ${Math.round(confidence * 100)}%
+                        </span>`
+                    );
+                }
+            }
+        });
+
+        // 3. Add suggested services (custom services not in DB)
+        if (detection.suggested_services && detection.suggested_services.length > 0) {
+            detection.suggested_services.forEach(suggested => {
+                // Check if not already added
+                const exists = campaignConfig.custom_services.some(
+                    cs => cs.name.toLowerCase() === suggested.name.toLowerCase()
+                );
+                if (!exists) {
+                    campaignConfig.custom_services.push({
+                        name: suggested.name,
+                        industry: suggested.industry,
+                        confidence: suggested.confidence,
+                        evidence: suggested.evidence,
+                        source_path: suggested.source_path || null,
+                        has_dedicated_page: suggested.has_dedicated_page,
+                        ai_suggested: true
+                    });
+                    customServicesAdded++;
+                }
+            });
+
+            // Render custom services UI
+            if (customServicesAdded > 0) {
+                renderCustomServices();
+            }
+        }
+
+        // Mark as applied
+        campaignConfig.service_detection.applied = true;
+        debouncedSaveState();
+
+        // Render suggested industries section if a new industry was suggested
+        const suggestedIndustry = campaignConfig.service_detection.suggested_industry;
+        if (suggestedIndustry) {
+            renderSuggestedIndustries();
+            // Count services that would be added if industry is selected
+            const suggestedServices = campaignConfig.service_detection.suggested_services || [];
+            customServicesAdded = suggestedServices.filter(
+                svc => svc.industry?.toLowerCase() === suggestedIndustry.toLowerCase()
+            ).length;
+        }
+
+        // Show notification
+        if (industriesSelected > 0 || servicesSelected > 0 || customServicesAdded > 0 || suggestedIndustry) {
+            showServiceDetectionNotification(industriesSelected, servicesSelected, customServicesAdded, suggestedIndustry);
+        }
+    }, 500);
+}
+
+// Helper function to show/hide the AI suggestions wrapper section
+function updateAiSuggestionsVisibility() {
+    const aiSection = $('#ai-suggestions-section');
+    const hasIndustries = !$('#suggested-industries-section').hasClass('hidden');
+    const hasServices = $('#custom-services-section').length > 0 && campaignConfig.custom_services.length > 0;
+
+    if (hasIndustries || hasServices) {
+        aiSection.removeClass('hidden');
+    } else {
+        aiSection.addClass('hidden');
+    }
+}
+
+// Generate purpose checkboxes HTML for custom services
+function getCustomServicePurposeCheckboxes(index) {
+    const purposes = campaignConfig.selected_purposes || [];
+    const hasGoogleAds = purposes.includes('google_ads');
+    const hasSeo = purposes.includes('seo');
+    const hasProgrammatic = purposes.includes('programmatic');
+
+    // If no relevant purposes, return empty
+    if (!hasGoogleAds && !hasSeo && !hasProgrammatic) return '';
+
+    // Initialize custom_service_purposes for this index if not exists
+    if (!campaignConfig.custom_service_purposes[index]) {
+        campaignConfig.custom_service_purposes[index] = {
+            google_ads: hasGoogleAds,
+            seo: hasSeo,
+            programmatic: hasProgrammatic
+        };
+    }
+
+    let checkboxes = '';
+    if (hasGoogleAds) {
+        const isChecked = campaignConfig.custom_service_purposes[index]?.google_ads !== false;
+        checkboxes += `
+            <label class="inline-flex items-center text-xs bg-green-50 px-2 py-1 rounded cursor-pointer hover:bg-green-100 transition-colors">
+                <input type="checkbox" class="custom-service-purpose-checkbox w-3 h-3 mr-1"
+                       data-index="${index}" data-purpose="google_ads" ${isChecked ? 'checked' : ''}>
+                <span class="text-green-700">Google Ads</span>
+            </label>`;
+    }
+    if (hasSeo) {
+        const isChecked = campaignConfig.custom_service_purposes[index]?.seo !== false;
+        checkboxes += `
+            <label class="inline-flex items-center text-xs bg-orange-50 px-2 py-1 rounded cursor-pointer hover:bg-orange-100 transition-colors">
+                <input type="checkbox" class="custom-service-purpose-checkbox w-3 h-3 mr-1"
+                       data-index="${index}" data-purpose="seo" ${isChecked ? 'checked' : ''}>
+                <span class="text-orange-700">SEO</span>
+            </label>`;
+    }
+    if (hasProgrammatic) {
+        const isChecked = campaignConfig.custom_service_purposes[index]?.programmatic !== false;
+        checkboxes += `
+            <label class="inline-flex items-center text-xs bg-purple-50 px-2 py-1 rounded cursor-pointer hover:bg-purple-100 transition-colors">
+                <input type="checkbox" class="custom-service-purpose-checkbox w-3 h-3 mr-1"
+                       data-index="${index}" data-purpose="programmatic" ${isChecked ? 'checked' : ''}>
+                <span class="text-purple-700">Byside</span>
+            </label>`;
+    }
+
+    return `
+        <div class="custom-service-purposes mt-3 pt-3 border-t border-purple-200" data-index="${index}">
+            <p class="text-xs text-gray-500 mb-2">Anvend til:</p>
+            <div class="flex flex-wrap gap-2">
+                ${checkboxes}
+            </div>
+        </div>`;
+}
+
+// Render custom services UI (services detected by AI but not in database)
+function renderCustomServices() {
+    let container = $('#custom-services-container');
+
+    // Create container if it doesn't exist - now inside ai-suggestions-section
+    if (!container.length) {
+        const aiSectionInner = $('#ai-suggestions-section .border-t');
+        if (aiSectionInner.length) {
+            aiSectionInner.append(`
+                <div id="custom-services-section" class="mt-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                        <span class="mr-2">✨</span>
+                        AI-Foreslåede Services
+                        <span class="ml-2 text-sm font-normal text-gray-500">(ikke i databasen)</span>
+                    </h3>
+                    <div id="custom-services-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    </div>
+                </div>
+            `);
+            container = $('#custom-services-container');
+        }
+    }
+
+    // Clear existing
+    container.empty();
+
+    // Render each custom service
+    const websiteUrl = crawlState.website_url || campaignConfig.website_url || '';
+    const baseUrl = websiteUrl.replace(/\/$/, ''); // Remove trailing slash
+
+    campaignConfig.custom_services.forEach((service, index) => {
+        const confidencePercent = Math.round((service.confidence || 0.8) * 100);
+        const purposeCheckboxes = getCustomServicePurposeCheckboxes(index);
+
+        // Build source URL display
+        let sourceUrlHtml = '';
+        if (service.source_path) {
+            const fullUrl = baseUrl + service.source_path;
+            const hasDedicatedPage = service.has_dedicated_page !== false; // Default to true if not specified
+
+            if (hasDedicatedPage) {
+                sourceUrlHtml = `
+                    <div class="mt-2 flex items-center text-xs">
+                        <span class="text-green-600 mr-1">✓</span>
+                        <a href="${fullUrl}" target="_blank" class="text-blue-600 hover:text-blue-800 hover:underline truncate" title="${fullUrl}">
+                            ${service.source_path}
+                        </a>
+                    </div>
+                `;
+            } else {
+                sourceUrlHtml = `
+                    <div class="mt-2 flex items-center text-xs">
+                        <span class="text-amber-500 mr-1">⚠</span>
+                        <span class="text-gray-500">Ingen dedikeret side</span>
+                        <span class="text-gray-400 mx-1">•</span>
+                        <a href="${fullUrl}" target="_blank" class="text-gray-500 hover:text-gray-700 hover:underline truncate" title="Fundet på: ${fullUrl}">
+                            nævnt på ${service.source_path}
+                        </a>
+                    </div>
+                `;
+            }
+        }
+
+        const card = $(`
+            <div class="custom-service-card bg-purple-50 border-2 border-purple-200 rounded-lg p-4 relative" data-index="${index}">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center">
+                            <span class="font-medium text-gray-900">${service.name}</span>
+                            <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                                ✨ AI ${confidencePercent}%
+                            </span>
+                        </div>
+                        <p class="text-sm text-gray-500 mt-1">${service.industry || 'Ikke tilknyttet'}</p>
+                        ${service.evidence ? `<p class="text-xs text-gray-400 mt-1 italic">"${service.evidence.substring(0, 80)}..."</p>` : ''}
+                        ${sourceUrlHtml}
+                    </div>
+                    <button type="button" class="remove-custom-service text-gray-400 hover:text-red-500 ml-2" data-index="${index}">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                ${purposeCheckboxes}
+            </div>
+        `);
+        container.append(card);
+    });
+
+    // Show/hide section based on whether there are custom services
+    if (campaignConfig.custom_services.length > 0) {
+        $('#custom-services-section').show();
+    } else {
+        $('#custom-services-section').hide();
+    }
+
+    // Update the wrapper visibility
+    updateAiSuggestionsVisibility();
+}
+
+// Event handler for removing custom services
+$(document).on('click', '.remove-custom-service', function() {
+    const index = $(this).data('index');
+    campaignConfig.custom_services.splice(index, 1);
+    // Also remove from custom_service_purposes and reindex
+    delete campaignConfig.custom_service_purposes[index];
+    // Reindex the remaining purposes
+    const newPurposes = {};
+    campaignConfig.custom_services.forEach((_, newIndex) => {
+        // Find the old index that maps to this new index
+        const oldIndex = newIndex >= index ? newIndex + 1 : newIndex;
+        if (campaignConfig.custom_service_purposes[oldIndex]) {
+            newPurposes[newIndex] = campaignConfig.custom_service_purposes[oldIndex];
+        }
+    });
+    campaignConfig.custom_service_purposes = newPurposes;
+    renderCustomServices();
+    debouncedSaveState();
+});
+
+// Event handler for custom service purpose checkbox changes
+$(document).on('change', '.custom-service-purpose-checkbox', function(e) {
+    e.stopPropagation(); // Prevent triggering card click
+
+    const index = $(this).data('index');
+    const purpose = $(this).data('purpose');
+    const isChecked = $(this).is(':checked');
+
+    // Ensure custom_service_purposes entry exists
+    if (!campaignConfig.custom_service_purposes[index]) {
+        campaignConfig.custom_service_purposes[index] = {
+            google_ads: true,
+            seo: true,
+            programmatic: true
+        };
+    }
+
+    // Update the purpose setting
+    campaignConfig.custom_service_purposes[index][purpose] = isChecked;
+
+    console.log('Custom service purpose updated:', index, purpose, isChecked);
+    debouncedSaveState();
+});
+
+// Render suggested industries as selectable cards (like existing industry cards)
+function renderSuggestedIndustries() {
+    const suggestedIndustry = campaignConfig.service_detection?.suggested_industry;
+    const suggestedServices = campaignConfig.service_detection?.suggested_services || [];
+
+    const aiSection = $('#ai-suggestions-section');
+    const section = $('#suggested-industries-section');
+    const container = $('#suggested-industries-container');
+
+    if (!suggestedIndustry) {
+        section.addClass('hidden');
+        updateAiSuggestionsVisibility();
+        return;
+    }
+
+    // Show sections
+    aiSection.removeClass('hidden');
+    section.removeClass('hidden');
+    container.empty();
+
+    // Count services for this industry
+    const industryServices = suggestedServices.filter(
+        svc => svc.industry?.toLowerCase() === suggestedIndustry.toLowerCase()
+    );
+
+    // Check if this suggested industry is already selected
+    const isSelected = campaignConfig.suggested_industries?.includes(suggestedIndustry);
+
+    // Create industry card (similar style to existing industry cards)
+    const card = $(`
+        <div class="suggested-industry-card cursor-pointer bg-white rounded-xl border-2 p-4 transition-all duration-200 hover:shadow-lg ${isSelected ? 'border-amber-500 bg-amber-50 selected' : 'border-gray-200 hover:border-amber-300'}"
+             data-industry-name="${suggestedIndustry}">
+            <div class="flex items-start justify-between">
+                <div class="flex items-center">
+                    <div class="w-12 h-12 bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl flex items-center justify-center text-white text-2xl mr-4">
+                        🆕
+                    </div>
+                    <div>
+                        <h4 class="text-lg font-bold text-gray-900">${suggestedIndustry}</h4>
+                        <p class="text-sm text-gray-500">${industryServices.length} foreslåede services</p>
+                    </div>
+                </div>
+                <div class="flex flex-col items-end">
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                        ✨ AI
+                    </span>
+                    <div class="mt-2 w-6 h-6 rounded-full border-2 flex items-center justify-center ${isSelected ? 'border-amber-500 bg-amber-500' : 'border-gray-300'}">
+                        ${isSelected ? '<svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>' : ''}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `);
+
+    container.append(card);
+
+    // If selected, also render the services
+    if (isSelected) {
+        renderSuggestedIndustryServices(suggestedIndustry, industryServices);
+    }
+}
+
+// Render services for a selected suggested industry
+function renderSuggestedIndustryServices(industryName, services) {
+    // Add services to custom_services if not already there
+    services.forEach(service => {
+        const exists = campaignConfig.custom_services.some(
+            cs => cs.name.toLowerCase() === service.name.toLowerCase()
+        );
+        if (!exists) {
+            campaignConfig.custom_services.push({
+                name: service.name,
+                industry: service.industry,
+                confidence: service.confidence,
+                evidence: service.evidence,
+                ai_suggested: true
+            });
+        }
+    });
+    renderCustomServices();
+}
+
+// Handle click on suggested industry card
+$(document).on('click', '.suggested-industry-card', function() {
+    const card = $(this);
+    const industryName = card.data('industry-name');
+    const isCurrentlySelected = card.hasClass('selected');
+
+    // Initialize suggested_industries array if needed
+    if (!campaignConfig.suggested_industries) {
+        campaignConfig.suggested_industries = [];
+    }
+
+    if (isCurrentlySelected) {
+        // Deselect: remove from array and remove services
+        campaignConfig.suggested_industries = campaignConfig.suggested_industries.filter(i => i !== industryName);
+
+        // Remove custom services for this industry
+        campaignConfig.custom_services = campaignConfig.custom_services.filter(
+            cs => cs.industry?.toLowerCase() !== industryName.toLowerCase()
+        );
+
+        card.removeClass('selected border-amber-500 bg-amber-50').addClass('border-gray-200');
+        card.find('.rounded-full').removeClass('border-amber-500 bg-amber-500').addClass('border-gray-300').empty();
+    } else {
+        // Select: add to array and add services
+        if (!campaignConfig.suggested_industries.includes(industryName)) {
+            campaignConfig.suggested_industries.push(industryName);
+        }
+
+        // Get services for this industry
+        const suggestedServices = campaignConfig.service_detection?.suggested_services || [];
+        const industryServices = suggestedServices.filter(
+            svc => svc.industry?.toLowerCase() === industryName.toLowerCase()
+        );
+
+        renderSuggestedIndustryServices(industryName, industryServices);
+
+        card.addClass('selected border-amber-500 bg-amber-50').removeClass('border-gray-200');
+        card.find('.rounded-full').addClass('border-amber-500 bg-amber-500').removeClass('border-gray-300')
+            .html('<svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>');
+    }
+
+    renderCustomServices();
+    debouncedSaveState();
+})
+
+// Show notification when service detection is applied
+function showServiceDetectionNotification(industriesCount, servicesCount, customServicesCount = 0, suggestedIndustry = null) {
+    if (industriesCount === 0 && servicesCount === 0 && customServicesCount === 0 && !suggestedIndustry) return;
+
+    let message = '✨ AI har fundet';
+    const parts = [];
+
+    // If a new industry is suggested (not in database)
+    if (suggestedIndustry) {
+        parts.push(`ny branche "${suggestedIndustry}"`);
+    } else if (industriesCount > 0) {
+        parts.push(`${industriesCount} branche${industriesCount > 1 ? 'r' : ''}`);
+    }
+
+    if (servicesCount > 0) parts.push(`${servicesCount} service${servicesCount > 1 ? 's' : ''}`);
+    if (customServicesCount > 0) parts.push(`${customServicesCount} foreslået service${customServicesCount > 1 ? 's' : ''}`);
+    message += ' ' + parts.join(' og ') + ' fra din hjemmeside';
+
+    // Create toast notification
+    const toast = $(`
+        <div class="fixed bottom-4 right-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-4 rounded-xl shadow-lg z-50" style="animation: slideIn 0.3s ease-out">
+            <div class="flex items-center space-x-3">
+                <span class="text-2xl">🔍</span>
+                <span>${message}</span>
+            </div>
+        </div>
+    `);
+
+    $('body').append(toast);
+    setTimeout(() => toast.fadeOut(300, () => toast.remove()), 5000);
+}
+
 
 // Start background crawl (no UI updates - runs silently)
 async function startBackgroundCrawl() {
@@ -8842,13 +10206,13 @@ function loadDAWAGeoJSON() {
 
     console.log('Loading DAWA GeoJSON data...');
 
-    // Load both DAWA data and customizations with cache-busting
+    // Load both DAWA data and customizations (with browser caching enabled)
     dawaLoadingPromise = Promise.all([
         $.ajax({
-            url: 'https://dawa.aws.dk/postnumre?format=geojson&_=' + Date.now(),
+            url: 'https://dawa.aws.dk/postnumre?format=geojson',
             timeout: 30000,
             dataType: 'json',
-            cache: false
+            cache: true  // Allow browser caching for better performance
         }),
         loadPostalCustomizations()
     ]).then(function(results) {
@@ -8886,6 +10250,17 @@ function loadDAWAGeoJSON() {
 
     return dawaLoadingPromise;
 }
+
+// Pre-load DAWA GeoJSON data in background for faster region selection
+// This runs after the function is defined, with a delay so main UI loads first
+setTimeout(function() {
+    console.log('[Performance] Pre-loading DAWA GeoJSON data...');
+    loadDAWAGeoJSON().then(function() {
+        console.log('[Performance] DAWA GeoJSON pre-loaded successfully:', Object.keys(geoPostalData).length, 'postal codes');
+    }).catch(function(err) {
+        console.warn('[Performance] DAWA pre-load failed (will retry on demand):', err.message);
+    });
+}, 1500);  // 1.5 sec delay so main UI loads first
 
 // Get display name for a postal code (uses customization or DAWA name)
 function getPostalDisplayName(nr) {
@@ -9258,11 +10633,68 @@ function findConsolidatedPrimaryCode(cityName) {
     return null;
 }
 
-// Add region's cities as selected postal codes (polygon-based)
+// Batch select postal codes without updating polygons (for performance)
+function selectPostalBatch(postalCode, source, regionId, changedPostals) {
+    postalCode = String(postalCode);
+
+    function addRegionToSelection(code, isConsolidated) {
+        if (geoSelectedPostals[code]) {
+            if (regionId && source === 'region') {
+                if (!geoSelectedPostals[code].regionIds) {
+                    geoSelectedPostals[code].regionIds = geoSelectedPostals[code].regionId ?
+                        [geoSelectedPostals[code].regionId] : [];
+                    delete geoSelectedPostals[code].regionId;
+                }
+                if (geoSelectedPostals[code].regionIds.indexOf(regionId) === -1) {
+                    geoSelectedPostals[code].regionIds.push(regionId);
+                    changedPostals.add(code);
+                }
+            }
+        } else {
+            var newSelection = {
+                source: source,
+                regionIds: regionId ? [regionId] : []
+            };
+            if (isConsolidated) {
+                newSelection.consolidated = true;
+            }
+            geoSelectedPostals[code] = newSelection;
+            changedPostals.add(code);
+        }
+    }
+
+    var postal = geoPostalData[postalCode];
+    if (postal && postal.consolidatedCodes) {
+        postal.consolidatedCodes.forEach(function(code) {
+            addRegionToSelection(code, true);
+        });
+        changedPostals.add(postalCode);  // Track primary for polygon update
+    } else {
+        addRegionToSelection(postalCode, false);
+    }
+}
+
+// Refresh polygon styles for changed postal codes only
+function refreshChangedPolygons(changedPostals) {
+    changedPostals.forEach(function(postalCode) {
+        var postal = geoPostalData[postalCode];
+        if (postal && postal.polygon) {
+            postal.polygon.setStyle(
+                getPolygonStyle({ properties: { nr: postalCode } })
+            );
+        }
+    });
+}
+
+// Add region's cities as selected postal codes (polygon-based) - OPTIMIZED with batching
 function addRegionToGeoMap(regionId, regionName, cities) {
     if (!cities || cities.length === 0) return;
 
+    var startTime = performance.now();
+
     loadDAWAGeoJSON().then(function() {
+        var changedPostals = new Set();  // Track which postal codes need polygon updates
+
         cities.forEach(function(city) {
             var postalCode = null;
             var cityName = city.name || city.dawa_name || '';
@@ -9272,7 +10704,7 @@ function addRegionToGeoMap(regionId, regionName, cities) {
             if (city.postal_code === 'MULTI') {
                 var primaryCode = findConsolidatedPrimaryCode(city.name);
                 if (primaryCode && geoPostalData[primaryCode]) {
-                    selectPostal(primaryCode, 'region', regionId);
+                    selectPostalBatch(primaryCode, 'region', regionId, changedPostals);
                     foundPostalCode = true;
                 }
             } else {
@@ -9291,7 +10723,7 @@ function addRegionToGeoMap(regionId, regionName, cities) {
                 }
 
                 if (postalCode && geoPostalData[postalCode]) {
-                    selectPostal(postalCode, 'region', regionId);
+                    selectPostalBatch(postalCode, 'region', regionId, changedPostals);
                     foundPostalCode = true;
                 }
             }
@@ -9306,6 +10738,9 @@ function addRegionToGeoMap(regionId, regionName, cities) {
             }
         });
 
+        // Batch update all changed polygons at once
+        refreshChangedPolygons(changedPostals);
+
         updateGeoSelectionDisplay();
 
         // Pan to show selected area
@@ -9313,6 +10748,9 @@ function addRegionToGeoMap(regionId, regionName, cities) {
 
         // Sync to campaignConfig so generate-urls works immediately
         syncGeoMapTargetingToConfig();
+
+        var endTime = performance.now();
+        console.log('[Performance] addRegionToGeoMap completed in', Math.round(endTime - startTime), 'ms for', cities.length, 'cities,', changedPostals.size, 'polygons updated');
     });
 }
 
@@ -10039,10 +11477,12 @@ async function generateAIMetaTags() {
         return;
     }
 
-    // Show loading
+    // Show loading with Roberto
     $('#generate-meta-tags-btn').prop('disabled', true).addClass('opacity-50');
-    $('#meta-tags-loading').removeClass('hidden');
     $('#meta-tags-preview').addClass('hidden');
+
+    // Show Roberto loading animation
+    showRobertoLoading('meta_tags');
 
     try {
         const response = await $.ajax({
@@ -10075,7 +11515,7 @@ async function generateAIMetaTags() {
     }
 
     $('#generate-meta-tags-btn').prop('disabled', false).removeClass('opacity-50');
-    $('#meta-tags-loading').addClass('hidden');
+    hideRobertoLoading();
 }
 
 // =================================================================
@@ -10294,15 +11734,19 @@ function getDefaultMetaDescriptions(serviceName, usps) {
 // SEO BUILDER (Step 7) - Sidebar navigation med services
 // ============================================================================
 
-// Main orchestrator for SEO Builder
+// Main orchestrator for SEO Builder - PAGE-BASED structure
 async function renderSeoBuilder() {
-    console.log('renderSeoBuilder() called');
+    console.log('renderSeoBuilder() called - PAGE-BASED mode');
 
     // Get services that are enabled for SEO (from Step 2)
     const seoServiceIds = getServicesForPurpose('seo');
     console.log('SEO service IDs:', seoServiceIds);
 
-    if (seoServiceIds.length === 0) {
+    // Also get AI-suggested/custom services that have SEO enabled
+    const customServices = getCustomServicesForPurpose('seo');
+    console.log('Custom services for SEO:', customServices.length);
+
+    if (seoServiceIds.length === 0 && customServices.length === 0) {
         $('#seo-builder-container').html(`
             <div class="text-center py-12 text-gray-500">
                 <p class="text-lg mb-2">Ingen services valgt til SEO</p>
@@ -10312,22 +11756,19 @@ async function renderSeoBuilder() {
         return;
     }
 
-    // Build allSeoServiceKeys from selected services
-    allSeoServiceKeys = [];
+    // Collect all services with their source paths
+    const allServices = [];
 
+    // 1. Collect database services
     for (const serviceId of seoServiceIds) {
-        // Get service info from serverData or campaignConfig
         let serviceName = '';
         let serviceColor = '#8B5CF6';
 
-        // Try to get service name from serverData
         if (serverData.services_by_id && serverData.services_by_id[serviceId]) {
             serviceName = serverData.services_by_id[serviceId].name;
             serviceColor = serverData.services_by_id[serviceId].color || '#8B5CF6';
         } else {
-            // Fallback: search in DOM - use h4 for service title specifically
             const serviceCard = $(`.service-card[data-service-id="${serviceId}"]`);
-            // Get just the h4 text (service name), not other .font-medium elements
             const h4 = serviceCard.find('h4').first();
             if (h4.length) {
                 serviceName = h4.clone().children().remove().end().text().trim() || h4.text().trim();
@@ -10337,74 +11778,218 @@ async function renderSeoBuilder() {
             }
         }
 
-        allSeoServiceKeys.push({
+        // Try to find a matching page for DB services
+        const matchedPage = findBestMatchingPage(serviceName, false); // Don't mark as used yet
+        const sourcePath = matchedPage ? matchedPage.path : '/';
+
+        allServices.push({
             id: serviceId,
             name: serviceName,
-            color: serviceColor
+            color: serviceColor,
+            isCustom: false,
+            source_path: sourcePath
         });
-
-        // Initialize seo_pages for this service if not exists
-        if (!campaignConfig.seo_pages[serviceId]) {
-            campaignConfig.seo_pages[serviceId] = {
-                service_name: serviceName,
-                meta_title: '',
-                meta_description: '',
-                seo_keywords: [],
-                keywords_loaded: false
-            };
-        }
     }
 
-    // Remove services that are no longer selected
-    Object.keys(campaignConfig.seo_pages).forEach(serviceId => {
-        if (!seoServiceIds.includes(parseInt(serviceId))) {
-            delete campaignConfig.seo_pages[serviceId];
+    // 2. Collect AI-suggested/custom services
+    customServices.forEach((cs) => {
+        const originalIndex = cs.customIndex !== undefined ? cs.customIndex : campaignConfig.custom_services.indexOf(cs);
+        const customId = `custom_${originalIndex}`;
+        const serviceName = cs.name || cs;
+
+        // Determine source_path
+        let sourcePath = cs.source_path;
+        if (!sourcePath || sourcePath === '' || sourcePath === '/') {
+            // Try to find a matching page
+            const matchedPage = findBestMatchingPage(serviceName, false);
+            sourcePath = matchedPage ? matchedPage.path : '/';
+        }
+
+        allServices.push({
+            id: customId,
+            name: serviceName,
+            color: '#EC4899',
+            isCustom: true,
+            confidence: cs.confidence,
+            source_path: sourcePath
+        });
+    });
+
+    // 3. GROUP SERVICES BY PAGE (source_path)
+    const pageGroups = {};
+
+    allServices.forEach(service => {
+        const path = service.source_path || '/';
+        if (!pageGroups[path]) {
+            pageGroups[path] = {
+                path: path,
+                services: [],
+                page_title: path === '/' ? 'Forside' : getPageTitle(path)
+            };
+        }
+        pageGroups[path].services.push({
+            id: service.id,
+            name: service.name,
+            color: service.color,
+            isCustom: service.isCustom,
+            confidence: service.confidence
+        });
+    });
+
+    // 4. Build allSeoPageKeys from grouped pages
+    allSeoPageKeys = [];
+
+    // Sort pages: homepage first, then alphabetically by path
+    const sortedPaths = Object.keys(pageGroups).sort((a, b) => {
+        if (a === '/') return -1;
+        if (b === '/') return 1;
+        return a.localeCompare(b);
+    });
+
+    sortedPaths.forEach(path => {
+        const group = pageGroups[path];
+        // Use first service's color as page color, or default
+        const pageColor = group.services[0]?.color || '#8B5CF6';
+
+        allSeoPageKeys.push({
+            path: group.path,
+            page_title: group.page_title,
+            services: group.services,
+            color: pageColor
+        });
+    });
+
+    console.log('[SEO Builder] Created', allSeoPageKeys.length, 'page entries from', allServices.length, 'services');
+
+    // 5. Initialize campaignConfig.seo_pages for each PAGE (keyed by path)
+    // Migrate old service-keyed data if needed
+    const oldSeoPages = { ...campaignConfig.seo_pages };
+
+    allSeoPageKeys.forEach(page => {
+        if (!campaignConfig.seo_pages[page.path]) {
+            // Try to migrate data from old service-keyed format
+            const serviceOnThisPage = page.services[0];
+            const oldData = serviceOnThisPage ? oldSeoPages[serviceOnThisPage.id] : null;
+
+            // Get scraped page data
+            const scrapedData = getScrapedPageData(page.path);
+
+            campaignConfig.seo_pages[page.path] = {
+                page_title: page.page_title,
+                services: page.services.map(s => s.name),
+                meta_title: oldData?.meta_title || scrapedData?.meta_title || '',
+                meta_description: oldData?.meta_description || scrapedData?.meta_description || '',
+                seo_keywords: oldData?.seo_keywords || [],
+                keywords_loaded: oldData?.keywords_loaded || false,
+                sections: oldData?.sections || null
+            };
+        } else {
+            // Update services list in existing entry
+            campaignConfig.seo_pages[page.path].services = page.services.map(s => s.name);
+        }
+    });
+
+    // 6. Clean up old service-keyed entries (keep only path-keyed)
+    Object.keys(campaignConfig.seo_pages).forEach(key => {
+        // If key is not a path (doesn't start with / and isn't a valid path), remove it
+        const isPath = key.startsWith('/') || key === '/';
+        const isValidPage = allSeoPageKeys.some(p => p.path === key);
+        if (!isPath || !isValidPage) {
+            // Keep old format data temporarily for migration, but don't render it
+            // Only delete if it's definitely old format (numeric or custom_X)
+            if (/^\d+$/.test(key) || key.startsWith('custom_')) {
+                delete campaignConfig.seo_pages[key];
+            }
         }
     });
 
     // Render sidebar
     renderSeoSidebar();
 
-    // Set first service as active if none selected
-    if (!activeSeoServiceId && allSeoServiceKeys.length > 0) {
-        setActiveSeoService(allSeoServiceKeys[0].id);
-    } else if (activeSeoServiceId) {
-        // Re-render active content
-        renderActiveSeoContent(activeSeoServiceId);
+    // Set first page as active if none selected
+    if (!activeSeoPagePath && allSeoPageKeys.length > 0) {
+        setActiveSeoPage(allSeoPageKeys[0].path);
+    } else if (activeSeoPagePath) {
+        // Verify active page still exists
+        const pageExists = allSeoPageKeys.some(p => p.path === activeSeoPagePath);
+        if (pageExists) {
+            renderActiveSeoContent(activeSeoPagePath);
+        } else if (allSeoPageKeys.length > 0) {
+            setActiveSeoPage(allSeoPageKeys[0].path);
+        }
     }
 
     // Setup event handlers
     setupSeoEventHandlers();
 }
 
-// Render SEO sidebar navigation
+// Helper: Get page title from path or scraped data
+function getPageTitle(path) {
+    // Try to get from scraped pages
+    const scrapedData = getScrapedPageData(path);
+    if (scrapedData && scrapedData.meta_title) {
+        // Extract meaningful title from meta_title
+        let title = scrapedData.meta_title;
+        // Remove common suffixes like "| Company Name"
+        title = title.split('|')[0].split('-')[0].trim();
+        if (title.length > 3) return title;
+    }
+
+    // Fallback: derive from path
+    // /privatflytning/ -> "Privatflytning"
+    const cleanPath = path.replace(/^\/|\/$/g, '');
+    if (!cleanPath) return 'Forside';
+
+    return cleanPath
+        .split(/[-_]/)
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+}
+
+// Render SEO sidebar navigation - PAGE-BASED
 function renderSeoSidebar() {
     const sidebar = $('#seo-nav-list');
     sidebar.empty();
 
-    allSeoServiceKeys.forEach(service => {
-        const seoPage = campaignConfig.seo_pages[service.id] || {};
+    allSeoPageKeys.forEach(page => {
+        const seoPage = campaignConfig.seo_pages[page.path] || {};
         const isComplete = seoPage.meta_title && seoPage.meta_description;
-        const isActive = activeSeoServiceId === service.id;
+        const isActive = activeSeoPagePath === page.path;
+
+        // Icon based on page type
+        const pageIcon = page.path === '/' ? '🏠' : '📄';
+
+        // Services list (truncated if many)
+        const serviceNames = page.services.map(s => s.name);
+        const servicesDisplay = serviceNames.length > 3
+            ? serviceNames.slice(0, 3).join(', ') + ` +${serviceNames.length - 3}`
+            : serviceNames.join(', ');
+
+        // AI badge if any service is AI-suggested
+        const hasAiService = page.services.some(s => s.isCustom);
+        const aiBadge = hasAiService
+            ? '<span class="ml-2 px-1.5 py-0.5 bg-pink-100 text-pink-700 text-xs rounded font-medium">AI</span>'
+            : '';
 
         const html = `
             <div class="seo-nav-item selection-card cursor-pointer p-4 rounded-xl border-2 transition-all duration-200
                         ${isActive ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-purple-300 hover:bg-gray-50'}"
-                 data-service-id="${service.id}">
+                 data-page-path="${escapeHtml(page.path)}">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center space-x-3">
                         <div class="w-10 h-10 rounded-lg flex items-center justify-center text-white text-lg"
-                             style="background-color: ${service.color}">
-                            📄
+                             style="background-color: ${page.color}">
+                            ${pageIcon}
                         </div>
-                        <div>
-                            <div class="font-medium text-gray-900">${escapeHtml(service.name)}</div>
-                            <div class="text-xs text-gray-500">
-                                ${isComplete ? '✓ Meta tags udfyldt' : '○ Mangler meta tags'}
+                        <div class="flex-1 min-w-0">
+                            <div class="font-medium text-gray-900 truncate">${escapeHtml(page.page_title)}${aiBadge}</div>
+                            <div class="text-xs text-gray-400 truncate" title="${escapeHtml(page.path)}">${escapeHtml(page.path)}</div>
+                            <div class="text-xs text-gray-500 truncate mt-0.5" title="${escapeHtml(serviceNames.join(', '))}">
+                                ${page.services.length} service${page.services.length !== 1 ? 's' : ''}: ${escapeHtml(servicesDisplay)}
                             </div>
                         </div>
                     </div>
-                    <div class="flex items-center">
+                    <div class="flex items-center ml-2">
                         ${isComplete ?
                             '<span class="w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-sm">✓</span>' :
                             '<span class="w-6 h-6 rounded-full bg-gray-200 text-gray-400 flex items-center justify-center text-sm">○</span>'
@@ -10417,126 +12002,799 @@ function renderSeoSidebar() {
     });
 }
 
-// Set active SEO service
-function setActiveSeoService(serviceId) {
-    activeSeoServiceId = serviceId;
+// Set active SEO page
+function setActiveSeoPage(pagePath) {
+    activeSeoPagePath = pagePath;
 
     // Update sidebar highlight
     $('.seo-nav-item').removeClass('border-purple-500 bg-purple-50')
                       .addClass('border-gray-200');
-    $(`.seo-nav-item[data-service-id="${serviceId}"]`)
+    $(`.seo-nav-item[data-page-path="${CSS.escape(pagePath)}"]`)
         .removeClass('border-gray-200')
         .addClass('border-purple-500 bg-purple-50');
 
-    // Render content for this service
-    renderActiveSeoContent(serviceId);
+    // Render content for this page
+    renderActiveSeoContent(pagePath);
 }
 
-// Render active SEO service content
-async function renderActiveSeoContent(serviceId) {
-    const container = $('#active-seo-content');
-    const service = allSeoServiceKeys.find(s => s.id === serviceId);
-    const seoPage = campaignConfig.seo_pages[serviceId] || {};
+// Legacy function for backwards compatibility
+function setActiveSeoService(serviceId) {
+    // Find the page that contains this service
+    const page = allSeoPageKeys.find(p => p.services.some(s => s.id === serviceId));
+    if (page) {
+        setActiveSeoPage(page.path);
+    }
+}
 
-    if (!service) {
-        container.html('<div class="text-gray-500 p-4">Service ikke fundet</div>');
-        return;
+// Count words in text
+function countWords(text) {
+    if (!text || typeof text !== 'string') return 0;
+    // Split by whitespace and filter out empty strings
+    const words = text.trim().split(/\s+/).filter(word => word.length > 0);
+    return words.length;
+}
+
+// ============================================
+// REVIEW SECTION FUNCTIONS
+// ============================================
+
+// Render star rating display
+function renderStars(rating) {
+    const fullStars = Math.floor(rating || 0);
+    const halfStar = (rating || 0) % 1 >= 0.5;
+    let stars = '';
+    for (let i = 0; i < 5; i++) {
+        if (i < fullStars) {
+            stars += '<span class="text-yellow-400 text-lg">★</span>';
+        } else if (i === fullStars && halfStar) {
+            stars += '<span class="text-yellow-400 text-lg">★</span>';
+        } else {
+            stars += '<span class="text-gray-300 text-lg">☆</span>';
+        }
+    }
+    return stars;
+}
+
+// Render a single review card (editable)
+function renderReviewCard(serviceId, sectionIndex, review, reviewIndex) {
+    return `
+        <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-100 review-card"
+             data-review-index="${reviewIndex}">
+            <div class="flex items-center justify-between mb-2">
+                <input type="text"
+                       class="review-author font-medium text-gray-900 bg-transparent border-0 p-0 w-24 focus:ring-0 focus:outline-none"
+                       value="${escapeHtml(review.author || '')}"
+                       placeholder="Navn"
+                       data-service-id="${serviceId}"
+                       data-section-index="${sectionIndex}"
+                       data-review-index="${reviewIndex}">
+                <select class="review-platform text-xs text-gray-500 bg-transparent border-0 p-0 focus:ring-0"
+                        data-service-id="${serviceId}"
+                        data-section-index="${sectionIndex}"
+                        data-review-index="${reviewIndex}">
+                    <option value="Trustpilot" ${review.platform === 'Trustpilot' ? 'selected' : ''}>Trustpilot</option>
+                    <option value="Google" ${review.platform === 'Google' ? 'selected' : ''}>Google</option>
+                    <option value="Facebook" ${review.platform === 'Facebook' ? 'selected' : ''}>Facebook</option>
+                    <option value="Anmeldhåndværker" ${review.platform === 'Anmeldhåndværker' ? 'selected' : ''}>Anmeldhåndværker</option>
+                </select>
+            </div>
+            <div class="flex items-center mb-2 space-x-1">
+                ${[1,2,3,4,5].map(star => `
+                    <button type="button"
+                            onclick="setReviewRating('${serviceId}', ${sectionIndex}, ${reviewIndex}, ${star})"
+                            class="review-star text-lg ${star <= (review.rating || 5) ? 'text-yellow-400' : 'text-gray-300'} hover:text-yellow-500 transition-colors">
+                        ★
+                    </button>
+                `).join('')}
+            </div>
+            <textarea class="review-text w-full text-sm text-gray-600 border border-gray-200 rounded p-2 resize-none focus:ring-1 focus:ring-purple-500"
+                      rows="3"
+                      data-service-id="${serviceId}"
+                      data-section-index="${sectionIndex}"
+                      data-review-index="${reviewIndex}"
+                      placeholder="Anmeldelsestekst...">${escapeHtml(review.text || '')}</textarea>
+            <button type="button"
+                    onclick="removeReview('${serviceId}', ${sectionIndex}, ${reviewIndex})"
+                    class="mt-2 text-xs text-red-400 hover:text-red-600">
+                Fjern anmeldelse
+            </button>
+        </div>
+    `;
+}
+
+// Render review section (with carousel if > 3 reviews)
+function renderReviewSection(serviceId, section, index) {
+    const reviews = section.reviews || [];
+    const hasCarousel = reviews.length > 3;
+
+    // Del reviews op i grupper af 3 for karrusel
+    const pages = [];
+    for (let i = 0; i < reviews.length; i += 3) {
+        pages.push(reviews.slice(i, Math.min(i + 3, reviews.length)));
     }
 
-    // Calculate character counts
-    // KRAV: Meta titel 50-60 tegn, Meta beskrivelse 150-160 tegn
-    const titleLength = (seoPage.meta_title || '').length;
-    const descLength = (seoPage.meta_description || '').length;
-    const titleClass = titleLength > 60 ? 'text-red-500' : (titleLength >= 50 ? 'text-green-500' : 'text-yellow-500');
-    const descClass = descLength > 160 ? 'text-red-500' : (descLength >= 150 ? 'text-green-500' : 'text-yellow-500');
+    const reviewCardsHtml = hasCarousel ? `
+        <!-- Karrusel container -->
+        <div class="review-carousel relative" data-page="0" data-service-id="${serviceId}" data-section-index="${index}">
+            <!-- Navigation pile -->
+            <button type="button" onclick="carouselPrev('${serviceId}', ${index})"
+                    class="carousel-prev absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white shadow-md rounded-full flex items-center justify-center hover:bg-gray-50 text-gray-600">
+                ◀
+            </button>
 
-    const html = `
-        <div class="seo-service-content" data-service-id="${serviceId}">
-            <!-- Header -->
-            <div class="flex items-center justify-between mb-6">
-                <div class="flex items-center space-x-4">
-                    <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white text-2xl"
-                         style="background-color: ${service.color}">
-                        📄
+            <!-- Review pages -->
+            <div class="carousel-pages mx-10">
+                ${pages.map((pageReviews, pageIndex) => `
+                    <div class="carousel-page ${pageIndex === 0 ? '' : 'hidden'}" data-page-index="${pageIndex}">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            ${pageReviews.map((review, i) => {
+                                const globalIndex = pageIndex * 3 + i;
+                                return renderReviewCard(serviceId, index, review, globalIndex);
+                            }).join('')}
+                        </div>
                     </div>
-                    <div>
-                        <h3 class="text-2xl font-bold text-gray-900">${escapeHtml(service.name)}</h3>
-                        <p class="text-gray-500">Konfigurer meta tags for denne underside</p>
-                    </div>
-                </div>
-                <button type="button" onclick="generateSeoMetaForService(${serviceId})"
-                        class="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium
-                               hover:shadow-lg transition-all duration-200 flex items-center space-x-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                `).join('')}
+            </div>
+
+            <button type="button" onclick="carouselNext('${serviceId}', ${index})"
+                    class="carousel-next absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white shadow-md rounded-full flex items-center justify-center hover:bg-gray-50 text-gray-600">
+                ▶
+            </button>
+
+            <!-- Dots navigation -->
+            <div class="flex justify-center mt-4 space-x-2">
+                ${pages.map((_, i) => `
+                    <button type="button" onclick="carouselGoTo('${serviceId}', ${index}, ${i})"
+                            class="carousel-dot w-2.5 h-2.5 rounded-full transition-colors ${i === 0 ? 'bg-purple-600' : 'bg-gray-300'}">
+                    </button>
+                `).join('')}
+            </div>
+        </div>
+    ` : `
+        <!-- Standard grid for 3 eller færre -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            ${reviews.map((review, i) => renderReviewCard(serviceId, index, review, i)).join('')}
+        </div>
+    `;
+
+    return `
+        <div class="seo-section bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-200"
+             data-section-index="${index}" data-section-type="reviews">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-medium text-purple-600 uppercase flex items-center">
+                    <span class="mr-2">⭐</span> Anmeldelser ${hasCarousel ? `(${reviews.length} stk)` : ''}
+                </span>
+                <button type="button" onclick="removeSeoSection('${serviceId}', ${index})"
+                        class="text-red-400 hover:text-red-600 p-1" title="Fjern anmeldelsessektion">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                     </svg>
-                    <span>Generer med AI</span>
                 </button>
             </div>
 
+            <input type="text"
+                   class="seo-section-header w-full px-3 py-2 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                   data-service-id="${serviceId}"
+                   data-section-index="${index}"
+                   value="${escapeHtml(section.header || 'Hvad siger vores kunder')}"
+                   placeholder="Overskrift til anmeldelsessektion">
+
+            ${reviewCardsHtml}
+
+            <!-- Tilføj anmeldelse knap -->
+            <button type="button" onclick="addReviewToSection('${serviceId}', ${index})"
+                    class="mt-4 w-full border-2 border-dashed border-gray-300 rounded-lg py-3 text-gray-400 hover:border-purple-400 hover:text-purple-500 transition-colors">
+                + Tilføj anmeldelse
+            </button>
+        </div>
+    `;
+}
+
+// Add new review section
+function addReviewSection(serviceId) {
+    const rawId = String(serviceId).startsWith('custom_') ? serviceId : parseInt(serviceId) || serviceId;
+    if (!campaignConfig.seo_pages[rawId]) return;
+    if (!campaignConfig.seo_pages[rawId].sections) {
+        campaignConfig.seo_pages[rawId].sections = [];
+    }
+
+    // Brug ekstraherede reviews fra crawl hvis tilgængelige
+    let reviewsToUse = [];
+    if (crawlState.extracted_reviews && crawlState.extracted_reviews.length > 0) {
+        // Brug crawl reviews (fra Elementor testimonials, Trustpilot etc.)
+        reviewsToUse = crawlState.extracted_reviews.map(r => ({
+            author: r.author || '',
+            rating: r.rating || 5,
+            text: r.text || '',
+            platform: r.platform || 'Trustpilot'
+        }));
+        console.log('[addReviewSection] Using', reviewsToUse.length, 'extracted reviews from crawl');
+    } else {
+        // Fallback til én tom review
+        reviewsToUse = [{ author: '', rating: 5, text: '', platform: 'Trustpilot' }];
+    }
+
+    campaignConfig.seo_pages[rawId].sections.push({
+        type: 'reviews',
+        header: 'Hvad siger vores kunder',
+        reviews: reviewsToUse
+    });
+
+    renderActiveSeoContent(rawId);
+    debouncedSaveState();
+}
+
+// Add review to existing section
+function addReviewToSection(serviceId, sectionIndex) {
+    const rawId = String(serviceId).startsWith('custom_') ? serviceId : parseInt(serviceId) || serviceId;
+    if (!campaignConfig.seo_pages[rawId]?.sections?.[sectionIndex]) return;
+
+    campaignConfig.seo_pages[rawId].sections[sectionIndex].reviews.push({
+        author: '',
+        rating: 5,
+        text: '',
+        platform: 'Trustpilot'
+    });
+
+    renderActiveSeoContent(rawId);
+    debouncedSaveState();
+}
+
+// Remove review from section
+function removeReview(serviceId, sectionIndex, reviewIndex) {
+    const rawId = String(serviceId).startsWith('custom_') ? serviceId : parseInt(serviceId) || serviceId;
+    if (!campaignConfig.seo_pages[rawId]?.sections?.[sectionIndex]?.reviews) return;
+
+    const reviews = campaignConfig.seo_pages[rawId].sections[sectionIndex].reviews;
+    if (reviews.length <= 1) {
+        // Hvis kun 1 anmeldelse, fjern hele sektionen
+        removeSeoSection(serviceId, sectionIndex);
+        return;
+    }
+
+    reviews.splice(reviewIndex, 1);
+    renderActiveSeoContent(rawId);
+    debouncedSaveState();
+}
+
+// Set review rating
+function setReviewRating(serviceId, sectionIndex, reviewIndex, rating) {
+    const rawId = String(serviceId).startsWith('custom_') ? serviceId : parseInt(serviceId) || serviceId;
+    if (!campaignConfig.seo_pages[rawId]?.sections?.[sectionIndex]?.reviews?.[reviewIndex]) return;
+
+    campaignConfig.seo_pages[rawId].sections[sectionIndex].reviews[reviewIndex].rating = rating;
+    renderActiveSeoContent(rawId);
+    debouncedSaveState();
+}
+
+// Carousel navigation functions
+function carouselNext(serviceId, sectionIndex) {
+    const carousel = document.querySelector(`[data-section-index="${sectionIndex}"][data-section-type="reviews"] .review-carousel`);
+    if (!carousel) return;
+
+    const currentPage = parseInt(carousel.dataset.page) || 0;
+    const pages = carousel.querySelectorAll('.carousel-page');
+    const newPage = (currentPage + 1) % pages.length;
+    updateCarouselPage(carousel, newPage);
+}
+
+function carouselPrev(serviceId, sectionIndex) {
+    const carousel = document.querySelector(`[data-section-index="${sectionIndex}"][data-section-type="reviews"] .review-carousel`);
+    if (!carousel) return;
+
+    const currentPage = parseInt(carousel.dataset.page) || 0;
+    const pages = carousel.querySelectorAll('.carousel-page');
+    const newPage = (currentPage - 1 + pages.length) % pages.length;
+    updateCarouselPage(carousel, newPage);
+}
+
+function carouselGoTo(serviceId, sectionIndex, pageIndex) {
+    const carousel = document.querySelector(`[data-section-index="${sectionIndex}"][data-section-type="reviews"] .review-carousel`);
+    if (!carousel) return;
+    updateCarouselPage(carousel, pageIndex);
+}
+
+function updateCarouselPage(carousel, pageIndex) {
+    carousel.dataset.page = pageIndex;
+
+    // Skjul alle sider, vis kun den aktive
+    carousel.querySelectorAll('.carousel-page').forEach((page, i) => {
+        page.classList.toggle('hidden', i !== pageIndex);
+    });
+
+    // Opdater dots
+    carousel.querySelectorAll('.carousel-dot').forEach((dot, i) => {
+        dot.classList.toggle('bg-purple-600', i === pageIndex);
+        dot.classList.toggle('bg-gray-300', i !== pageIndex);
+    });
+}
+
+// ============================================
+// END REVIEW SECTION FUNCTIONS
+// ============================================
+
+// Parse content into sections (fallback when backend sections not available)
+// Splits content based on paragraphs - no limit on number of sections
+function parseContentIntoSections(content) {
+    if (!content) return [{ header: '', content: '' }];
+
+    // Clean up content - normalize line breaks
+    let cleanContent = content.replace(/\r\n/g, '\n').trim();
+
+    // Remove AIDA phase markers that AI might include (they should NOT become headers)
+    cleanContent = cleanContent
+        .replace(/^\*?\*?(Attention|Interest|Desire|Action)\s*\(.*?\)\*?\*?:?\s*/gmi, '')
+        .replace(/^\*?\*?(Opmærksomhed|Interesse|Ønske|Handling)\*?\*?:?\s*/gmi, '')
+        .replace(/^#{1,4}\s*(Attention|Interest|Desire|Action|Opmærksomhed|Interesse|Ønske|Handling).*\n/gmi, '')
+        .trim();
+
+    // Split by double newlines (paragraphs)
+    const paragraphs = cleanContent.split(/\n\n+/).filter(p => p.trim());
+    const sections = [];
+    let currentHeader = '';
+    let currentContent = [];
+
+    paragraphs.forEach((para) => {
+        const trimmed = para.trim();
+        if (!trimmed) return;
+
+        // Remove markdown header prefix if present (e.g., ## Header)
+        const cleanPara = trimmed.replace(/^#{1,4}\s*/, '');
+
+        // Check if this looks like a quote/review (starts with quote character)
+        const isQuotedText = /^["»«'"]/.test(cleanPara);
+
+        // Detect if this looks like a header:
+        // - Starts with markdown # (definitely a header)
+        // - OR: Short (< 100 chars) AND doesn't end with period, question mark, or exclamation
+        // - BUT: Never treat quoted text as header (likely review)
+        const isHeader = (
+            !isQuotedText && (
+                trimmed.startsWith('#') ||
+                (cleanPara.length < 100 && !cleanPara.match(/[.!?]$/))
+            )
+        );
+
+        if (isHeader) {
+            // Save previous section if we have content
+            if (currentContent.length > 0) {
+                sections.push({
+                    header: currentHeader,
+                    content: currentContent.join('\n\n')
+                });
+            }
+            // Start new section with this header
+            currentHeader = cleanPara;
+            currentContent = [];
+        } else {
+            // This is content - add to current section
+            currentContent.push(cleanPara);
+        }
+    });
+
+    // Don't forget the last section
+    if (currentHeader || currentContent.length > 0) {
+        sections.push({
+            header: currentHeader,
+            content: currentContent.join('\n\n')
+        });
+    }
+
+    // Ensure at least one section
+    if (sections.length === 0) {
+        sections = [{ header: '', content: cleanContent }];
+    }
+
+    // Post-process: Check for review content and consolidate review sections
+    const processedSections = [];
+    let pendingReviews = [];
+    let reviewSectionHeader = '';
+    let reviewSectionIndex = -1;
+
+    for (let i = 0; i < sections.length; i++) {
+        const section = sections[i];
+        const combinedText = (section.header || '') + ' ' + (section.content || '');
+
+        // Check if this section contains review-like content
+        if (detectReviewContent(combinedText)) {
+            const reviews = extractReviewsFromText(combinedText);
+            if (reviews.length > 0) {
+                // Collect reviews to merge later
+                if (pendingReviews.length === 0) {
+                    reviewSectionIndex = processedSections.length;
+                    // Use this section's header if it looks like a review section header
+                    if (section.header && /anmeldelse|kunde|siger|testimonial/i.test(section.header)) {
+                        reviewSectionHeader = section.header;
+                    } else if (!reviewSectionHeader) {
+                        reviewSectionHeader = 'Hvad siger vores kunder';
+                    }
+                }
+                pendingReviews.push(...reviews);
+                console.log('[parseContentIntoSections] Found', reviews.length, 'reviews in section', i);
+                continue;
+            }
+        }
+
+        // Not a review section - flush pending reviews first
+        if (pendingReviews.length > 0) {
+            processedSections.push({
+                type: 'reviews',
+                header: reviewSectionHeader,
+                reviews: pendingReviews
+            });
+            console.log('[parseContentIntoSections] Created review section with', pendingReviews.length, 'reviews');
+            pendingReviews = [];
+            reviewSectionHeader = '';
+        }
+
+        // Add normal text section
+        processedSections.push({
+            type: 'text',
+            header: section.header,
+            content: section.content
+        });
+    }
+
+    // Don't forget remaining reviews at the end
+    if (pendingReviews.length > 0) {
+        processedSections.push({
+            type: 'reviews',
+            header: reviewSectionHeader || 'Hvad siger vores kunder',
+            reviews: pendingReviews
+        });
+        console.log('[parseContentIntoSections] Created final review section with', pendingReviews.length, 'reviews');
+    }
+
+    return processedSections;
+}
+
+// Detect if text contains review/testimonial content
+function detectReviewContent(text) {
+    if (!text) return false;
+    // Must have at least one strong indicator of review content
+    const strongReviewPatterns = [
+        /\d[.,]?\d?\s*stjerner?/i,                              // "5 stjerner", "4.8 stjerner"
+        /★+|☆+/,                                                 // Star symbols
+        /["»«"]([^"»«"]{10,})["»«"]\s*[-–—]\s*[A-ZÆØÅ]/,       // "Quote 10+ chars" - Name
+        /trustpilot|google\s*review|facebook\s*anmeldelse/i,   // Platform names (specific)
+    ];
+    // Weak indicators that support review detection
+    const weakReviewPatterns = [
+        /\b(anbefaler|tilfreds|fantastisk|professionel|god oplevelse|kan varmt anbefales)\b/i,
+        /kunde[rns]*\s*(siger|mener|udtaler)/i
+    ];
+
+    // Need at least one strong pattern match
+    const hasStrongMatch = strongReviewPatterns.some(p => p.test(text));
+    // Or two+ weak patterns
+    const weakMatches = weakReviewPatterns.filter(p => p.test(text)).length;
+
+    return hasStrongMatch || weakMatches >= 2;
+}
+
+// Extract reviews from text using pattern matching
+function extractReviewsFromText(text) {
+    const reviews = [];
+
+    // Pattern 1: "Quote text" - Author Name
+    const pattern1 = /["»«"]([^"»«"]{10,300})["»«"]\s*[-–—]\s*([A-ZÆØÅ][a-zæøå]+(?:\s+[A-ZÆØÅ][a-zæøå]+)?)/g;
+    let match;
+    while ((match = pattern1.exec(text)) !== null) {
+        reviews.push({
+            author: match[2].trim(),
+            rating: 5,
+            text: match[1].trim(),
+            platform: detectPlatformFromText(text)
+        });
+    }
+
+    // Pattern 2: Author Name: "Quote text" or Author Name siger: "Quote text"
+    const pattern2 = /([A-ZÆØÅ][a-zæøå]+(?:\s+[A-ZÆØÅ][a-zæøå]+)?)\s*(?:siger|:)\s*["»«"]([^"»«"]{10,300})["»«"]/g;
+    while ((match = pattern2.exec(text)) !== null) {
+        // Avoid duplicates
+        const alreadyAdded = reviews.some(r => r.text === match[2].trim());
+        if (!alreadyAdded) {
+            reviews.push({
+                author: match[1].trim(),
+                rating: 5,
+                text: match[2].trim(),
+                platform: detectPlatformFromText(text)
+            });
+        }
+    }
+
+    return reviews;
+}
+
+// Detect which review platform is mentioned in text
+function detectPlatformFromText(text) {
+    if (!text) return 'Trustpilot';
+    const lower = text.toLowerCase();
+    if (lower.includes('google')) return 'Google';
+    if (lower.includes('facebook')) return 'Facebook';
+    if (lower.includes('anmeldhåndværker') || lower.includes('anmeld håndværker')) return 'Anmeldhåndværker';
+    return 'Trustpilot';
+}
+
+// Render active SEO PAGE content - PAGE-BASED structure
+async function renderActiveSeoContent(pagePath) {
+    const container = $('#active-seo-content');
+    const page = allSeoPageKeys.find(p => p.path === pagePath);
+    let seoPageData = campaignConfig.seo_pages[pagePath] || {};
+
+    if (!page) {
+        container.html('<div class="text-gray-500 p-4">Side ikke fundet</div>');
+        return;
+    }
+
+    const websiteUrl = crawlState.website_url || '';
+    const baseUrl = websiteUrl.replace(/\/$/, '');
+
+    // Get scraped page data
+    let scrapedPageData = getScrapedPageData(pagePath);
+
+    // Pre-fill from scraped data if fields are empty
+    if (scrapedPageData) {
+        if (!seoPageData.meta_title && scrapedPageData.meta_title) {
+            seoPageData.meta_title = scrapedPageData.meta_title;
+            campaignConfig.seo_pages[pagePath] = seoPageData;
+        }
+        if (!seoPageData.meta_description && scrapedPageData.meta_description) {
+            seoPageData.meta_description = scrapedPageData.meta_description;
+            campaignConfig.seo_pages[pagePath] = seoPageData;
+        }
+        // Use structured sections from backend
+        if (!seoPageData.sections && scrapedPageData.sections && scrapedPageData.sections.length > 0) {
+            seoPageData.sections = scrapedPageData.sections.map(s => ({
+                header: s.header || '',
+                content: s.content || '',
+                tag: s.tag || 'h2'
+            }));
+
+            // Filter out review-like sections
+            if (crawlState.extracted_reviews && crawlState.extracted_reviews.length > 0) {
+                const reviewAuthors = crawlState.extracted_reviews.map(r => (r.author || '').toLowerCase().trim());
+                const reviewTexts = crawlState.extracted_reviews.map(r => (r.text || '').substring(0, 50).toLowerCase().trim());
+
+                seoPageData.sections = seoPageData.sections.filter(section => {
+                    const header = (section.header || '').toLowerCase().trim();
+                    const content = (section.content || '').toLowerCase().trim();
+                    const headerMatchesAuthor = reviewAuthors.some(author =>
+                        author && header && (header.includes(author) || author.includes(header))
+                    );
+                    const contentMatchesReview = reviewTexts.some(reviewText =>
+                        reviewText && content && content.substring(0, 60).includes(reviewText.substring(0, 30))
+                    );
+                    return !headerMatchesAuthor && !contentMatchesReview;
+                });
+            }
+
+            // Auto-insert reviews
+            if (crawlState.extracted_reviews && crawlState.extracted_reviews.length > 0) {
+                const hasReviewSection = seoPageData.sections.some(s => s.type === 'reviews');
+                if (!hasReviewSection) {
+                    seoPageData.sections.push({
+                        type: 'reviews',
+                        header: 'Hvad siger vores kunder',
+                        reviews: crawlState.extracted_reviews.map(r => ({
+                            author: r.author || '',
+                            rating: r.rating || 5,
+                            text: r.text || '',
+                            platform: r.platform || 'Trustpilot'
+                        }))
+                    });
+                }
+            }
+            campaignConfig.seo_pages[pagePath] = seoPageData;
+        }
+    }
+
+    // Initialize sections array if not exists
+    if (!seoPageData.sections) {
+        seoPageData.sections = [{ header: '', content: '' }];
+        campaignConfig.seo_pages[pagePath] = seoPageData;
+    }
+
+    // Calculate character counts
+    const titleLength = (seoPageData.meta_title || '').length;
+    const descLength = (seoPageData.meta_description || '').length;
+    const titleClass = titleLength > 60 ? 'text-red-500' : (titleLength >= 50 ? 'text-green-500' : 'text-yellow-500');
+    const descClass = descLength > 160 ? 'text-red-500' : (descLength >= 150 ? 'text-green-500' : 'text-yellow-500');
+
+    // Page icon
+    const pageIcon = pagePath === '/' ? '🏠' : '📄';
+
+    // Source page link
+    let sourcePageHtml = '';
+    if (pagePath !== '/') {
+        const fullUrl = baseUrl + pagePath;
+        sourcePageHtml = `
+            <a href="${escapeHtml(fullUrl)}" target="_blank"
+               class="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 hover:underline mb-4">
+                <span class="mr-1">🔗</span> Se eksisterende side: ${escapeHtml(pagePath)}
+            </a>
+        `;
+    }
+
+    // Build services tags HTML
+    const servicesTagsHtml = page.services.length > 0 ? `
+        <div class="mb-4">
+            <div class="text-xs text-gray-500 mb-2">Services på denne side:</div>
+            <div class="flex flex-wrap gap-2">
+                ${page.services.map(s => `
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium"
+                          style="background-color: ${s.color}20; color: ${s.color}; border: 1px solid ${s.color}40;">
+                        ${s.isCustom ? '<span class="mr-1 text-xs">AI</span>' : ''}
+                        ${escapeHtml(s.name)}
+                    </span>
+                `).join('')}
+            </div>
+        </div>
+    ` : '';
+
+    // AI button - always show for pages with AI services or homepage
+    const hasAiServices = page.services.some(s => s.isCustom);
+    const aiButtonHtml = `
+        <button type="button" onclick="generateSeoContentForPage('${escapeHtml(pagePath)}')"
+                class="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium
+                       hover:shadow-lg transition-all duration-200 flex items-center space-x-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+            </svg>
+            <span>✨ Generer med AI</span>
+        </button>
+    `;
+
+    // Create safe ID from path for DOM elements
+    const safeId = pagePath.replace(/[^a-zA-Z0-9]/g, '_');
+
+    // Build sections HTML
+    const sectionsHtml = seoPageData.sections.map((section, index) => {
+        if (section.type === 'reviews') {
+            return renderReviewSectionForPage(pagePath, section, index);
+        }
+
+        return `
+            <div class="seo-section bg-gray-50 rounded-xl p-4 border border-gray-200" data-section-index="${index}" data-section-type="text">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-medium text-gray-500 uppercase">Afsnit ${index + 1}</span>
+                    <div class="flex items-center space-x-2">
+                        ${seoPageData.sections.length > 1 ? `
+                            <button type="button" onclick="removeSeoSectionFromPage('${escapeHtml(pagePath)}', ${index})"
+                                    class="text-red-400 hover:text-red-600 p-1" title="Fjern afsnit">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                </svg>
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+                <input type="text"
+                       class="seo-section-header w-full px-3 py-2 border border-gray-300 rounded-lg mb-2
+                              focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 font-medium"
+                       data-page-path="${escapeHtml(pagePath)}"
+                       data-section-index="${index}"
+                       placeholder="Overskrift til afsnit"
+                       value="${escapeHtml(section.header || '')}">
+                <textarea class="seo-section-content w-full px-3 py-2 border border-gray-300 rounded-lg
+                                focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 resize-none"
+                          data-page-path="${escapeHtml(pagePath)}"
+                          data-section-index="${index}"
+                          rows="4"
+                          placeholder="Indhold til afsnit...">${escapeHtml(section.content || '')}</textarea>
+                <div class="flex justify-end mt-1">
+                    <span class="text-xs text-gray-400 seo-section-word-count" data-page-path="${escapeHtml(pagePath)}" data-section-index="${index}">
+                        ${countWords(section.content || '')} ord
+                    </span>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    const html = `
+        <div class="seo-page-content" data-page-path="${escapeHtml(pagePath)}">
+            <!-- Header -->
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center space-x-4">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white text-2xl"
+                         style="background-color: ${page.color}">
+                        ${pageIcon}
+                    </div>
+                    <div>
+                        <h3 class="text-2xl font-bold text-gray-900">${escapeHtml(page.page_title)}</h3>
+                        <p class="text-gray-500">Konfigurer meta tags og indhold for ${pagePath === '/' ? 'forsiden' : 'denne underside'}</p>
+                    </div>
+                </div>
+                ${aiButtonHtml}
+            </div>
+
+            ${sourcePageHtml}
+            ${servicesTagsHtml}
+
             <!-- SEO Keywords Section -->
-            <div class="mb-8">
-                <div class="flex items-center justify-between mb-4">
-                    <h4 class="font-semibold text-gray-900 flex items-center">
-                        <span class="w-7 h-7 rounded-lg mr-2 flex items-center justify-center text-sm" style="background: linear-gradient(135deg, #dbeafe, #bfdbfe);">🔑</span>
-                        Søgeord (<span id="seo-keywords-count-${serviceId}">${seoPage.keywords_loaded ? seoPage.seo_keywords.length : '...'}</span>)
+            <div class="mb-6">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="font-semibold text-gray-900 flex items-center text-sm">
+                        <span class="w-6 h-6 rounded-lg mr-2 flex items-center justify-center text-xs" style="background: linear-gradient(135deg, #dbeafe, #bfdbfe);">🔑</span>
+                        Søgeord (<span id="seo-keywords-count-${safeId}">${seoPageData.keywords_loaded ? (seoPageData.seo_keywords || []).length : '...'}</span>)
                     </h4>
-                    <button type="button" class="add-seo-keyword-btn text-sm px-4 py-2 rounded-xl font-medium transition-all duration-200 hover:shadow-md"
+                    <button type="button" class="add-seo-keyword-btn text-xs px-3 py-1.5 rounded-lg font-medium transition-all duration-200 hover:shadow-md"
                             style="background: linear-gradient(135deg, #d1fae520, #a7f3d020); color: #059669;"
-                            data-service-id="${serviceId}">
+                            data-page-path="${escapeHtml(pagePath)}">
                         + Tilføj
                     </button>
                 </div>
-                <div id="seo-keywords-container-${serviceId}" class="seo-keywords-list space-y-2 max-h-48 overflow-y-auto" data-service-id="${serviceId}">
-                    ${seoPage.keywords_loaded ?
-                        renderSeoKeywordsList(seoPage.seo_keywords, serviceId) :
-                        '<div class="text-gray-400 p-3">Henter SEO keywords...</div>'
+                <div id="seo-keywords-container-${safeId}" class="seo-keywords-list space-y-2 max-h-32 overflow-y-auto" data-page-path="${escapeHtml(pagePath)}">
+                    ${seoPageData.keywords_loaded ?
+                        renderSeoKeywordsListForPage(seoPageData.seo_keywords || [], pagePath) :
+                        '<div class="text-gray-400 p-2 text-sm">Henter SEO keywords...</div>'
                     }
                 </div>
-                <div class="add-seo-keyword-form hidden mt-3 p-4 rounded-xl" style="background: linear-gradient(135deg, #f9fafb, #f3f4f6);" data-service-id="${serviceId}">
+                <div class="add-seo-keyword-form hidden mt-2 p-3 rounded-xl" style="background: linear-gradient(135deg, #f9fafb, #f3f4f6);" data-page-path="${escapeHtml(pagePath)}">
                     <div class="flex items-center space-x-2">
-                        <input type="text" class="new-seo-keyword-input flex-1 px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all" placeholder="Nyt SEO søgeord...">
-                        <select class="new-seo-keyword-type px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all">
+                        <input type="text" class="new-seo-keyword-input flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm" placeholder="Nyt SEO søgeord...">
+                        <select class="new-seo-keyword-type px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm">
                             <option value="money">Money</option>
                             <option value="price">Pris</option>
                             <option value="info">Info</option>
                             <option value="lsi">LSI</option>
                         </select>
-                        <button type="button" class="save-new-seo-keyword-btn px-4 py-2.5 rounded-xl font-medium text-white transition-all duration-200 hover:shadow-lg" style="background: linear-gradient(90deg, #8b5cf6, #ec4899);" data-service-id="${serviceId}">Gem</button>
-                        <button type="button" class="cancel-seo-keyword-btn px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-all" data-service-id="${serviceId}">Annuller</button>
+                        <button type="button" class="save-new-seo-keyword-btn px-3 py-2 rounded-lg font-medium text-white transition-all duration-200 hover:shadow-lg text-sm" style="background: linear-gradient(90deg, #8b5cf6, #ec4899);" data-page-path="${escapeHtml(pagePath)}">Gem</button>
+                        <button type="button" class="cancel-seo-keyword-btn px-3 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-all text-sm" data-page-path="${escapeHtml(pagePath)}">Annuller</button>
                     </div>
                 </div>
             </div>
 
             <!-- Meta Title -->
-            <div class="bg-white rounded-xl p-6 mb-4 border border-gray-200">
-                <div class="flex items-center justify-between mb-3">
-                    <label class="text-lg font-semibold text-gray-900">🏷️ Meta Titel</label>
-                    <span class="text-sm ${titleClass}" id="meta-title-count-${serviceId}">${titleLength}/60</span>
+            <div class="bg-white rounded-xl p-5 mb-4 border border-gray-200">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="font-semibold text-gray-900">🏷️ Meta Titel</label>
+                    <span class="text-sm ${titleClass}" id="meta-title-count-${safeId}">${titleLength}/60</span>
                 </div>
                 <input type="text"
                        class="seo-meta-title w-full px-4 py-3 border border-gray-300 rounded-lg
                               focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900"
-                       data-service-id="${serviceId}"
+                       data-page-path="${escapeHtml(pagePath)}"
                        maxlength="100"
                        placeholder="Indtast meta titel (50-60 tegn anbefales)"
-                       value="${escapeHtml(seoPage.meta_title || '')}">
-                <p class="text-xs text-gray-500 mt-2">Vises som titlen i Google søgeresultater</p>
+                       value="${escapeHtml(seoPageData.meta_title || '')}">
+                <p class="text-xs text-gray-500 mt-1">Vises som titlen i Google søgeresultater</p>
             </div>
 
             <!-- Meta Description -->
-            <div class="bg-white rounded-xl p-6 border border-gray-200">
-                <div class="flex items-center justify-between mb-3">
-                    <label class="text-lg font-semibold text-gray-900">📝 Meta Beskrivelse</label>
-                    <span class="text-sm ${descClass}" id="meta-desc-count-${serviceId}">${descLength}/160</span>
+            <div class="bg-white rounded-xl p-5 mb-4 border border-gray-200">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="font-semibold text-gray-900">📝 Meta Beskrivelse</label>
+                    <span class="text-sm ${descClass}" id="meta-desc-count-${safeId}">${descLength}/160</span>
                 </div>
                 <textarea class="seo-meta-description w-full px-4 py-3 border border-gray-300 rounded-lg
                                 focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 resize-none"
-                          data-service-id="${serviceId}"
+                          data-page-path="${escapeHtml(pagePath)}"
                           rows="3"
                           maxlength="250"
-                          placeholder="Indtast meta beskrivelse (150-160 tegn, vigtigste info inden for første 120 tegn)">${escapeHtml(seoPage.meta_description || '')}</textarea>
-                <p class="text-xs text-gray-500 mt-2">Vises som beskrivelsen under titlen i Google søgeresultater</p>
+                          placeholder="Indtast meta beskrivelse (150-160 tegn)">${escapeHtml(seoPageData.meta_description || '')}</textarea>
+                <p class="text-xs text-gray-500 mt-1">Vises under titlen i Google søgeresultater</p>
+            </div>
+
+            <!-- Page Content Sections -->
+            <div class="bg-white rounded-xl p-5 border border-gray-200">
+                <div class="flex items-center justify-between mb-4">
+                    <label class="font-semibold text-gray-900">📄 Sideindhold <span class="text-gray-400 font-normal text-sm">(${seoPageData.sections.length} afsnit, <span id="seo-total-words-${safeId}">${seoPageData.sections.reduce((sum, s) => sum + countWords(s.content || ''), 0)}</span> ord)</span></label>
+                    <div class="flex items-center space-x-2">
+                        <button type="button" onclick="addSeoSectionToPage('${escapeHtml(pagePath)}')"
+                                class="text-sm px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg font-medium hover:bg-purple-200 transition-all">
+                            + Tilføj afsnit
+                        </button>
+                        <button type="button" onclick="addReviewSectionToPage('${escapeHtml(pagePath)}')"
+                                class="text-sm px-3 py-1.5 bg-pink-100 text-pink-700 rounded-lg font-medium hover:bg-pink-200 transition-all">
+                            ⭐ Tilføj anmeldelser
+                        </button>
+                    </div>
+                </div>
+                <div id="seo-sections-container-${safeId}" class="space-y-4">
+                    ${sectionsHtml}
+                </div>
+                <p class="text-xs text-gray-500 mt-3">Hvert afsnit består af en overskrift og indhold.</p>
             </div>
         </div>
     `;
@@ -10544,8 +12802,285 @@ async function renderActiveSeoContent(serviceId) {
     container.html(html);
 
     // Load SEO keywords if not already loaded
-    if (!seoPage.keywords_loaded) {
-        await loadSeoKeywordsForService(serviceId);
+    if (!seoPageData.keywords_loaded) {
+        await loadSeoKeywordsForPage(pagePath);
+    }
+}
+
+// Helper functions for page-based SEO
+function renderSeoKeywordsListForPage(keywords, pagePath) {
+    if (!keywords || keywords.length === 0) {
+        return '<div class="text-gray-400 p-2 text-sm">Ingen søgeord endnu</div>';
+    }
+    return keywords.map((kw, i) => `
+        <div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+            <span class="text-sm text-gray-700">${escapeHtml(kw.keyword || kw)}</span>
+            <button type="button" class="remove-seo-keyword text-red-400 hover:text-red-600 text-xs"
+                    data-page-path="${escapeHtml(pagePath)}" data-index="${i}">×</button>
+        </div>
+    `).join('');
+}
+
+function renderReviewSectionForPage(pagePath, section, index) {
+    // Use the same review rendering logic but with page path
+    const reviews = section.reviews || [];
+    const safeId = pagePath.replace(/[^a-zA-Z0-9]/g, '_');
+
+    return `
+        <div class="seo-section bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-200"
+             data-section-index="${index}" data-section-type="reviews">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-medium text-purple-600 uppercase flex items-center">
+                    <span class="mr-2">⭐</span> Anmeldelser (${reviews.length} stk)
+                </span>
+                <button type="button" onclick="removeSeoSectionFromPage('${escapeHtml(pagePath)}', ${index})"
+                        class="text-red-400 hover:text-red-600 p-1" title="Fjern anmeldelsessektion">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                </button>
+            </div>
+            <input type="text"
+                   class="seo-section-header w-full px-3 py-2 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                   data-page-path="${escapeHtml(pagePath)}"
+                   data-section-index="${index}"
+                   value="${escapeHtml(section.header || 'Hvad siger vores kunder')}"
+                   placeholder="Overskrift til anmeldelsessektion">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                ${reviews.slice(0, 6).map((review, i) => `
+                    <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="font-medium text-gray-900 text-sm">${escapeHtml(review.author || 'Anonym')}</span>
+                            <span class="text-xs text-gray-500">${escapeHtml(review.platform || 'Trustpilot')}</span>
+                        </div>
+                        <div class="flex mb-2">${'★'.repeat(review.rating || 5)}${'☆'.repeat(5 - (review.rating || 5))}</div>
+                        <p class="text-sm text-gray-600 line-clamp-3">${escapeHtml(review.text || '')}</p>
+                    </div>
+                `).join('')}
+            </div>
+            ${reviews.length > 6 ? `<p class="text-xs text-gray-500 mt-2">+${reviews.length - 6} flere anmeldelser</p>` : ''}
+        </div>
+    `;
+}
+
+async function loadSeoKeywordsForPage(pagePath) {
+    const page = allSeoPageKeys.find(p => p.path === pagePath);
+    if (!page) return;
+
+    // Use services on this page to generate keywords
+    const serviceNames = page.services.map(s => s.name);
+    const safeId = pagePath.replace(/[^a-zA-Z0-9]/g, '_');
+
+    try {
+        const response = await $.ajax({
+            url: '/ajax/get-seo-keywords/',
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+            contentType: 'application/json',
+            data: JSON.stringify({
+                service_names: serviceNames,
+                page_path: pagePath
+            })
+        });
+
+        if (response.success) {
+            campaignConfig.seo_pages[pagePath].seo_keywords = response.keywords || [];
+            campaignConfig.seo_pages[pagePath].keywords_loaded = true;
+
+            $(`#seo-keywords-container-${safeId}`).html(
+                renderSeoKeywordsListForPage(response.keywords || [], pagePath)
+            );
+            $(`#seo-keywords-count-${safeId}`).text((response.keywords || []).length);
+            debouncedSaveState();
+        }
+    } catch (error) {
+        console.error('Error loading SEO keywords for page:', pagePath, error);
+        campaignConfig.seo_pages[pagePath].keywords_loaded = true;
+        campaignConfig.seo_pages[pagePath].seo_keywords = [];
+    }
+}
+
+// Page-based section functions
+function addSeoSectionToPage(pagePath) {
+    if (!campaignConfig.seo_pages[pagePath]) return;
+    if (!campaignConfig.seo_pages[pagePath].sections) {
+        campaignConfig.seo_pages[pagePath].sections = [];
+    }
+    campaignConfig.seo_pages[pagePath].sections.push({ header: '', content: '' });
+    renderActiveSeoContent(pagePath);
+    debouncedSaveState();
+}
+
+function removeSeoSectionFromPage(pagePath, index) {
+    if (!campaignConfig.seo_pages[pagePath]?.sections) return;
+    if (campaignConfig.seo_pages[pagePath].sections.length <= 1) return;
+    campaignConfig.seo_pages[pagePath].sections.splice(index, 1);
+    renderActiveSeoContent(pagePath);
+    debouncedSaveState();
+}
+
+function addReviewSectionToPage(pagePath) {
+    if (!campaignConfig.seo_pages[pagePath]) return;
+    if (!campaignConfig.seo_pages[pagePath].sections) {
+        campaignConfig.seo_pages[pagePath].sections = [];
+    }
+
+    let reviewsToUse = [];
+    if (crawlState.extracted_reviews && crawlState.extracted_reviews.length > 0) {
+        reviewsToUse = crawlState.extracted_reviews.map(r => ({
+            author: r.author || '',
+            rating: r.rating || 5,
+            text: r.text || '',
+            platform: r.platform || 'Trustpilot'
+        }));
+    } else {
+        reviewsToUse = [{ author: '', rating: 5, text: '', platform: 'Trustpilot' }];
+    }
+
+    campaignConfig.seo_pages[pagePath].sections.push({
+        type: 'reviews',
+        header: 'Hvad siger vores kunder',
+        reviews: reviewsToUse
+    });
+
+    renderActiveSeoContent(pagePath);
+    debouncedSaveState();
+}
+
+// Generate SEO content for a page
+async function generateSeoContentForPage(pagePath) {
+    const page = allSeoPageKeys.find(p => p.path === pagePath);
+    if (!page) {
+        alert('Side ikke fundet');
+        return;
+    }
+
+    const serviceNames = page.services.map(s => s.name);
+    const scrapedData = getScrapedPageData(pagePath);
+
+    showRobertoLoading('seo_content');
+
+    try {
+        const response = await $.ajax({
+            url: '/ajax/generate-seo-content/',
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+            contentType: 'application/json',
+            data: JSON.stringify({
+                page_path: pagePath,
+                page_title: page.page_title,
+                service_names: serviceNames,
+                existing_content: scrapedData?.content || '',
+                usps: getActiveUsps()
+            })
+        });
+
+        if (response.success) {
+            if (response.meta_title) {
+                campaignConfig.seo_pages[pagePath].meta_title = response.meta_title;
+            }
+            if (response.meta_description) {
+                campaignConfig.seo_pages[pagePath].meta_description = response.meta_description;
+            }
+            if (response.sections) {
+                campaignConfig.seo_pages[pagePath].sections = response.sections;
+            }
+
+            renderActiveSeoContent(pagePath);
+            debouncedSaveState();
+            showToast('SEO indhold genereret med AI', 'success');
+        } else {
+            alert('Fejl ved generering: ' + (response.error || 'Ukendt fejl'));
+        }
+    } catch (error) {
+        console.error('SEO generation error:', error);
+        alert('Fejl ved generering af SEO indhold');
+    }
+
+    hideRobertoLoading();
+}
+
+// Add a new section to SEO page (no limit - matches page structure)
+function addSeoSection(serviceId) {
+    const rawId = String(serviceId).startsWith('custom_') ? serviceId : parseInt(serviceId) || serviceId;
+    if (!campaignConfig.seo_pages[rawId]) return;
+
+    if (!campaignConfig.seo_pages[rawId].sections) {
+        campaignConfig.seo_pages[rawId].sections = [];
+    }
+
+    // Add new section with empty header - user fills in their own
+    campaignConfig.seo_pages[rawId].sections.push({ header: '', content: '' });
+    renderActiveSeoContent(rawId);
+    debouncedSaveState();
+}
+
+// Remove a section from SEO page
+function removeSeoSection(serviceId, sectionIndex) {
+    const rawId = String(serviceId).startsWith('custom_') ? serviceId : parseInt(serviceId) || serviceId;
+    if (!campaignConfig.seo_pages[rawId] || !campaignConfig.seo_pages[rawId].sections) return;
+
+    if (campaignConfig.seo_pages[rawId].sections.length > 1) {
+        campaignConfig.seo_pages[rawId].sections.splice(sectionIndex, 1);
+        renderActiveSeoContent(rawId);
+        debouncedSaveState();
+    }
+}
+
+// Export SEO content to WordPress-compatible CSV
+async function exportSeoContentCSV() {
+    // Prepare SEO pages data for export
+    const seoPages = campaignConfig.seo_pages || {};
+
+    // Add service name and source_path to each page from allSeoServiceKeys
+    const enrichedPages = {};
+    for (const [serviceId, pageData] of Object.entries(seoPages)) {
+        const serviceInfo = allSeoServiceKeys.find(s => String(s.id) === String(serviceId));
+        enrichedPages[serviceId] = {
+            ...pageData,
+            service_name: serviceInfo?.name || pageData.service_name || 'Ukendt service',
+            source_path: serviceInfo?.source_path || pageData.source_path || '/'
+        };
+    }
+
+    if (Object.keys(enrichedPages).length === 0) {
+        showToast('Ingen SEO sider at eksportere. Udfyld mindst én service.', 'warning');
+        return;
+    }
+
+    try {
+        const response = await fetch('/ajax/export-seo-content-csv/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                seo_pages: enrichedPages,
+                website_url: crawlState.website_url || campaignConfig.website_url || ''
+            })
+        });
+
+        if (response.ok) {
+            // Download the CSV file
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'seo_content_export.csv';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            a.remove();
+
+            showToast(`CSV eksporteret med ${Object.keys(enrichedPages).length} sider!`, 'success');
+        } else {
+            const error = await response.json();
+            showToast(`Fejl: ${error.error || 'Kunne ikke eksportere'}`, 'error');
+        }
+    } catch (error) {
+        console.error('Export error:', error);
+        showToast('Fejl ved eksport af CSV', 'error');
     }
 }
 
@@ -10651,6 +13186,9 @@ async function generateSeoMetaForService(serviceId) {
         <span>Genererer...</span>
     `);
 
+    // Show Roberto loading animation
+    showRobertoLoading('meta_tags');
+
     try {
         // Debug: log what we're sending
         console.log('Generating SEO meta with:', { service_id: serviceId, service_name: service.name });
@@ -10709,6 +13247,153 @@ async function generateSeoMetaForService(serviceId) {
     }
 
     generateBtn.prop('disabled', false).html(originalText);
+    hideRobertoLoading();
+}
+
+// Generate SEO content with AI for any service (custom or predefined)
+async function generateSeoContentWithAI(serviceId) {
+    const service = allSeoServiceKeys.find(s => s.id === serviceId);
+    const seoPage = campaignConfig.seo_pages[serviceId];
+
+    if (!service) {
+        alert('Service ikke fundet');
+        return;
+    }
+
+    // Determine if we're generating new content or rewriting existing
+    const isAiService = service.isCustom === true;
+    const hasDedicatedPage = service.has_dedicated_page !== false;
+
+    // Try to get scraped page data - either from source_path or by matching service name
+    let scrapedPageData = service.source_path ? getScrapedPageData(service.source_path) : null;
+
+    // For DB services or when source_path is "/" or empty, try to find matching page
+    if (!scrapedPageData || service.source_path === '/' || !service.source_path) {
+        const matchedPage = findBestMatchingPage(service.name);
+        if (matchedPage) {
+            scrapedPageData = matchedPage;
+        }
+    }
+    const action = hasDedicatedPage && scrapedPageData ? 'rewrite' : 'generate_new';
+
+    // Get USPs for context
+    const usps = getActiveUsps();
+
+    // Show loading state
+    const generateBtn = $(`.seo-service-content[data-service-id="${serviceId}"] button`).first();
+    const originalText = generateBtn.html();
+    generateBtn.prop('disabled', true).html(`
+        <svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span>${action === 'rewrite' ? 'Omskriver...' : 'Genererer...'}</span>
+    `);
+
+    // Show Roberto loading animation
+    showRobertoLoading('content_generation');
+
+    try {
+        // Get company profile from campaignConfig (generated during company description step)
+        const companyProfile = campaignConfig.company_profile || null;
+
+        // Get primary city/geographic area for local SEO
+        let city = '';
+        if (campaignConfig.geographic_region_ids && campaignConfig.geographic_region_ids.length > 0) {
+            // Try to get the first selected region's cities
+            const regionId = campaignConfig.geographic_region_ids[0];
+            // If we have cached region data, get the first city
+            if (window.loadedRegionsData && window.loadedRegionsData[regionId]) {
+                const cities = window.loadedRegionsData[regionId].cities || [];
+                if (cities.length > 0) {
+                    city = cities[0].name || '';
+                }
+            }
+        }
+
+        // Build request data with AIDA-model support
+        const requestData = {
+            action: action,
+            service_name: service.name,
+            industry: service.industry || '',
+            usps: usps,
+            company_name: campaignConfig.company_name || '',
+            company_profile: companyProfile,  // Full company profile JSON for rich content
+            city: city  // Geographic area for local SEO keywords
+        };
+
+        // For rewrite, add existing content
+        if (action === 'rewrite' && scrapedPageData) {
+            requestData.existing_content = scrapedPageData.content || '';
+            requestData.existing_meta_title = scrapedPageData.meta_title || '';
+            requestData.existing_meta_description = scrapedPageData.meta_description || '';
+        }
+
+        console.log('[SEO AI Generation]', action, requestData);
+
+        const response = await $.ajax({
+            url: '/ajax/generate-seo-content/',
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+            contentType: 'application/json',
+            data: JSON.stringify(requestData)
+        });
+
+        if (response.success) {
+            // Update the seo_pages config
+            campaignConfig.seo_pages[serviceId].meta_title = response.meta_title || '';
+            campaignConfig.seo_pages[serviceId].meta_description = response.meta_description || '';
+
+            // Parse intro_text into sections for the new segmented UI
+            let sections = [];
+            if (response.intro_text) {
+                sections = parseContentIntoSections(response.intro_text);
+            }
+
+            // Handle reviews from AI response - insert as review section at correct position
+            if (response.reviews && response.reviews.length > 0) {
+                // Create review section from detected reviews
+                const reviewSection = {
+                    type: 'reviews',
+                    header: 'Hvad siger vores kunder',
+                    reviews: response.reviews.map(r => ({
+                        author: r.author || 'Anonym',
+                        rating: parseInt(r.rating) || 5,
+                        text: r.text || '',
+                        platform: r.platform || 'Trustpilot'
+                    }))
+                };
+
+                // Determine position (default: after first section)
+                const position = Math.min(
+                    response.reviews[0]?.position || 1,
+                    sections.length
+                );
+
+                // Insert review section at correct position
+                sections.splice(position, 0, reviewSection);
+                console.log('[SEO AI] Inserted review section at position', position, 'with', response.reviews.length, 'reviews');
+            }
+
+            campaignConfig.seo_pages[serviceId].sections = sections;
+
+            // Re-render the entire content panel to show updated sections
+            await renderActiveSeoContent(serviceId);
+
+            // Update sidebar status
+            renderSeoSidebar();
+
+            showToast(action === 'rewrite' ? 'Indhold omskrevet med AI' : 'Indhold genereret med AI', 'success');
+        } else {
+            alert('Fejl ved generering: ' + (response.error || 'Ukendt fejl'));
+        }
+    } catch (error) {
+        console.error('SEO content generation error:', error);
+        showToast('Fejl ved AI-generering: ' + error.message, 'error');
+    }
+
+    generateBtn.prop('disabled', false).html(originalText);
+    hideRobertoLoading();
 }
 
 // Update SEO character count display
@@ -10728,60 +13413,111 @@ function updateSeoCharCount(serviceId, type, length) {
     $(selector).text(`${length}/${max}`).removeClass('text-red-500 text-green-500 text-yellow-500').addClass(colorClass);
 }
 
-// Setup SEO Builder event handlers
+// Setup SEO Builder event handlers - PAGE-BASED
 function setupSeoEventHandlers() {
-    // Sidebar navigation click
+    // Sidebar navigation click - PAGE BASED
     $(document).off('click', '.seo-nav-item').on('click', '.seo-nav-item', function() {
-        const serviceId = parseInt($(this).data('service-id'));
-        setActiveSeoService(serviceId);
+        const pagePath = $(this).data('page-path');
+        if (pagePath !== undefined) {
+            setActiveSeoPage(pagePath);
+        }
     });
 
-    // Meta title input change
+    // Meta title input change - PAGE BASED
     $(document).off('input', '.seo-meta-title').on('input', '.seo-meta-title', function() {
-        const serviceId = parseInt($(this).data('service-id'));
-        const value = $(this).val();
+        const pagePath = $(this).data('page-path');
+        if (!pagePath) return;
 
-        if (campaignConfig.seo_pages[serviceId]) {
-            campaignConfig.seo_pages[serviceId].meta_title = value;
+        const value = $(this).val();
+        if (campaignConfig.seo_pages[pagePath]) {
+            campaignConfig.seo_pages[pagePath].meta_title = value;
         }
 
-        updateSeoCharCount(serviceId, 'title', value.length);
+        const safeId = pagePath.replace(/[^a-zA-Z0-9]/g, '_');
+        updateSeoCharCountForPage(safeId, 'title', value.length);
         renderSeoSidebar();
         debouncedSaveState();
     });
 
-    // Meta description input change
+    // Meta description input change - PAGE BASED
     $(document).off('input', '.seo-meta-description').on('input', '.seo-meta-description', function() {
-        const serviceId = parseInt($(this).data('service-id'));
-        const value = $(this).val();
+        const pagePath = $(this).data('page-path');
+        if (!pagePath) return;
 
-        if (campaignConfig.seo_pages[serviceId]) {
-            campaignConfig.seo_pages[serviceId].meta_description = value;
+        const value = $(this).val();
+        if (campaignConfig.seo_pages[pagePath]) {
+            campaignConfig.seo_pages[pagePath].meta_description = value;
         }
 
-        updateSeoCharCount(serviceId, 'description', value.length);
+        const safeId = pagePath.replace(/[^a-zA-Z0-9]/g, '_');
+        updateSeoCharCountForPage(safeId, 'description', value.length);
         renderSeoSidebar();
         debouncedSaveState();
     });
 
-    // Show add SEO keyword form
+    // Section header input change - PAGE BASED
+    $(document).off('input', '.seo-section-header').on('input', '.seo-section-header', function() {
+        const pagePath = $(this).data('page-path');
+        if (!pagePath) return;
+
+        const sectionIndex = parseInt($(this).data('section-index'));
+        const value = $(this).val();
+
+        if (campaignConfig.seo_pages[pagePath]?.sections?.[sectionIndex]) {
+            campaignConfig.seo_pages[pagePath].sections[sectionIndex].header = value;
+        }
+        debouncedSaveState();
+    });
+
+    // Section content input change - PAGE BASED
+    $(document).off('input', '.seo-section-content').on('input', '.seo-section-content', function() {
+        const pagePath = $(this).data('page-path');
+        if (!pagePath) return;
+
+        const sectionIndex = parseInt($(this).data('section-index'));
+        const value = $(this).val();
+
+        if (campaignConfig.seo_pages[pagePath]?.sections?.[sectionIndex]) {
+            campaignConfig.seo_pages[pagePath].sections[sectionIndex].content = value;
+        }
+
+        // Update word count for this section
+        const wordCount = countWords(value);
+        const safeId = pagePath.replace(/[^a-zA-Z0-9]/g, '_');
+        $(`.seo-section-word-count[data-page-path="${pagePath}"][data-section-index="${sectionIndex}"]`).text(`${wordCount} ord`);
+
+        // Update total word count
+        if (campaignConfig.seo_pages[pagePath]?.sections) {
+            const totalWords = campaignConfig.seo_pages[pagePath].sections.reduce((sum, s) => sum + countWords(s.content || ''), 0);
+            $(`#seo-total-words-${safeId}`).text(totalWords);
+        }
+        debouncedSaveState();
+    });
+
+    // Show add SEO keyword form - PAGE BASED
     $(document).off('click', '.add-seo-keyword-btn').on('click', '.add-seo-keyword-btn', function() {
-        const serviceId = $(this).data('service-id');
-        $(`.add-seo-keyword-form[data-service-id="${serviceId}"]`).removeClass('hidden');
-        $(`.add-seo-keyword-form[data-service-id="${serviceId}"] .new-seo-keyword-input`).focus();
+        const pagePath = $(this).data('page-path');
+        if (pagePath) {
+            $(`.add-seo-keyword-form[data-page-path="${pagePath}"]`).removeClass('hidden');
+            $(`.add-seo-keyword-form[data-page-path="${pagePath}"] .new-seo-keyword-input`).focus();
+        }
     });
 
-    // Cancel add SEO keyword
+    // Cancel add SEO keyword - PAGE BASED
     $(document).off('click', '.cancel-seo-keyword-btn').on('click', '.cancel-seo-keyword-btn', function() {
-        const serviceId = $(this).data('service-id');
-        $(`.add-seo-keyword-form[data-service-id="${serviceId}"]`).addClass('hidden');
-        $(`.add-seo-keyword-form[data-service-id="${serviceId}"] .new-seo-keyword-input`).val('');
+        const pagePath = $(this).data('page-path');
+        if (pagePath) {
+            $(`.add-seo-keyword-form[data-page-path="${pagePath}"]`).addClass('hidden');
+            $(`.add-seo-keyword-form[data-page-path="${pagePath}"] .new-seo-keyword-input`).val('');
+        }
     });
 
-    // Save new SEO keyword
-    $(document).off('click', '.save-new-seo-keyword-btn').on('click', '.save-new-seo-keyword-btn', async function() {
-        const serviceId = parseInt($(this).data('service-id'));
-        const form = $(`.add-seo-keyword-form[data-service-id="${serviceId}"]`);
+    // Save new SEO keyword - PAGE BASED
+    $(document).off('click', '.save-new-seo-keyword-btn').on('click', '.save-new-seo-keyword-btn', function() {
+        const pagePath = $(this).data('page-path');
+        if (!pagePath) return;
+
+        const form = $(`.add-seo-keyword-form[data-page-path="${CSS.escape(pagePath)}"]`);
         const keywordText = form.find('.new-seo-keyword-input').val().trim();
         const keywordType = form.find('.new-seo-keyword-type').val();
 
@@ -10790,85 +13526,85 @@ function setupSeoEventHandlers() {
             return;
         }
 
-        try {
-            const response = await $.ajax({
-                url: `/ajax/add-service-seo-keyword/${serviceId}/`,
-                method: 'POST',
-                headers: { 'X-CSRFToken': '{{ csrf_token }}' },
-                data: {
-                    keyword_text: keywordText,
-                    keyword_type: keywordType
-                }
-            });
-
-            if (response.success) {
-                // Add to local state
-                const newKeyword = response.keyword;
-                campaignConfig.seo_pages[serviceId].seo_keywords.push(newKeyword);
-
-                // Re-render keywords list
-                $(`#seo-keywords-container-${serviceId}`).html(
-                    renderSeoKeywordsList(campaignConfig.seo_pages[serviceId].seo_keywords, serviceId)
-                );
-                $(`#seo-keywords-count-${serviceId}`).text(campaignConfig.seo_pages[serviceId].seo_keywords.length);
-
-                // Hide form and clear input
-                form.addClass('hidden');
-                form.find('.new-seo-keyword-input').val('');
-
-                showToast('SEO keyword tilføjet', 'success');
-            } else {
-                alert('Fejl: ' + (response.error || 'Kunne ikke tilføje keyword'));
-            }
-        } catch (error) {
-            console.error('Error adding SEO keyword:', error);
-            alert('Fejl ved tilføjelse af keyword');
+        // Ensure page exists in config
+        if (!campaignConfig.seo_pages[pagePath]) {
+            campaignConfig.seo_pages[pagePath] = {
+                seo_keywords: [],
+                meta_title: '',
+                meta_description: '',
+                sections: []
+            };
         }
+
+        // Check for duplicate keyword
+        const existingKeywords = campaignConfig.seo_pages[pagePath].seo_keywords || [];
+        if (existingKeywords.some(kw => kw.keyword_text.toLowerCase() === keywordText.toLowerCase())) {
+            alert('Dette keyword findes allerede for denne side');
+            return;
+        }
+
+        // Add to local state (no server call - keywords are local to the page)
+        const newKeyword = {
+            id: `local_${Date.now()}`,  // Unique local ID
+            keyword_text: keywordText,
+            keyword_type: keywordType || 'primary',
+            created_at: new Date().toISOString()
+        };
+
+        if (!campaignConfig.seo_pages[pagePath].seo_keywords) {
+            campaignConfig.seo_pages[pagePath].seo_keywords = [];
+        }
+        campaignConfig.seo_pages[pagePath].seo_keywords.push(newKeyword);
+
+        // Re-render keywords list
+        const safeId = pagePath.replace(/[^a-zA-Z0-9]/g, '_');
+        $(`#seo-keywords-container-${safeId}`).html(
+            renderSeoKeywordsListForPage(campaignConfig.seo_pages[pagePath].seo_keywords, pagePath)
+        );
+        $(`#seo-keywords-count-${safeId}`).text(campaignConfig.seo_pages[pagePath].seo_keywords.length);
+
+        // Hide form and clear input
+        form.addClass('hidden');
+        form.find('.new-seo-keyword-input').val('');
+
+        showToast('SEO keyword tilføjet', 'success');
     });
 
-    // Remove SEO keyword
-    $(document).off('click', '.remove-seo-keyword-btn').on('click', '.remove-seo-keyword-btn', async function() {
+    // Remove SEO keyword - PAGE BASED
+    $(document).off('click', '.remove-seo-keyword-btn').on('click', '.remove-seo-keyword-btn', function() {
         const keywordId = $(this).data('keyword-id');
-        const serviceId = parseInt($(this).data('service-id'));
+        const pagePath = $(this).data('page-path');
+
+        if (!pagePath || !keywordId) return;
 
         if (!confirm('Er du sikker på at du vil slette dette SEO keyword?')) {
             return;
         }
 
-        try {
-            const response = await $.ajax({
-                url: `/ajax/delete-service-seo-keyword/${keywordId}/`,
-                method: 'POST',
-                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
-            });
+        // Remove from local state
+        if (campaignConfig.seo_pages[pagePath] && campaignConfig.seo_pages[pagePath].seo_keywords) {
+            campaignConfig.seo_pages[pagePath].seo_keywords =
+                campaignConfig.seo_pages[pagePath].seo_keywords.filter(kw => kw.id !== keywordId);
 
-            if (response.success) {
-                // Remove from local state
-                campaignConfig.seo_pages[serviceId].seo_keywords =
-                    campaignConfig.seo_pages[serviceId].seo_keywords.filter(kw => kw.id !== keywordId);
+            // Re-render keywords list
+            const safeId = pagePath.replace(/[^a-zA-Z0-9]/g, '_');
+            $(`#seo-keywords-container-${safeId}`).html(
+                renderSeoKeywordsListForPage(campaignConfig.seo_pages[pagePath].seo_keywords, pagePath)
+            );
+            $(`#seo-keywords-count-${safeId}`).text(campaignConfig.seo_pages[pagePath].seo_keywords.length);
 
-                // Re-render keywords list
-                $(`#seo-keywords-container-${serviceId}`).html(
-                    renderSeoKeywordsList(campaignConfig.seo_pages[serviceId].seo_keywords, serviceId)
-                );
-                $(`#seo-keywords-count-${serviceId}`).text(campaignConfig.seo_pages[serviceId].seo_keywords.length);
-
-                showToast('SEO keyword slettet', 'success');
-            } else {
-                alert('Fejl: ' + (response.error || 'Kunne ikke slette keyword'));
-            }
-        } catch (error) {
-            console.error('Error deleting SEO keyword:', error);
-            alert('Fejl ved sletning af keyword');
+            showToast('SEO keyword slettet', 'success');
         }
     });
 
-    // Handle Enter key in new keyword input
+    // Handle Enter key in new keyword input - PAGE BASED
     $(document).off('keypress', '.new-seo-keyword-input').on('keypress', '.new-seo-keyword-input', function(e) {
         if (e.which === 13) {
             e.preventDefault();
-            const serviceId = $(this).closest('.add-seo-keyword-form').data('service-id');
-            $(`.save-new-seo-keyword-btn[data-service-id="${serviceId}"]`).click();
+            const pagePath = $(this).closest('.add-seo-keyword-form').data('page-path');
+            if (pagePath) {
+                $(`.save-new-seo-keyword-btn[data-page-path="${CSS.escape(pagePath)}"]`).click();
+            }
         }
     });
 }

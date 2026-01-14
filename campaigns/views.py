@@ -4569,25 +4569,41 @@ def generate_company_description_ajax(request):
             website_content=website_content
         )
 
+        # Fix any encoding issues (UTF-8 decoded as Latin-1)
+        def fix_encoding(text):
+            if not text:
+                return text
+            try:
+                # Check for mojibake pattern (UTF-8 decoded as Latin-1)
+                if 'Ã' in text:
+                    # Re-encode as Latin-1 and decode as UTF-8
+                    return text.encode('latin-1').decode('utf-8')
+            except (UnicodeDecodeError, UnicodeEncodeError):
+                pass
+            return text
+
+        description = fix_encoding(result['description'])
+        key_points = [fix_encoding(kp) for kp in result.get('key_points', [])]
+
         return JsonResponse({
             'success': True,
-            'description': result['description'],
-            'key_points': result.get('key_points', []),
+            'description': description,
+            'key_points': key_points,
             'profile': result.get('profile', {}),
             'used_research': bool(online_research)
-        })
+        }, json_dumps_params={'ensure_ascii': False})
 
     except ValueError as e:
         # API key not configured
         return JsonResponse({
             'success': False,
             'error': str(e)
-        })
+        }, json_dumps_params={'ensure_ascii': False})
     except Exception as e:
         return JsonResponse({
             'success': False,
             'error': str(e)
-        })
+        }, json_dumps_params={'ensure_ascii': False})
 
 
 @csrf_exempt
@@ -4595,6 +4611,12 @@ def analyze_website_for_usps_ajax(request):
     """
     AJAX endpoint til at analysere hjemmeside-indhold og matche mod USP templates.
     Bruges til smart pre-fill af USPs baseret på hjemmesidens indhold.
+
+    Accepts:
+        - website_url: URL to analyze
+        - industry_ids: List of industry IDs to filter USP templates
+        - scrape_mode: Number of pages to scrape (10, 50, 100, or 0 for all)
+        - client_id: Optional client ID for permanent storage
     """
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'POST required'})
@@ -4603,6 +4625,8 @@ def analyze_website_for_usps_ajax(request):
         data = json.loads(request.body)
         website_url = data.get('website_url', '')
         industry_ids = data.get('industry_ids', [])
+        scrape_mode = data.get('scrape_mode', 10)  # Default: 10 pages
+        client_id = data.get('client_id', None)  # Optional: for permanent storage
 
         if not website_url:
             return JsonResponse({
@@ -4615,12 +4639,20 @@ def analyze_website_for_usps_ajax(request):
                 'scraped_at': None
             })
 
-        # Step 1: Scrape website using existing WebsiteScraper
-        from ai_integration.services import WebsiteScraper
-        scraper = WebsiteScraper(max_content_length=6000)
-        website_content = scraper.scrape_website(website_url)
+        # Step 1: Scrape website using ComprehensiveWebsiteScraper (multi-page)
+        from ai_integration.services import ComprehensiveWebsiteScraper
+        scraper = ComprehensiveWebsiteScraper()
 
-        if not website_content:
+        # Convert scrape_mode to max_pages (0 means None/all)
+        max_pages = scrape_mode if scrape_mode > 0 else None
+
+        scrape_result = scraper.scrape_website(
+            url=website_url,
+            max_pages=max_pages,
+            client_id=client_id
+        )
+
+        if not scrape_result or not scrape_result.get('combined_content'):
             return JsonResponse({
                 'success': True,
                 'analysis': {
@@ -4631,6 +4663,9 @@ def analyze_website_for_usps_ajax(request):
                 'scraped_at': None,
                 'message': 'Could not scrape website'
             })
+
+        # Use combined content from all scraped pages
+        website_content = scrape_result['combined_content']
 
         # Step 2: Get relevant USP templates
         from usps.models import USPTemplate
@@ -4666,7 +4701,9 @@ def analyze_website_for_usps_ajax(request):
             'success': True,
             'analysis': analysis_result,
             'scraped_at': datetime.now().isoformat(),
-            'scraped_content_length': len(website_content)
+            'scraped_content_length': len(website_content),
+            'pages_scraped': scrape_result.get('pages_scraped', 1),
+            'total_urls_found': scrape_result.get('total_urls_found', 1)
         })
 
     except ValueError as e:
@@ -4682,6 +4719,257 @@ def analyze_website_for_usps_ajax(request):
             'success': False,
             'error': str(e)
         })
+
+
+@csrf_exempt
+def scrape_and_detect_services_ajax(request):
+    """
+    AJAX endpoint til at scrape hjemmeside og auto-detektere services.
+    Kaldes fra Step 1 inden brugeren går videre til Step 2.
+
+    Accepts:
+        - website_url: URL to scrape
+        - scrape_mode: Number of pages (10, 50, 100, or 0 for all)
+
+    Returns:
+        - detected_services: List of detected service IDs with confidence
+        - detected_industries: List of industry names
+        - scraped_data: The scraped content for later use
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'}, json_dumps_params={'ensure_ascii': False})
+
+    try:
+        data = json.loads(request.body)
+        website_url = data.get('website_url', '')
+        scrape_mode = data.get('scrape_mode', 10)
+        use_playwright = data.get('use_playwright', False)  # For JavaScript content (Trustpilot etc.)
+
+        if not website_url:
+            return JsonResponse({
+                'success': True,
+                'detected_services': [],
+                'detected_industries': [],
+                'scraped_at': None
+            }, json_dumps_params={'ensure_ascii': False})
+
+        # Step 1: Scrape website
+        from ai_integration.services import ComprehensiveWebsiteScraper
+        scraper = ComprehensiveWebsiteScraper()
+
+        max_pages = scrape_mode if scrape_mode > 0 else None
+        scrape_result = scraper.scrape_website(
+            url=website_url,
+            max_pages=max_pages,
+            use_playwright=use_playwright
+        )
+
+        if not scrape_result or not scrape_result.get('combined_content'):
+            return JsonResponse({
+                'success': True,
+                'detected_services': [],
+                'detected_industries': [],
+                'scraped_at': None,
+                'message': 'Could not scrape website'
+            }, json_dumps_params={'ensure_ascii': False})
+
+        website_content = scrape_result['combined_content']
+
+        # Also get service_summary which contains condensed info from ALL pages
+        service_summary = scrape_result.get('service_summary', '')
+        if service_summary:
+            # Prepend the service summary so AI sees all page paths/titles first
+            website_content = f"=== OVERSIGT OVER ALLE SIDER ===\n{service_summary}\n\n=== DETALJERET INDHOLD ===\n{website_content}"
+
+        # Step 2: Get all available services
+        all_services = []
+        for service in IndustryService.objects.filter(is_active=True).select_related('industry'):
+            all_services.append({
+                'id': service.id,
+                'name': service.name,
+                'industry_id': service.industry_id,
+                'industry_name': service.industry.name,
+                'description': service.description or ''
+            })
+
+        if not all_services:
+            return JsonResponse({
+                'success': True,
+                'detected_services': [],
+                'detected_industries': [],
+                'scraped_at': None,
+                'message': 'No services configured'
+            }, json_dumps_params={'ensure_ascii': False})
+
+        # Step 3: Detect services using AI
+        from ai_integration.services import ServiceDetector
+        detector = ServiceDetector()
+        detection_result = detector.detect_services(
+            website_content=website_content,
+            available_services=all_services
+        )
+
+        from datetime import datetime
+
+        # Build response with service and industry IDs
+        detected_service_ids = [
+            svc['service_id'] for svc in detection_result.get('detected_services', [])
+        ]
+
+        # Map industry names to IDs (with fuzzy matching)
+        detected_industry_ids = []
+        if detection_result.get('detected_industries'):
+            for industry_name in detection_result['detected_industries']:
+                # Try exact match first
+                industry = Industry.objects.filter(name__iexact=industry_name).first()
+
+                # Try contains match (e.g., "El" matches "Elektriker")
+                if not industry:
+                    industry = Industry.objects.filter(name__icontains=industry_name).first()
+
+                # Try if industry name contains the detected name
+                if not industry:
+                    for ind in Industry.objects.all():
+                        if industry_name.lower() in ind.name.lower() or ind.name.lower() in industry_name.lower():
+                            industry = ind
+                            break
+
+                if industry and industry.id not in detected_industry_ids:
+                    detected_industry_ids.append(industry.id)
+
+        # Also get industries from detected services (more reliable)
+        for svc in detection_result.get('detected_services', []):
+            service = IndustryService.objects.filter(id=svc['service_id']).select_related('industry').first()
+            if service and service.industry_id not in detected_industry_ids:
+                detected_industry_ids.append(service.industry_id)
+
+        # Build scraped_pages dict with meta tags and sections for frontend
+        scraped_pages = {}
+        for path, page_info in scrape_result.get('pages', {}).items():
+            scraped_pages[path] = {
+                'url': page_info.get('url'),
+                'path': path,
+                'content': page_info.get('content', '')[:1000],  # Limit content for JSON response
+                'meta_title': page_info.get('meta_title'),
+                'meta_description': page_info.get('meta_description'),
+                'page_type': page_info.get('page_type'),
+                'sections': page_info.get('sections', []),  # Strukturerede sektioner fra siden
+                'review_section_position': page_info.get('review_section_position'),  # Position af reviews på siden
+            }
+
+        return JsonResponse({
+            'success': True,
+            'detected_services': detection_result.get('detected_services', []),
+            'detected_service_ids': detected_service_ids,
+            'suggested_services': detection_result.get('suggested_services', []),
+            'detected_industries': detection_result.get('detected_industries', []),
+            'detected_industry_ids': detected_industry_ids,
+            'primary_industry': detection_result.get('primary_industry'),
+            'suggested_industry': detection_result.get('suggested_industry'),  # For industries not in DB
+            'confidence_scores': detection_result.get('confidence_scores', {}),
+            'scraped_at': datetime.now().isoformat(),
+            'pages_scraped': scrape_result.get('pages_scraped', 1),
+            'content_length': len(website_content),
+            'scraped_pages': scraped_pages,  # Include pages with meta tags
+            'extracted_reviews': scrape_result.get('extracted_reviews', []),  # Trustpilot/Google reviews
+            'use_playwright': use_playwright,
+        }, json_dumps_params={'ensure_ascii': False})
+
+    except ValueError as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, json_dumps_params={'ensure_ascii': False})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, json_dumps_params={'ensure_ascii': False})
+
+
+def generate_seo_content_ajax(request):
+    """
+    AJAX endpoint til at generere eller omskrive SEO-indhold med AI.
+
+    Accepts:
+        - action: 'generate_new' eller 'rewrite'
+        - service_name: Navn på servicen
+        - industry: Branche (for nye sider)
+        - usps: Liste af USP'er
+        - company_name: Virksomhedsnavn (for nye sider)
+        - company_profile: Virksomhedsprofil JSON (fra virksomhedsbeskrivelse-trinnet)
+        - city: By/geografisk område (for lokal SEO)
+        - existing_content: Eksisterende indhold (for omskrivning)
+        - existing_meta_title: Nuværende meta titel (for omskrivning)
+        - existing_meta_description: Nuværende meta beskrivelse (for omskrivning)
+
+    Returns:
+        - meta_title: Genereret meta titel
+        - meta_description: Genereret meta beskrivelse
+        - intro_text: Genereret intro-tekst (AIDA-model, 800 ord)
+        - reviews: Array af detekterede kundeanmeldelser [{author, rating, text, platform, position}]
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'}, json_dumps_params={'ensure_ascii': False})
+
+    try:
+        data = json.loads(request.body)
+        action = data.get('action', 'generate_new')
+        service_name = data.get('service_name', '')
+        industry = data.get('industry', '')
+        usps = data.get('usps', [])
+        company_name = data.get('company_name', '')
+        company_profile = data.get('company_profile', None)  # JSON dict or None
+        city = data.get('city', '')  # Geographic area for local SEO
+        existing_content = data.get('existing_content', '')
+        existing_meta_title = data.get('existing_meta_title', '')
+        existing_meta_description = data.get('existing_meta_description', '')
+
+        if not service_name:
+            return JsonResponse({
+                'success': False,
+                'error': 'service_name is required'
+            }, json_dumps_params={'ensure_ascii': False})
+
+        # Generate content using AI
+        from ai_integration.services import DescriptionGenerator
+        generator = DescriptionGenerator()
+
+        result = generator.generate_page_seo_content(
+            action=action,
+            service_name=service_name,
+            industry=industry,
+            usps=usps,
+            company_name=company_name,
+            company_profile=company_profile,
+            city=city,
+            existing_content=existing_content,
+            existing_meta_title=existing_meta_title,
+            existing_meta_description=existing_meta_description
+        )
+
+        return JsonResponse({
+            'success': True,
+            'meta_title': result.get('meta_title', ''),
+            'meta_description': result.get('meta_description', ''),
+            'intro_text': result.get('intro_text', ''),
+            'reviews': result.get('reviews', [])
+        }, json_dumps_params={'ensure_ascii': False})
+
+    except ValueError as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, json_dumps_params={'ensure_ascii': False})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, json_dumps_params={'ensure_ascii': False})
 
 
 # ==========================================
@@ -5430,6 +5718,108 @@ def generate_seo_meta_ajax(request):
 
     except ValueError as e:
         return JsonResponse({'success': False, 'error': str(e)})
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@csrf_exempt
+def export_seo_content_csv(request):
+    """
+    Export SEO content to WordPress-compatible CSV (WP All Import).
+
+    Returns CSV with columns:
+    - service_name: Name of the service
+    - page_path: URL path (e.g., /elektriker/)
+    - meta_title: Meta title for the page
+    - meta_description: Meta description
+    - sections_json: JSON array of all sections [{header, content, tag}, ...]
+    - full_content: HTML-formatted content for simple WordPress import
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'})
+
+    try:
+        import csv
+        from io import StringIO
+
+        data = json.loads(request.body)
+        seo_pages = data.get('seo_pages', {})
+        website_url = data.get('website_url', '')
+
+        if not seo_pages:
+            return JsonResponse({'success': False, 'error': 'No SEO pages to export'})
+
+        output = StringIO()
+        writer = csv.writer(output, quoting=csv.QUOTE_ALL)
+
+        # Header row - WordPress WP All Import compatible
+        writer.writerow([
+            'service_name',
+            'page_path',
+            'full_url',
+            'meta_title',
+            'meta_description',
+            'sections_json',
+            'full_content'
+        ])
+
+        # Sort pages by service name for consistent output
+        sorted_pages = sorted(seo_pages.items(), key=lambda x: x[1].get('service_name', ''))
+
+        for service_id, page_data in sorted_pages:
+            service_name = page_data.get('service_name', '')
+            source_path = page_data.get('source_path', '/')
+            meta_title = page_data.get('meta_title', '')
+            meta_description = page_data.get('meta_description', '')
+            sections = page_data.get('sections', [])
+
+            # Build full URL
+            base_url = website_url.rstrip('/')
+            full_url = f"{base_url}{source_path}" if base_url else source_path
+
+            # Build full_content as HTML
+            html_parts = []
+            for section in sections:
+                tag = section.get('tag', 'h2')
+                header = section.get('header', '')
+                content = section.get('content', '')
+
+                if header:
+                    html_parts.append(f'<{tag}>{header}</{tag}>')
+                if content:
+                    # Split content into paragraphs
+                    for para in content.split('\n\n'):
+                        para = para.strip()
+                        if para:
+                            html_parts.append(f'<p>{para}</p>')
+
+            full_content = '\n'.join(html_parts)
+
+            # Write row
+            writer.writerow([
+                service_name,
+                source_path,
+                full_url,
+                meta_title,
+                meta_description,
+                json.dumps(sections, ensure_ascii=False),
+                full_content
+            ])
+
+        # Create response
+        csv_content = output.getvalue()
+
+        # Add BOM for Excel UTF-8 compatibility
+        response = HttpResponse(
+            '\ufeff' + csv_content,
+            content_type='text/csv; charset=utf-8'
+        )
+        response['Content-Disposition'] = 'attachment; filename="seo_content_export.csv"'
+
+        return response
+
     except json.JSONDecodeError:
         return JsonResponse({'success': False, 'error': 'Invalid JSON'})
     except Exception as e:

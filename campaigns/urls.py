@@ -122,6 +122,8 @@ urlpatterns = [
     path('ajax/generate-descriptions/', views.generate_descriptions_ajax, name='generate_descriptions_ajax'),
     path('ajax/generate-company-description/', views.generate_company_description_ajax, name='generate_company_description_ajax'),
     path('ajax/analyze-website-usps/', views.analyze_website_for_usps_ajax, name='analyze_website_for_usps_ajax'),
+    path('ajax/scrape-detect-services/', views.scrape_and_detect_services_ajax, name='scrape_and_detect_services_ajax'),
+    path('ajax/generate-seo-content/', views.generate_seo_content_ajax, name='generate_seo_content_ajax'),
 
     # Programmatic Byside AJAX URLs
     path('ajax/crawl-sitemap/', views.crawl_sitemap_ajax, name='crawl_sitemap_ajax'),
@@ -136,4 +138,7 @@ urlpatterns = [
 
     # Campaign Builder Export
     path('export-campaign-builder-csv/', views.export_campaign_builder_csv, name='export_campaign_builder_csv'),
+
+    # SEO Content Export (WordPress WP All Import compatible)
+    path('ajax/export-seo-content-csv/', views.export_seo_content_csv, name='export_seo_content_csv'),
 ]

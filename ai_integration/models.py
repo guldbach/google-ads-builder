@@ -15,6 +15,9 @@ class AIPromptTemplate(models.Model):
         ('generate_seo_meta_tags', 'SEO Meta Tags'),
         ('generate_company_description', 'Virksomhedsbeskrivelse'),
         ('perplexity_research', 'Online Research (Perplexity)'),
+        # SEO page content generation
+        ('generate_page_content', 'Sideindhold (ny side)'),
+        ('rewrite_page_content', 'Omskriv sideindhold'),
     ]
 
     name = models.CharField(max_length=200)
@@ -121,3 +124,79 @@ class CampaignOptimizationSuggestion(models.Model):
 
     def __str__(self):
         return f"{self.campaign.name} - {self.optimization_type}"
+
+
+class LoadingWidget(models.Model):
+    """
+    Configurable loading widgets (Roberto animations) for AI operations.
+    Supports different SVG animations and text configurations.
+    """
+    OPERATION_TYPES = [
+        ('random', 'Tilfældig rotation'),
+        ('service_detection', 'Service/Branche detektion'),
+        ('usp_analysis', 'USP Analyse'),
+        ('company_description', 'Virksomhedsbeskrivelse'),
+        ('company_research', 'Virksomheds Research'),
+        ('meta_tags', 'Meta Tags Generering'),
+        ('seo_content', 'SEO Indhold'),
+        ('content_generation', 'Indhold Generering'),
+        ('crawling', 'Website Crawling'),
+    ]
+
+    name = models.CharField(max_length=100, help_text="Widget navn, fx 'Roberto Typing'")
+    operation_type = models.CharField(
+        max_length=50,
+        choices=OPERATION_TYPES,
+        default='random',
+        help_text="Hvilken operation denne widget vises ved, eller 'random' for tilfældig rotation"
+    )
+
+    # SVG content - the robot animation
+    svg_content = models.TextField(
+        help_text="SVG kode for robot animation (inkl. <svg> tags)"
+    )
+
+    # Text configuration stored as JSON for flexibility
+    text_config = models.JSONField(
+        default=dict,
+        help_text="""Tekst konfiguration:
+        {
+            "line1": "> Analyserer...",
+            "line2": "> Finder data",
+            "line3": "  og services",
+            "loadingText": "Tænker",
+            "subtitle": "Roberto arbejder hårdt"
+        }"""
+    )
+
+    # Optional CSS class for styling variants
+    css_class = models.CharField(max_length=100, blank=True)
+
+    # Lifecycle and priority
+    is_active = models.BooleanField(default=True)
+    priority = models.IntegerField(
+        default=0,
+        help_text="Højere prioritet = vises oftere i tilfældig rotation"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-priority', 'name']
+        verbose_name = 'Loading Widget'
+        verbose_name_plural = 'Loading Widgets'
+
+    def __str__(self):
+        return f"{self.name} ({self.get_operation_type_display()})"
+
+    def get_text_config(self):
+        """Return text config with defaults for missing keys."""
+        defaults = {
+            'line1': '> Loading...',
+            'line2': '> Arbejder',
+            'line3': '  på det',
+            'loadingText': 'Vent',
+            'subtitle': 'Roberto arbejder'
+        }
+        config = self.text_config or {}
+        return {**defaults, **config}

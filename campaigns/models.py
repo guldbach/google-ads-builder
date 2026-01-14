@@ -389,6 +389,13 @@ class IndustryHeadline(models.Model):
 
 
 class Client(models.Model):
+    SCRAPE_MODE_CHOICES = [
+        (10, '10 sider (hurtig)'),
+        (50, '50 sider (standard)'),
+        (100, '100 sider'),
+        (0, 'Alle sider'),  # 0 means unlimited
+    ]
+
     name = models.CharField(max_length=200)
     website_url = models.URLField()
     industry = models.ForeignKey(Industry, on_delete=models.CASCADE)
@@ -397,8 +404,25 @@ class Client(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # Website scraping data (permanent for saved clients)
+    scraped_data = models.JSONField(null=True, blank=True, help_text="Struktureret indhold fra hjemmesiden")
+    scraped_at = models.DateTimeField(null=True, blank=True, help_text="Tidspunkt for sidste scrape")
+    scrape_mode = models.IntegerField(choices=SCRAPE_MODE_CHOICES, default=10, help_text="Antal sider at scrape")
+
+    # AI-detected data
+    detected_services = models.JSONField(null=True, blank=True, help_text="AI-detected services fra hjemmeside")
+    detected_usps = models.JSONField(null=True, blank=True, help_text="AI-detected USPs fra hjemmeside")
+
     def __str__(self):
         return self.name
+
+    def has_fresh_scrape(self, max_age_days=7):
+        """Check if scraped data is fresh enough."""
+        if not self.scraped_at:
+            return False
+        from django.utils import timezone
+        from datetime import timedelta
+        return (timezone.now() - self.scraped_at) < timedelta(days=max_age_days)
 
 
 class Campaign(models.Model):
