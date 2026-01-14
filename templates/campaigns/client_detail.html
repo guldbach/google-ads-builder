@@ -1,0 +1,1650 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ client.name }} | Kundebillede | Jarvis 1.0{% endblock %}
+
+{% block content %}
+
+<!-- Include jQuery -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+<!-- Include Leaflet for polygon-based geographic visualization -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<!-- Turf.js for polygon merging -->
+<script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+
+{% csrf_token %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- Back Link -->
+    <a href="{% url 'client_list' %}" class="inline-flex items-center text-gray-600 hover:text-gray-900 mb-6 transition-colors">
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+        </svg>
+        Tilbage til kundeliste
+    </a>
+
+    <!-- Header Section -->
+    <div class="bg-gradient-to-br from-purple-100 via-blue-50 to-pink-100 rounded-3xl p-8 mb-8">
+        <div class="flex items-start justify-between flex-wrap gap-4">
+            <div class="flex items-center space-x-6">
+                <!-- Client Icon -->
+                <div class="w-20 h-20 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl flex items-center justify-center shadow-xl">
+                    <span class="text-4xl text-white">{{ client.name|slice:":1"|upper }}</span>
+                </div>
+
+                <!-- Client Info -->
+                <div>
+                    <h1 class="text-4xl font-bold text-gray-900 mb-2">{{ client.name }}</h1>
+                    {% if client.website_url %}
+                    <a href="{{ client.website_url }}" target="_blank" class="text-blue-600 hover:text-blue-800 text-lg flex items-center space-x-2">
+                        <span>{{ client.website_url }}</span>
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                        </svg>
+                    </a>
+                    {% endif %}
+
+                    <div class="flex flex-wrap items-center gap-3 mt-3">
+                        {% if client.industry %}
+                        <span class="px-3 py-1 bg-purple-200 text-purple-800 text-sm font-medium rounded-full">
+                            {{ client.industry.name }}
+                        </span>
+                        {% endif %}
+                        <span class="text-gray-500 text-sm">
+                            Oprettet {{ client.created_at|date:"d. F Y" }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex items-center space-x-3">
+                <a href="/campaign-builder/?client={{ client.id }}" class="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:shadow-lg transition-all duration-200 flex items-center space-x-2">
+                    <span>+</span>
+                    <span>Ny Kampagne</span>
+                </a>
+                <button onclick="editClient()" class="px-4 py-2 bg-white text-gray-700 rounded-lg hover:bg-gray-50 transition-all duration-200 flex items-center space-x-2 border border-gray-200">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                    </svg>
+                    <span>Rediger</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 mb-8">
+        <div class="flex flex-wrap border-b border-gray-200">
+            <button onclick="showSection('overview')" class="section-tab active px-6 py-4 text-sm font-medium text-gray-600 hover:text-purple-600 border-b-2 border-transparent hover:border-purple-600 transition-all" data-section="overview">
+                Overblik
+            </button>
+            <button onclick="showSection('campaigns')" class="section-tab px-6 py-4 text-sm font-medium text-gray-600 hover:text-purple-600 border-b-2 border-transparent hover:border-purple-600 transition-all" data-section="campaigns">
+                Kampagner
+            </button>
+            <button onclick="showSection('company')" class="section-tab px-6 py-4 text-sm font-medium text-gray-600 hover:text-purple-600 border-b-2 border-transparent hover:border-purple-600 transition-all" data-section="company">
+                🏢 Virksomhed
+            </button>
+            <button onclick="showSection('texts')" class="section-tab px-6 py-4 text-sm font-medium text-gray-600 hover:text-purple-600 border-b-2 border-transparent hover:border-purple-600 transition-all" data-section="texts">
+                📝 Tekster
+            </button>
+            <button onclick="showSection('usps')" class="section-tab px-6 py-4 text-sm font-medium text-gray-600 hover:text-purple-600 border-b-2 border-transparent hover:border-purple-600 transition-all" data-section="usps">
+                USP'er
+            </button>
+            <button onclick="showSection('industries')" class="section-tab px-6 py-4 text-sm font-medium text-gray-600 hover:text-purple-600 border-b-2 border-transparent hover:border-purple-600 transition-all" data-section="industries">
+                Brancher & Services
+            </button>
+            <button onclick="showSection('geo')" class="section-tab px-6 py-4 text-sm font-medium text-gray-600 hover:text-purple-600 border-b-2 border-transparent hover:border-purple-600 transition-all" data-section="geo">
+                Geo-Kampagne
+            </button>
+        </div>
+
+        <!-- Section Content -->
+        <div class="p-6">
+
+            <!-- OVERVIEW SECTION -->
+            <div id="section-overview" class="section-content">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Quick Info -->
+                    <div class="bg-gray-50 rounded-xl p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                            <span class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
+                                <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </span>
+                            Hurtig Info
+                        </h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Branche</span>
+                                <span class="font-medium text-gray-900">{{ client.industry.name|default:"Ikke angivet" }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Kampagner</span>
+                                <span class="font-medium text-gray-900">{{ campaigns|length }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Sidst opdateret</span>
+                                <span class="font-medium text-gray-900">{{ client.updated_at|date:"d. M Y" }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Campaigns -->
+                    <div class="bg-gray-50 rounded-xl p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                            <span class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                                <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                            </span>
+                            Seneste Kampagner
+                        </h3>
+                        {% if campaigns %}
+                        <div class="space-y-2">
+                            {% for campaign in campaigns|slice:":3" %}
+                            <div class="flex items-center justify-between p-3 bg-white rounded-lg">
+                                <span class="font-medium text-gray-900">{{ campaign.name }}</span>
+                                <span class="text-sm text-gray-500">{{ campaign.created_at|date:"d. M" }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p class="text-gray-400 italic">Ingen kampagner endnu</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Data Status -->
+                    <div class="bg-gray-50 rounded-xl p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                            <span class="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center mr-3">
+                                <svg class="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </span>
+                            Data Status
+                        </h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-600">Website crawlet</span>
+                                {% if client.scraped_data %}
+                                <span class="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">Ja</span>
+                                {% else %}
+                                <span class="px-2 py-1 bg-gray-100 text-gray-500 text-xs font-medium rounded-full">Nej</span>
+                                {% endif %}
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-600">Services detekteret</span>
+                                {% if client.detected_services %}
+                                <span class="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">{{ client.detected_services|length }}</span>
+                                {% else %}
+                                <span class="px-2 py-1 bg-gray-100 text-gray-500 text-xs font-medium rounded-full">Nej</span>
+                                {% endif %}
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-600">USP'er fundet</span>
+                                {% if detected_usps or predefined_usps %}
+                                <span class="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">Ja</span>
+                                {% else %}
+                                <span class="px-2 py-1 bg-gray-100 text-gray-500 text-xs font-medium rounded-full">Nej</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CAMPAIGNS SECTION -->
+            <div id="section-campaigns" class="section-content hidden">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-xl font-semibold text-gray-900">Alle Kampagner</h3>
+                    <a href="/campaign-builder/?client={{ client.id }}" class="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:shadow-lg transition-all duration-200 flex items-center space-x-2">
+                        <span>+</span>
+                        <span>Ny Kampagne</span>
+                    </a>
+                </div>
+
+                {% if campaigns %}
+                <div class="space-y-4">
+                    {% for campaign in campaigns %}
+                    <div class="bg-gray-50 rounded-xl p-6 hover:bg-gray-100 transition-colors">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <h4 class="text-lg font-semibold text-gray-900 mb-1">{{ campaign.name }}</h4>
+                                <div class="flex flex-wrap gap-2 mb-2">
+                                    <span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">{{ campaign.campaign_type }}</span>
+                                    <span class="text-sm text-gray-500">{{ campaign.created_at|date:"d. F Y" }}</span>
+                                </div>
+                            </div>
+                            <a href="/campaigns/{{ campaign.id }}/" class="text-purple-600 hover:text-purple-800 font-medium">
+                                Se detaljer
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-12 bg-gray-50 rounded-xl">
+                    <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                    </div>
+                    <h4 class="text-lg font-semibold text-gray-900 mb-2">Ingen kampagner endnu</h4>
+                    <p class="text-gray-500 mb-4">Opret din f&oslash;rste kampagne for denne kunde</p>
+                    <a href="/campaign-builder/?client={{ client.id }}" class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                        + Opret Kampagne
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- VIRKSOMHED SECTION -->
+            <div id="section-company" class="section-content hidden">
+                <h3 class="text-xl font-semibold text-gray-900 mb-6">🏢 Virksomhed</h3>
+
+                <div class="space-y-6">
+                    <!-- Company Description -->
+                    <div class="bg-gray-50 rounded-xl p-6">
+                        <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                            <span class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3 text-sm">1</span>
+                            Virksomhedsbeskrivelse
+                        </h4>
+                        {% if client.description %}
+                        <div class="bg-white rounded-lg p-4 border border-gray-200">
+                            <p class="text-gray-700 leading-relaxed">{{ client.description }}</p>
+                        </div>
+                        <button onclick="copyText('{{ client.description|escapejs }}')" class="mt-3 text-sm text-purple-600 hover:text-purple-800 flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                            </svg>
+                            Kopier
+                        </button>
+                        {% else %}
+                        <p class="text-gray-400 italic">Ingen beskrivelse gemt</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- AI Generated Company Info -->
+                    {% if company_info.core_competencies %}
+                    <div class="bg-gray-50 rounded-xl p-6">
+                        <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                            <span class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mr-3 text-sm">2</span>
+                            AI-Genereret Virksomhedsinfo
+                            <span class="ml-2 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">AI</span>
+                        </h4>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200">
+                            <p class="text-gray-700 leading-relaxed">{{ company_info.core_competencies }}</p>
+                        </div>
+
+                        {% if company_info.key_points %}
+                        <div class="mt-4">
+                            <h5 class="text-sm font-medium text-gray-700 mb-2">Kernepunkter:</h5>
+                            <ul class="space-y-1">
+                                {% for point in company_info.key_points %}
+                                <li class="flex items-start gap-2 text-gray-600">
+                                    <span class="text-green-500 mt-1">
+                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                        </svg>
+                                    </span>
+                                    {{ point }}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Company Profile JSON -->
+                    {% if company_info.profile %}
+                    <div class="bg-gray-50 rounded-xl p-6">
+                        <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                            <span class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mr-3 text-sm">3</span>
+                            Virksomhedsprofil (Struktureret)
+                        </h4>
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 max-h-64 overflow-y-auto">
+                            <pre class="text-sm text-gray-700 whitespace-pre-wrap">{{ company_info.profile|pprint }}</pre>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                </div>
+            </div>
+
+            <!-- TEXTS SECTION - All crawled and generated texts -->
+            <div id="section-texts" class="section-content hidden">
+                <h3 class="text-xl font-semibold text-gray-900 mb-6">📝 Alle Tekster</h3>
+                <p class="text-gray-600 mb-6">Oversigt over alle crawlede og genererede tekster for denne kunde.</p>
+
+                <div class="space-y-6">
+                    <!-- Crawled Pages from Campaign Builder -->
+                    {% if scraped_pages %}
+                    <div class="bg-gray-50 rounded-xl p-6">
+                        <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                            <span class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">🌐</span>
+                            Crawlede Sider
+                            <span class="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">{{ scraped_pages|length }} sider</span>
+                        </h4>
+                        <div class="space-y-4">
+                            {% for path, page in scraped_pages.items %}
+                            <div class="bg-white rounded-lg p-4 border border-gray-200">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h5 class="font-medium text-gray-900 flex items-center">
+                                        <span class="text-blue-500 mr-2">📄</span>
+                                        {{ path }}
+                                        {% if page.page_type %}
+                                        <span class="ml-2 px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">{{ page.page_type }}</span>
+                                        {% endif %}
+                                    </h5>
+                                    {% if page.url %}
+                                    <a href="{{ page.url }}" target="_blank" class="text-xs text-blue-600 hover:text-blue-800">Åbn ↗</a>
+                                    {% endif %}
+                                </div>
+
+                                {% if page.meta_title %}
+                                <div class="mb-2">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs text-gray-500">Meta Title:</span>
+                                        <button onclick="copyText('{{ page.meta_title|escapejs }}')" class="text-xs text-purple-600 hover:text-purple-800">Kopier</button>
+                                    </div>
+                                    <p class="text-sm text-gray-700 bg-gray-50 rounded p-2 mt-1">{{ page.meta_title }}</p>
+                                </div>
+                                {% endif %}
+
+                                {% if page.meta_description %}
+                                <div class="mb-2">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs text-gray-500">Meta Description:</span>
+                                        <button onclick="copyText('{{ page.meta_description|escapejs }}')" class="text-xs text-purple-600 hover:text-purple-800">Kopier</button>
+                                    </div>
+                                    <p class="text-sm text-gray-600 bg-gray-50 rounded p-2 mt-1">{{ page.meta_description }}</p>
+                                </div>
+                                {% endif %}
+
+                                {% if page.content %}
+                                <div class="mb-2">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs text-gray-500">Indhold (uddrag):</span>
+                                        <button onclick="copyText('{{ page.content|escapejs }}')" class="text-xs text-purple-600 hover:text-purple-800">Kopier</button>
+                                    </div>
+                                    <p class="text-sm text-gray-600 bg-gray-50 rounded p-2 mt-1 max-h-32 overflow-y-auto">{{ page.content|truncatechars:500 }}</p>
+                                </div>
+                                {% endif %}
+
+                                {% if page.sections %}
+                                <div class="mt-3 pt-3 border-t border-gray-100">
+                                    <span class="text-xs text-gray-500 mb-2 block">Sektioner:</span>
+                                    <div class="space-y-2">
+                                        {% for section in page.sections|slice:":5" %}
+                                        <div class="bg-gray-50 rounded p-2">
+                                            {% if section.heading %}
+                                            <div class="font-medium text-sm text-gray-800">{{ section.heading }}</div>
+                                            {% endif %}
+                                            {% if section.content %}
+                                            <p class="text-xs text-gray-600 mt-1">{{ section.content|truncatechars:200 }}</p>
+                                            {% endif %}
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Extracted Reviews -->
+                    {% if extracted_reviews %}
+                    <div class="bg-gray-50 rounded-xl p-6">
+                        <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                            <span class="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center mr-3">⭐</span>
+                            Crawlede Anmeldelser
+                            <span class="ml-2 px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full">{{ extracted_reviews|length }}</span>
+                        </h4>
+                        <div class="space-y-3">
+                            {% for review in extracted_reviews %}
+                            <div class="bg-white rounded-lg p-3 border border-gray-200">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                        {% if review.author %}
+                                        <span class="font-medium text-gray-900 text-sm">{{ review.author }}</span>
+                                        {% endif %}
+                                        {% if review.rating %}
+                                        <span class="ml-2 text-yellow-500">{% for i in "12345" %}{% if forloop.counter <= review.rating %}★{% else %}☆{% endif %}{% endfor %}</span>
+                                        {% endif %}
+                                    </div>
+                                    {% if review.source %}
+                                    <span class="text-xs text-gray-400">{{ review.source }}</span>
+                                    {% endif %}
+                                </div>
+                                {% if review.text %}
+                                <p class="text-sm text-gray-600 mt-2">{{ review.text }}</p>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Crawled Meta Data from Client Model -->
+                    {% if client.scraped_data %}
+                    <div class="bg-gray-50 rounded-xl p-6">
+                        <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                            <span class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">🌐</span>
+                            Website Meta Data
+                            {% if client.scraped_at %}
+                            <span class="ml-2 text-xs text-gray-400 font-normal">{{ client.scraped_at|date:"d. M Y H:i" }}</span>
+                            {% endif %}
+                        </h4>
+
+                        {% if client.scraped_data.meta_title %}
+                        <div class="mb-4">
+                            <div class="flex items-center justify-between mb-1">
+                                <h5 class="text-sm font-medium text-gray-700">Meta Title</h5>
+                                <button onclick="copyText('{{ client.scraped_data.meta_title|escapejs }}')" class="text-xs text-purple-600 hover:text-purple-800">Kopier</button>
+                            </div>
+                            <p class="bg-white rounded-lg p-3 border border-gray-200 text-gray-700">{{ client.scraped_data.meta_title }}</p>
+                        </div>
+                        {% endif %}
+
+                        {% if client.scraped_data.meta_description %}
+                        <div class="mb-4">
+                            <div class="flex items-center justify-between mb-1">
+                                <h5 class="text-sm font-medium text-gray-700">Meta Description</h5>
+                                <button onclick="copyText('{{ client.scraped_data.meta_description|escapejs }}')" class="text-xs text-purple-600 hover:text-purple-800">Kopier</button>
+                            </div>
+                            <p class="bg-white rounded-lg p-3 border border-gray-200 text-gray-600">{{ client.scraped_data.meta_description }}</p>
+                        </div>
+                        {% endif %}
+
+                        {% if client.scraped_data.h1_tags %}
+                        <div class="mb-4">
+                            <h5 class="text-sm font-medium text-gray-700 mb-2">H1 Tags</h5>
+                            <div class="space-y-2">
+                                {% for h1 in client.scraped_data.h1_tags %}
+                                <div class="flex items-center justify-between bg-white rounded-lg p-2 border border-gray-200">
+                                    <span class="text-gray-700">{{ h1 }}</span>
+                                    <button onclick="copyText('{{ h1|escapejs }}')" class="text-xs text-purple-600 hover:text-purple-800">Kopier</button>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <!-- AI Generated Headlines -->
+                    {% if campaign_config.generated_headlines %}
+                    <div class="bg-gray-50 rounded-xl p-6">
+                        <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                            <span class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mr-3">✨</span>
+                            AI-Genererede Headlines
+                            <span class="ml-2 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">{{ campaign_config.generated_headlines|length }}</span>
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {% for headline in campaign_config.generated_headlines %}
+                            <div class="flex items-center justify-between bg-white rounded-lg p-3 border border-gray-200">
+                                <span class="text-gray-700 text-sm">{{ headline }}</span>
+                                <button onclick="copyText('{{ headline|escapejs }}')" class="text-xs text-purple-600 hover:text-purple-800 ml-2">Kopier</button>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- AI Generated Descriptions -->
+                    {% if campaign_config.generated_descriptions %}
+                    <div class="bg-gray-50 rounded-xl p-6">
+                        <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                            <span class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mr-3">📄</span>
+                            AI-Genererede Beskrivelser
+                            <span class="ml-2 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">{{ campaign_config.generated_descriptions|length }}</span>
+                        </h4>
+                        <div class="space-y-2">
+                            {% for desc in campaign_config.generated_descriptions %}
+                            <div class="flex items-start justify-between bg-white rounded-lg p-3 border border-gray-200">
+                                <span class="text-gray-700 text-sm">{{ desc }}</span>
+                                <button onclick="copyText('{{ desc|escapejs }}')" class="text-xs text-purple-600 hover:text-purple-800 ml-2 whitespace-nowrap">Kopier</button>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Campaign Texts from Ad Groups -->
+                    {% if campaigns %}
+                    <div class="bg-gray-50 rounded-xl p-6">
+                        <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                            <span class="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center mr-3">📊</span>
+                            Kampagne Tekster
+                        </h4>
+                        <div class="space-y-4">
+                            {% for campaign in campaigns %}
+                            <div class="bg-white rounded-lg p-4 border border-gray-200">
+                                <h5 class="font-medium text-gray-900 mb-2">{{ campaign.name }}</h5>
+                                {% for ad_group in campaign.ad_groups.all %}
+                                <div class="ml-4 mb-3">
+                                    <h6 class="text-sm font-medium text-gray-700 mb-1">{{ ad_group.name }}</h6>
+                                    {% for ad in ad_group.ads.all %}
+                                    <div class="ml-4 text-sm space-y-1">
+                                        {% if ad.headline_1 %}<div class="text-gray-600"><span class="text-gray-400">H1:</span> {{ ad.headline_1 }}</div>{% endif %}
+                                        {% if ad.headline_2 %}<div class="text-gray-600"><span class="text-gray-400">H2:</span> {{ ad.headline_2 }}</div>{% endif %}
+                                        {% if ad.headline_3 %}<div class="text-gray-600"><span class="text-gray-400">H3:</span> {{ ad.headline_3 }}</div>{% endif %}
+                                        {% if ad.description_1 %}<div class="text-gray-600"><span class="text-gray-400">D1:</span> {{ ad.description_1 }}</div>{% endif %}
+                                        {% if ad.description_2 %}<div class="text-gray-600"><span class="text-gray-400">D2:</span> {{ ad.description_2 }}</div>{% endif %}
+                                    </div>
+                                    {% empty %}
+                                    <p class="ml-4 text-sm text-gray-400 italic">Ingen annoncer</p>
+                                    {% endfor %}
+                                </div>
+                                {% empty %}
+                                <p class="text-sm text-gray-400 italic">Ingen annoncegrupper</p>
+                                {% endfor %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Empty State -->
+                    {% if not scraped_pages and not extracted_reviews and not client.scraped_data and not campaign_config.generated_headlines and not campaign_config.generated_descriptions and not campaigns %}
+                    <div class="text-center py-12 bg-gray-50 rounded-xl">
+                        <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <span class="text-2xl">📝</span>
+                        </div>
+                        <h4 class="text-lg font-semibold text-gray-900 mb-2">Ingen tekster endnu</h4>
+                        <p class="text-gray-500">Brug Campaign Builder til at crawle website og generere tekster</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- USPS SECTION -->
+            <div id="section-usps" class="section-content hidden">
+                <h3 class="text-xl font-semibold text-gray-900 mb-6">Alle USP'er</h3>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Predefined USPs -->
+                    <div class="bg-gray-50 rounded-xl p-6">
+                        <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                            <span class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
+                                <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
+                                </svg>
+                            </span>
+                            Valgte USP'er
+                            <span class="ml-2 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">{{ predefined_usps|length }}</span>
+                        </h4>
+                        {% if predefined_usps %}
+                        <ul class="space-y-3">
+                            {% for usp in predefined_usps %}
+                            <li class="bg-white rounded-lg p-3 border border-gray-200">
+                                <div class="font-medium text-gray-900 mb-1">{{ usp.headline_text }}</div>
+                                {% if usp.category %}
+                                <span class="text-xs text-gray-500">{{ usp.category.name }}</span>
+                                {% endif %}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <p class="text-gray-400 italic">Ingen valgte USP'er</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- AI Detected USPs -->
+                    <div class="bg-gray-50 rounded-xl p-6">
+                        <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                            <span class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                                <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                                </svg>
+                            </span>
+                            AI-Detected USP'er
+                            <span class="ml-2 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">{{ detected_usps|length }}</span>
+                        </h4>
+                        {% if detected_usps %}
+                        <ul class="space-y-3">
+                            {% for usp in detected_usps %}
+                            <li class="bg-white rounded-lg p-3 border border-gray-200 flex items-start gap-2">
+                                <span class="text-green-500 mt-1">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                    </svg>
+                                </span>
+                                <span class="text-gray-700">{{ usp.text|default:usp }}</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <p class="text-gray-400 italic">Ingen AI-detected USP'er</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Custom USPs -->
+                    {% if custom_usps %}
+                    <div class="bg-gray-50 rounded-xl p-6 lg:col-span-2">
+                        <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                            <span class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                                <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                </svg>
+                            </span>
+                            Brugerdefinerede USP'er
+                            <span class="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">{{ custom_usps|length }}</span>
+                        </h4>
+                        <div class="flex flex-wrap gap-2">
+                            {% for usp in custom_usps %}
+                            <span class="px-3 py-2 bg-white rounded-lg border border-gray-200 text-gray-700">{{ usp }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- INDUSTRIES SECTION -->
+            <div id="section-industries" class="section-content hidden">
+                <h3 class="text-xl font-semibold text-gray-900 mb-6">Brancher & Services</h3>
+
+                {% if industries_with_services %}
+                <div class="space-y-6">
+                    {% for item in industries_with_services %}
+                    <div class="bg-gray-50 rounded-xl overflow-hidden">
+                        <div class="p-4 bg-gradient-to-r from-purple-100 to-blue-100 border-b border-gray-200">
+                            <h4 class="text-lg font-semibold text-gray-900 flex items-center">
+                                <span class="w-10 h-10 bg-white rounded-lg flex items-center justify-center mr-3 shadow-sm text-xl">
+                                    {{ item.industry.icon|default:"" }}
+                                </span>
+                                {{ item.industry.name }}
+                                <span class="ml-2 px-2 py-0.5 bg-white text-purple-700 text-xs rounded-full">{{ item.services|length }} services</span>
+                            </h4>
+                        </div>
+                        <div class="p-4">
+                            {% if item.services %}
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {% for service in item.services %}
+                                <div class="bg-white rounded-lg p-3 border border-gray-200">
+                                    <div class="font-medium text-gray-900">{{ service.name }}</div>
+                                    {% if service.description %}
+                                    <div class="text-sm text-gray-500 mt-1">{{ service.description|truncatewords:10 }}</div>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <p class="text-gray-400 italic">Ingen services valgt for denne branche</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-12 bg-gray-50 rounded-xl">
+                    <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                        </svg>
+                    </div>
+                    <h4 class="text-lg font-semibold text-gray-900 mb-2">Ingen brancher valgt</h4>
+                    <p class="text-gray-500">Brug Campaign Builder til at v&aelig;lge brancher og services</p>
+                </div>
+                {% endif %}
+
+                <!-- AI Detected Services -->
+                {% if client.detected_services %}
+                <div class="mt-8">
+                    <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                        <span class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                            <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                            </svg>
+                        </span>
+                        AI-Detected Services
+                    </h4>
+                    <div class="flex flex-wrap gap-2">
+                        {% for service in client.detected_services %}
+                        <span class="px-3 py-2 bg-green-50 text-green-700 rounded-lg border border-green-200">
+                            {{ service.name|default:service }}
+                        </span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- GEO SECTION -->
+            <div id="section-geo" class="section-content hidden">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-xl font-semibold text-gray-900">Geo-Kampagne Overblik</h3>
+                    <button onclick="openGeoModal()" class="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all duration-200 flex items-center space-x-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
+                        </svg>
+                        <span>Se Bykort</span>
+                    </button>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div class="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                        <div class="text-3xl font-bold text-blue-600">{{ selected_cities|length }}</div>
+                        <div class="text-sm text-blue-700">Byer valgt</div>
+                    </div>
+                    <div class="bg-green-50 rounded-xl p-4 border border-green-100">
+                        <div class="text-3xl font-bold text-green-600">{{ created_bysider|length }}</div>
+                        <div class="text-sm text-green-700">Bysider oprettet</div>
+                    </div>
+                    <div class="bg-orange-50 rounded-xl p-4 border border-orange-100">
+                        <div class="text-3xl font-bold text-orange-600">{{ selected_cities|length|add:"-"|add:created_bysider|length }}</div>
+                        <div class="text-sm text-orange-700">Bysider mangler</div>
+                    </div>
+                </div>
+
+                <!-- Selected Regions -->
+                {% if selected_region_ids %}
+                <div class="bg-gray-50 rounded-xl p-6 mb-6">
+                    <h4 class="text-lg font-semibold text-gray-900 mb-4">Valgte Regioner</h4>
+                    <div class="flex flex-wrap gap-2">
+                        {% for region in geographic_regions %}
+                            {% if region.id in selected_region_ids %}
+                            <span class="px-3 py-2 bg-white rounded-lg border border-gray-200 flex items-center gap-2">
+                                <span>{{ region.icon }}</span>
+                                <span class="font-medium text-gray-900">{{ region.name }}</span>
+                                <span class="text-sm text-gray-500">({{ region.cities_count }} byer)</span>
+                            </span>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- City Comparison Table -->
+                <div class="bg-gray-50 rounded-xl p-6">
+                    <h4 class="text-lg font-semibold text-gray-900 mb-4">Bystatus Sammenligning</h4>
+
+                    {% if byside_urls %}
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="text-left text-sm text-gray-500 border-b border-gray-200">
+                                    <th class="pb-3 font-medium">By</th>
+                                    <th class="pb-3 font-medium">URL</th>
+                                    <th class="pb-3 font-medium text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                {% for byside in byside_urls|slice:":20" %}
+                                <tr class="hover:bg-white transition-colors">
+                                    <td class="py-3 font-medium text-gray-900">{{ byside.city }}</td>
+                                    <td class="py-3 text-sm text-gray-600">{{ byside.url|default:"-" }}</td>
+                                    <td class="py-3 text-center">
+                                        {% if byside.exists %}
+                                        <span class="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">Oprettet</span>
+                                        {% elif byside.edited %}
+                                        <span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">Redigeret</span>
+                                        {% else %}
+                                        <span class="px-2 py-1 bg-orange-100 text-orange-700 text-xs font-medium rounded-full">Mangler</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if byside_urls|length > 20 %}
+                    <p class="text-sm text-gray-500 mt-4 text-center">Viser 20 af {{ byside_urls|length }} byer. <button onclick="openGeoModal()" class="text-purple-600 hover:text-purple-800">Se alle</button></p>
+                    {% endif %}
+                    {% else %}
+                    <p class="text-gray-400 italic text-center py-8">Ingen bysider konfigureret endnu. Brug Campaign Builder til at ops&aelig;tte geo-kampagner.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+<!-- Geo Map Modal - Full Screen with Campaign Builder Functionality -->
+<div id="geo-modal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black bg-opacity-50 transition-opacity duration-300" onclick="closeGeoModal()"></div>
+    <div class="absolute bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col" style="top: 5%; left: 5%; right: 5%; bottom: 5%; min-width: 70%; min-height: 70%;">
+        <!-- Modal Header -->
+        <div class="p-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-green-50 to-blue-50">
+            <div>
+                <h3 class="text-xl font-bold text-gray-900 flex items-center">
+                    <span class="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center mr-3">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
+                        </svg>
+                    </span>
+                    🌍 Geo-Kampagne Bykort
+                </h3>
+                <p class="text-sm text-gray-600 ml-13">Klik på postnumre eller tegn cirkler for at vælge områder</p>
+            </div>
+            <button onclick="closeGeoModal()" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="flex-1 flex overflow-hidden">
+            <!-- Map Container (Leaflet) - 75% width -->
+            <div id="geo-map" class="flex-1 bg-gray-100" style="min-width: 60%;"></div>
+
+            <!-- Right Side Panel -->
+            <div class="w-96 border-l border-gray-200 flex flex-col bg-white">
+                <!-- Selected Postal Codes Display -->
+                <div class="p-4 border-b border-gray-200">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Valgte postnumre (<span id="geo-panel-city-count" class="font-semibold text-green-600">0</span>):
+                    </label>
+                    <textarea id="geo-panel-selected-cities" readonly
+                              class="w-full h-24 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm resize-none"
+                              placeholder="Klik på postnumre på kortet eller skriv dem manuelt..."></textarea>
+                </div>
+
+                <!-- Postnummer Input -->
+                <div class="p-4 border-b border-gray-200">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Tilføj postnumre manuelt:
+                    </label>
+                    <div class="flex gap-2">
+                        <input type="text" id="geo-postal-input"
+                               class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                               placeholder="F.eks. 2100, 2200, 2300">
+                        <button type="button" id="geo-add-postal-btn"
+                                class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                            Tilføj
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">Skriv et eller flere postnumre adskilt med komma</p>
+                </div>
+
+                <!-- Color Legend -->
+                <div class="p-4 border-b border-gray-200 bg-gray-50">
+                    <h4 class="font-semibold text-gray-900 mb-2 flex items-center text-sm">
+                        <span class="mr-2">🎨</span> Farvekoder:
+                    </h4>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div class="flex items-center">
+                            <span class="w-3 h-3 rounded mr-2" style="background-color: #22c55e;"></span>
+                            <span class="text-gray-700">Byside oprettet</span>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="w-3 h-3 rounded mr-2" style="background-color: #f97316;"></span>
+                            <span class="text-gray-700">Byside mangler</span>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="w-3 h-3 rounded mr-2" style="background-color: #8B5CF6;"></span>
+                            <span class="text-gray-700">Klikket på kort</span>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="w-3 h-3 rounded mr-2" style="background-color: #F59E0B;"></span>
+                            <span class="text-gray-700">Cirkel-tegning</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filter & Search -->
+                <div class="p-4 border-b border-gray-200">
+                    <div class="flex items-center gap-2 mb-3">
+                        <input type="text" id="city-search" placeholder="Søg by..." class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="filterCities('all')" class="city-filter-btn active flex-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 hover:bg-gray-50" data-filter="all">Alle</button>
+                        <button onclick="filterCities('created')" class="city-filter-btn flex-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-green-200 hover:bg-green-50 text-green-600" data-filter="created">Oprettet</button>
+                        <button onclick="filterCities('missing')" class="city-filter-btn flex-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-orange-200 hover:bg-orange-50 text-orange-600" data-filter="missing">Mangler</button>
+                    </div>
+                </div>
+
+                <!-- City List -->
+                <div id="city-list" class="flex-1 overflow-y-auto p-4 space-y-2">
+                    <!-- Cities will be populated by JS -->
+                </div>
+
+                <!-- Instructions -->
+                <div class="p-4 border-t border-gray-200 bg-blue-50">
+                    <h4 class="font-semibold text-blue-900 mb-2 flex items-center text-sm">
+                        <span class="mr-2">📍</span> Instruktioner:
+                    </h4>
+                    <ul class="text-xs text-blue-800 space-y-1">
+                        <li><strong>Klik</strong> på et postnummer-område for at se detaljer</li>
+                        <li><strong>Skriv</strong> postnumre i feltet for at tilføje dem</li>
+                        <li><strong>Cirkel-tegning</strong> for at vælge områder visuelt</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="p-4 border-t border-gray-200 flex justify-between bg-gray-50">
+            <button type="button" id="clear-geo-selections-btn"
+                    class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                </svg>
+                Ryd alle valg
+            </button>
+            <div class="flex gap-3">
+                <button type="button" id="toggle-circle-mode-btn"
+                        class="px-4 py-2 border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-50 transition-colors flex items-center gap-2">
+                    <span>⭕</span> Cirkel-tegning
+                </button>
+                <button type="button" onclick="closeGeoModal()"
+                        class="bg-gradient-to-r from-green-600 to-blue-600 text-white px-6 py-2 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    Luk
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Notification -->
+<div id="toast" class="fixed bottom-4 right-4 z-50 hidden">
+    <div class="bg-gray-900 text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-3">
+        <span id="toast-icon"></span>
+        <span id="toast-message">Handling udf&oslash;rt</span>
+    </div>
+</div>
+
+<script>
+const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+const clientId = {{ client.id }};
+
+// City data from Django
+const allCities = [
+    {% for region in geographic_regions %}
+        {% for city in region.cities.all %}
+        {
+            name: "{{ city.city_name|escapejs }}",
+            region: "{{ region.name|escapejs }}",
+            lat: {{ city.latitude|default:"55.6761" }},
+            lng: {{ city.longitude|default:"12.5683" }},
+            postalCode: "{{ city.postal_code }}",
+            isSelected: {% if city.city_name in selected_cities %}true{% else %}false{% endif %},
+            isCreated: {% if city.city_name in created_bysider %}true{% else %}false{% endif %}
+        },
+        {% endfor %}
+    {% endfor %}
+];
+
+// =====================================================
+// LEAFLET MAP - DAWA Postal Code Polygons
+// =====================================================
+var geoMap = null;  // Leaflet map instance
+var geoGeoJsonLayer = null;  // Layer containing all postal code polygons
+var geoPostalData = {};  // { postalCode: { geometry, navn, polygon, displayName, additionalNames } }
+var geoCircleMode = false;  // Toggle for circle drawing mode
+var geoCircles = [];  // Array of Leaflet circles
+var geoCircleDrawing = null;  // Current circle being drawn
+var geoSelectedPostals = {};  // Track manually selected postals
+
+// Color scheme for different selection sources
+var GEO_COLORS = {
+    created: { fill: '#22c55e', stroke: '#16a34a' },    // Green - byside created
+    missing: { fill: '#f97316', stroke: '#ea580c' },     // Orange - byside missing
+    clicked: { fill: '#8B5CF6', stroke: '#7C3AED' },   // Purple - clicked on map
+    circle: { fill: '#F59E0B', stroke: '#D97706' },    // Orange/amber - circle mode
+    hover: { fill: '#6366F1', stroke: '#4F46E5' },     // Indigo - hover state
+    default: { fill: '#E5E7EB', stroke: '#9CA3AF' }    // Gray - unselected
+};
+
+// Consolidate København K, V and Frederiksberg C postal codes into single entries
+function consolidateCopenhagenPostals(postalData) {
+    var consolidations = {
+        'kbh_k': {
+            namePattern: 'København K',
+            displayName: 'København',
+            codes: []
+        },
+        'kbh_v': {
+            namePatterns: ['Vesterbro', 'København V'],
+            displayName: 'Vesterbro',
+            codes: []
+        },
+        'frb_c': {
+            namePattern: 'Frederiksberg',
+            displayName: 'Frederiksberg',
+            codes: []
+        }
+    };
+
+    // Find all postal codes that should be consolidated
+    for (var nr in postalData) {
+        var postal = postalData[nr];
+        var davaName = postal.navn || '';
+
+        for (var key in consolidations) {
+            var c = consolidations[key];
+            var matches = false;
+
+            if (c.namePatterns) {
+                matches = c.namePatterns.some(function(pattern) {
+                    return davaName.indexOf(pattern) !== -1;
+                });
+            } else if (c.namePattern) {
+                matches = davaName.indexOf(c.namePattern) !== -1;
+            }
+
+            if (matches) {
+                c.codes.push(nr);
+                break;
+            }
+        }
+    }
+
+    // For each consolidation: merge all polygons into one
+    for (var key in consolidations) {
+        var c = consolidations[key];
+        if (c.codes.length > 0) {
+            c.codes.sort();
+            var primaryCode = c.codes[0];
+
+            postalData[primaryCode].displayName = c.displayName;
+            postalData[primaryCode].consolidatedCodes = c.codes;
+
+            try {
+                var polygonsToMerge = [];
+                c.codes.forEach(function(code) {
+                    var postal = postalData[code];
+                    if (postal && postal.geometry) {
+                        var feature = turf.feature(postal.geometry);
+                        polygonsToMerge.push(feature);
+                    }
+                });
+
+                if (polygonsToMerge.length > 1) {
+                    var merged = polygonsToMerge[0];
+                    for (var i = 1; i < polygonsToMerge.length; i++) {
+                        try {
+                            merged = turf.union(merged, polygonsToMerge[i]);
+                        } catch (e) {
+                            console.warn('Could not merge polygon', c.codes[i], e);
+                        }
+                    }
+
+                    if (merged && merged.geometry) {
+                        postalData[primaryCode].geometry = merged.geometry;
+                    }
+                }
+            } catch (e) {
+                console.error('Error merging polygons for', c.displayName, e);
+            }
+
+            for (var i = 1; i < c.codes.length; i++) {
+                postalData[c.codes[i]].hidden = true;
+            }
+        }
+    }
+
+    return postalData;
+}
+
+// Load DAWA GeoJSON data for all postal codes
+var dawaLoadingPromise = null;
+
+function loadDAWAGeoJSON() {
+    if (Object.keys(geoPostalData).length > 0) {
+        return Promise.resolve(geoPostalData);
+    }
+
+    if (dawaLoadingPromise) {
+        return dawaLoadingPromise;
+    }
+
+    console.log('Loading DAWA GeoJSON data...');
+
+    dawaLoadingPromise = $.ajax({
+        url: 'https://dawa.aws.dk/postnumre?format=geojson',
+        timeout: 30000,
+        dataType: 'json',
+        cache: true
+    }).then(function(geojson) {
+        console.log('DAWA GeoJSON loaded:', geojson.features.length, 'postal codes');
+
+        geojson.features.forEach(function(feature) {
+            var nr = feature.properties.nr;
+
+            geoPostalData[nr] = {
+                nr: nr,
+                navn: feature.properties.navn,
+                displayName: '',
+                geometry: feature.geometry,
+                polygon: null,
+                hidden: false,
+                consolidatedCodes: null
+            };
+        });
+
+        consolidateCopenhagenPostals(geoPostalData);
+
+        dawaLoadingPromise = null;
+        return geoPostalData;
+    }).catch(function(error) {
+        console.error('Error loading DAWA GeoJSON:', error);
+        dawaLoadingPromise = null;
+        throw error;
+    });
+
+    return dawaLoadingPromise;
+}
+
+// Get display name for a postal code
+function getPostalDisplayName(nr) {
+    var postal = geoPostalData[nr];
+    if (!postal) return nr;
+    return postal.displayName || postal.navn;
+}
+
+// Check if a city is created or missing
+function getCityStatus(postalCode) {
+    var city = allCities.find(c => c.postalCode === postalCode);
+    if (!city) return 'default';
+    if (!city.isSelected) return 'default';
+    return city.isCreated ? 'created' : 'missing';
+}
+
+// Get polygon style based on status
+function getPolygonStyle(postalCode, isHover) {
+    var status = getCityStatus(postalCode);
+
+    if (isHover) {
+        return {
+            fillColor: GEO_COLORS.hover.fill,
+            fillOpacity: 0.7,
+            color: GEO_COLORS.hover.stroke,
+            weight: 3
+        };
+    }
+
+    if (geoSelectedPostals[postalCode]) {
+        var source = geoSelectedPostals[postalCode].source || 'clicked';
+        return {
+            fillColor: GEO_COLORS[source].fill,
+            fillOpacity: 0.6,
+            color: GEO_COLORS[source].stroke,
+            weight: 2
+        };
+    }
+
+    if (status === 'created') {
+        return {
+            fillColor: GEO_COLORS.created.fill,
+            fillOpacity: 0.5,
+            color: GEO_COLORS.created.stroke,
+            weight: 2
+        };
+    } else if (status === 'missing') {
+        return {
+            fillColor: GEO_COLORS.missing.fill,
+            fillOpacity: 0.5,
+            color: GEO_COLORS.missing.stroke,
+            weight: 2
+        };
+    }
+
+    return {
+        fillColor: GEO_COLORS.default.fill,
+        fillOpacity: 0.3,
+        color: GEO_COLORS.default.stroke,
+        weight: 1
+    };
+}
+
+// Initialize Leaflet map with Danish postal code polygons
+function initGeoModal() {
+    var mapContainer = document.getElementById('geo-map');
+    if (!mapContainer) {
+        console.error('geo-map element not found');
+        return Promise.reject('Map container not found');
+    }
+
+    if (geoMap) {
+        geoMap.invalidateSize();
+        if (!geoGeoJsonLayer) {
+            return loadDAWAGeoJSON().then(function(postalData) {
+                createGeoJsonLayer(postalData);
+            });
+        }
+        return Promise.resolve();
+    }
+
+    // Create Leaflet map centered on Denmark
+    geoMap = L.map('geo-map', {
+        center: [55.670523, 12.583819],
+        zoom: 7,
+        minZoom: 5,
+        maxZoom: 18
+    });
+
+    // Add OpenStreetMap tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(geoMap);
+
+    // Load and display postal code polygons
+    return loadDAWAGeoJSON().then(function(postalData) {
+        createGeoJsonLayer(postalData);
+    });
+}
+
+// Create GeoJSON layer from postal data
+function createGeoJsonLayer(postalData) {
+    if (geoGeoJsonLayer) {
+        console.log('GeoJSON layer already exists');
+        return;
+    }
+
+    var features = [];
+    for (var nr in postalData) {
+        var postal = postalData[nr];
+        if (postal.hidden) continue;
+
+        features.push({
+            type: 'Feature',
+            properties: {
+                nr: nr,
+                navn: postal.navn,
+                displayName: postal.displayName
+            },
+            geometry: postal.geometry
+        });
+    }
+
+    var geojson = {
+        type: 'FeatureCollection',
+        features: features
+    };
+
+    geoGeoJsonLayer = L.geoJSON(geojson, {
+        style: function(feature) {
+            return getPolygonStyle(feature.properties.nr, false);
+        },
+        onEachFeature: function(feature, layer) {
+            var nr = feature.properties.nr;
+            postalData[nr].polygon = layer;
+
+            // Click handler
+            layer.on('click', function(e) {
+                if (geoCircleMode) return;
+                togglePostalSelection(nr);
+            });
+
+            // Hover effect
+            layer.on('mouseover', function(e) {
+                layer.setStyle(getPolygonStyle(nr, true));
+                layer.bringToFront();
+
+                // Show tooltip
+                var displayName = feature.properties.displayName || feature.properties.navn;
+                var status = getCityStatus(nr);
+                var statusText = status === 'created' ? 'Oprettet' : status === 'missing' ? 'Mangler' : 'Ikke valgt';
+
+                layer.bindTooltip(`<strong>${displayName}</strong><br>${nr}<br><span style="color: ${status === 'created' ? '#22c55e' : status === 'missing' ? '#f97316' : '#666'};">${statusText}</span>`, {
+                    permanent: false,
+                    direction: 'top'
+                }).openTooltip();
+            });
+
+            layer.on('mouseout', function(e) {
+                layer.setStyle(getPolygonStyle(nr, false));
+                layer.closeTooltip();
+            });
+        }
+    }).addTo(geoMap);
+
+    console.log('GeoJSON layer created with', features.length, 'polygons');
+    updateSelectionDisplay();
+}
+
+// Toggle postal selection
+function togglePostalSelection(postalCode) {
+    if (geoSelectedPostals[postalCode]) {
+        delete geoSelectedPostals[postalCode];
+    } else {
+        geoSelectedPostals[postalCode] = { source: 'clicked' };
+    }
+
+    // Update polygon style
+    var postal = geoPostalData[postalCode];
+    if (postal && postal.polygon) {
+        postal.polygon.setStyle(getPolygonStyle(postalCode, false));
+    }
+
+    updateSelectionDisplay();
+}
+
+// Update selection display
+function updateSelectionDisplay() {
+    var selectedCount = Object.keys(geoSelectedPostals).length;
+    var selectedCities = [];
+
+    for (var nr in geoSelectedPostals) {
+        var displayName = getPostalDisplayName(nr);
+        selectedCities.push(displayName + ' (' + nr + ')');
+    }
+
+    $('#geo-panel-city-count').text(selectedCount);
+    $('#geo-panel-selected-cities').val(selectedCities.join('\n'));
+}
+
+// Add postal codes from input
+function addPostalCodesFromInput() {
+    var input = $('#geo-postal-input').val();
+    if (!input) return;
+
+    var codes = input.split(/[,;\s]+/).filter(function(c) {
+        return c.match(/^\d{4}$/);
+    });
+
+    codes.forEach(function(code) {
+        if (geoPostalData[code] && !geoSelectedPostals[code]) {
+            geoSelectedPostals[code] = { source: 'clicked' };
+
+            var postal = geoPostalData[code];
+            if (postal && postal.polygon) {
+                postal.polygon.setStyle(getPolygonStyle(code, false));
+            }
+        }
+    });
+
+    $('#geo-postal-input').val('');
+    updateSelectionDisplay();
+
+    if (codes.length > 0) {
+        showToast(codes.length + ' postnumre tilføjet', 'success');
+    }
+}
+
+// Toggle circle drawing mode
+function toggleCircleMode() {
+    geoCircleMode = !geoCircleMode;
+    var btn = $('#toggle-circle-mode-btn');
+
+    if (geoCircleMode) {
+        btn.addClass('bg-orange-100 border-orange-500').text('⭕ Cirkel-tegning (Aktiv)');
+
+        geoMap.on('mousedown', startCircleDrawing);
+        geoMap.on('mousemove', updateCircleDrawing);
+        geoMap.on('mouseup', endCircleDrawing);
+
+        geoMap.dragging.disable();
+
+        showToast('Cirkel-tegning aktiveret. Klik og træk for at tegne.', 'info');
+    } else {
+        btn.removeClass('bg-orange-100 border-orange-500').html('<span>⭕</span> Cirkel-tegning');
+
+        geoMap.off('mousedown', startCircleDrawing);
+        geoMap.off('mousemove', updateCircleDrawing);
+        geoMap.off('mouseup', endCircleDrawing);
+
+        geoMap.dragging.enable();
+
+        showToast('Cirkel-tegning deaktiveret', 'info');
+    }
+}
+
+// Circle drawing functions
+function startCircleDrawing(e) {
+    if (!geoCircleMode) return;
+
+    geoCircleDrawing = {
+        center: e.latlng,
+        circle: L.circle(e.latlng, {
+            radius: 0,
+            color: GEO_COLORS.circle.stroke,
+            fillColor: GEO_COLORS.circle.fill,
+            fillOpacity: 0.3,
+            weight: 2
+        }).addTo(geoMap)
+    };
+}
+
+function updateCircleDrawing(e) {
+    if (!geoCircleDrawing) return;
+
+    var radius = geoCircleDrawing.center.distanceTo(e.latlng);
+    geoCircleDrawing.circle.setRadius(radius);
+}
+
+function endCircleDrawing(e) {
+    if (!geoCircleDrawing) return;
+
+    var circle = geoCircleDrawing.circle;
+    geoCircles.push(circle);
+
+    // Select postals within the circle
+    selectPostalsInCircle(circle);
+
+    geoCircleDrawing = null;
+    updateSelectionDisplay();
+}
+
+// Select postals within a circle
+function selectPostalsInCircle(circle) {
+    var center = circle.getLatLng();
+    var radius = circle.getRadius();
+
+    for (var nr in geoPostalData) {
+        var postal = geoPostalData[nr];
+        if (postal.polygon && !postal.hidden) {
+            var postalCenter = postal.polygon.getBounds().getCenter();
+            var distance = center.distanceTo(postalCenter);
+
+            if (distance <= radius) {
+                if (!geoSelectedPostals[nr]) {
+                    geoSelectedPostals[nr] = { source: 'circle' };
+                    postal.polygon.setStyle(getPolygonStyle(nr, false));
+                }
+            }
+        }
+    }
+}
+
+// Clear all geo selections
+function clearAllGeoSelections() {
+    // Clear polygon selections
+    for (var nr in geoSelectedPostals) {
+        var postal = geoPostalData[nr];
+        if (postal && postal.polygon) {
+            postal.polygon.setStyle(getPolygonStyle(nr, false));
+        }
+    }
+    geoSelectedPostals = {};
+
+    // Clear circles
+    geoCircles.forEach(function(circle) {
+        geoMap.removeLayer(circle);
+    });
+    geoCircles = [];
+
+    updateSelectionDisplay();
+    showToast('Alle valg ryddet', 'info');
+}
+
+// =====================================================
+// GENERAL UI FUNCTIONS
+// =====================================================
+
+function showSection(sectionId) {
+    document.querySelectorAll('.section-content').forEach(el => {
+        el.classList.add('hidden');
+    });
+
+    document.querySelectorAll('.section-tab').forEach(el => {
+        el.classList.remove('active', 'border-purple-600', 'text-purple-600');
+        el.classList.add('border-transparent');
+    });
+
+    document.getElementById('section-' + sectionId).classList.remove('hidden');
+
+    const activeTab = document.querySelector(`.section-tab[data-section="${sectionId}"]`);
+    activeTab.classList.add('active', 'border-purple-600', 'text-purple-600');
+    activeTab.classList.remove('border-transparent');
+}
+
+function showToast(message, type = 'success') {
+    const toast = $('#toast');
+    const icon = type === 'success' ? '✓' : type === 'error' ? '✗' : 'ℹ';
+    $('#toast-icon').html(icon);
+    $('#toast-message').text(message);
+    toast.removeClass('hidden');
+    setTimeout(() => toast.addClass('hidden'), 3000);
+}
+
+function copyText(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        showToast('Kopieret til udklipsholder');
+    });
+}
+
+function editClient() {
+    window.location.href = `/clients/?edit=${clientId}`;
+}
+
+function openGeoModal() {
+    document.getElementById('geo-modal').classList.remove('hidden');
+    populateCityList('all');
+    setTimeout(() => {
+        initGeoModal().then(function() {
+            if (geoMap) {
+                geoMap.invalidateSize();
+            }
+        });
+    }, 100);
+}
+
+function closeGeoModal() {
+    document.getElementById('geo-modal').classList.add('hidden');
+}
+
+function populateCityList(filter) {
+    const container = document.getElementById('city-list');
+    const searchQuery = document.getElementById('city-search').value.toLowerCase();
+
+    let cities = allCities.filter(c => c.isSelected);
+
+    if (filter === 'created') {
+        cities = cities.filter(c => c.isCreated);
+    } else if (filter === 'missing') {
+        cities = cities.filter(c => !c.isCreated);
+    }
+
+    if (searchQuery) {
+        cities = cities.filter(c =>
+            c.name.toLowerCase().includes(searchQuery) ||
+            c.region.toLowerCase().includes(searchQuery) ||
+            c.postalCode.includes(searchQuery)
+        );
+    }
+
+    container.innerHTML = cities.map(city => `
+        <div class="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer" onclick="focusCity('${city.postalCode}')">
+            <div class="flex items-center justify-between">
+                <div>
+                    <div class="font-medium text-gray-900">${city.name}</div>
+                    <div class="text-xs text-gray-500">${city.postalCode} · ${city.region}</div>
+                </div>
+                <span class="px-2 py-1 text-xs font-medium rounded-full ${city.isCreated ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}">
+                    ${city.isCreated ? 'Oprettet' : 'Mangler'}
+                </span>
+            </div>
+        </div>
+    `).join('');
+
+    if (cities.length === 0) {
+        container.innerHTML = '<p class="text-gray-400 text-center py-8">Ingen byer fundet</p>';
+    }
+}
+
+function filterCities(filter) {
+    document.querySelectorAll('.city-filter-btn').forEach(btn => {
+        btn.classList.remove('active', 'bg-gray-100');
+    });
+    document.querySelector(`.city-filter-btn[data-filter="${filter}"]`).classList.add('active', 'bg-gray-100');
+    populateCityList(filter);
+}
+
+function focusCity(postalCode) {
+    var postal = geoPostalData[postalCode];
+    if (postal && postal.polygon && geoMap) {
+        geoMap.fitBounds(postal.polygon.getBounds(), { maxZoom: 12 });
+
+        // Highlight the polygon briefly
+        postal.polygon.setStyle(getPolygonStyle(postalCode, true));
+        setTimeout(function() {
+            postal.polygon.setStyle(getPolygonStyle(postalCode, false));
+        }, 2000);
+    } else {
+        // Fallback to city coordinates
+        var city = allCities.find(c => c.postalCode === postalCode);
+        if (city && geoMap) {
+            geoMap.setView([parseFloat(city.lat), parseFloat(city.lng)], 12);
+        }
+    }
+}
+
+// =====================================================
+// EVENT HANDLERS
+// =====================================================
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('city-search');
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            const activeFilter = document.querySelector('.city-filter-btn.active').dataset.filter;
+            populateCityList(activeFilter);
+        });
+    }
+
+    // Postal code input
+    $('#geo-add-postal-btn').click(function() {
+        addPostalCodesFromInput();
+    });
+
+    $('#geo-postal-input').keypress(function(e) {
+        if (e.which === 13) {
+            e.preventDefault();
+            addPostalCodesFromInput();
+        }
+    });
+
+    // Circle mode toggle
+    $('#toggle-circle-mode-btn').click(function() {
+        toggleCircleMode();
+    });
+
+    // Clear selections
+    $('#clear-geo-selections-btn').click(function() {
+        clearAllGeoSelections();
+    });
+
+    // Pre-load DAWA data in background
+    setTimeout(function() {
+        loadDAWAGeoJSON().then(function() {
+            console.log('DAWA GeoJSON pre-loaded successfully');
+        }).catch(function(err) {
+            console.warn('DAWA pre-load failed:', err.message);
+        });
+    }, 1500);
+});
+</script>
+
+<style>
+.section-tab.active {
+    color: #9333ea;
+    border-color: #9333ea;
+}
+</style>
+
+{% endblock %}
