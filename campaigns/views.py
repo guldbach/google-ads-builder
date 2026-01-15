@@ -2571,31 +2571,34 @@ def industry_manager(request):
 
 def campaign_builder_wizard(request):
     """Campaign Builder Wizard - intelligent kampagne opsætning med multi-step guide"""
-    
+
     # Hent data for wizard steps
     from .models import BudgetStrategy, AdTemplate
     from usps.models import USPTemplate, USPMainCategory
     from .models import NegativeKeywordList, GeographicRegion, IndustryService, ServiceKeyword
-    
+
     # Step 1: Industries and Services
     industries = Industry.objects.filter(is_active=True).prefetch_related(
         'industry_services__service_keywords'
     ).order_by('name')
-    
+
     # Step 2: USPs and Negative Keywords
     usp_categories = USPMainCategory.objects.filter(is_active=True).prefetch_related(
         'usptemplate_set'
     ).order_by('name')
-    
+
     negative_keyword_lists = NegativeKeywordList.objects.filter(is_active=True).order_by('name')
-    
+
     # Step 3: Budget Strategies and Ad Templates
     budget_strategies = BudgetStrategy.objects.filter(is_active=True).order_by('-is_default', 'name')
     ad_templates = AdTemplate.objects.filter(is_active=True).order_by('-is_default', 'name')
-    
+
     # Step 4: Geographic Regions (med prefetched cities)
     geographic_regions = GeographicRegion.objects.filter(is_active=True).prefetch_related('cities').order_by('name')
-    
+
+    # Client selection for Campaign Builder
+    clients = Client.objects.all().order_by('name')
+
     context = {
         'industries': industries,
         'usp_categories': usp_categories,
@@ -2604,8 +2607,9 @@ def campaign_builder_wizard(request):
         'ad_templates': ad_templates,
         'geographic_regions': geographic_regions,
         'google_maps_api_key': 'AIzaSyBDH6MTS0Hq0ISb0bNQjEAC14321pzM0jw',
+        'clients': clients,
     }
-    
+
     return render(request, 'campaigns/campaign_builder_wizard.html', context)
 
 
@@ -4590,7 +4594,8 @@ def generate_company_description_ajax(request):
             'description': description,
             'key_points': key_points,
             'profile': result.get('profile', {}),
-            'used_research': bool(online_research)
+            'used_research': bool(online_research),
+            'model_used': result.get('model_used', 'unknown')
         }, json_dumps_params={'ensure_ascii': False})
 
     except ValueError as e:
@@ -5822,5 +5827,333 @@ def export_seo_content_csv(request):
 
     except json.JSONDecodeError:
         return JsonResponse({'success': False, 'error': 'Invalid JSON'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+# =====================================================
+# CLIENT MANAGEMENT VIEWS
+# =====================================================
+
+def client_list(request):
+    """Listevisning over kunder."""
+    clients = Client.objects.all().select_related('industry')
+
+    # Add campaign count to each client
+    for client in clients:
+        client.campaign_count = Campaign.objects.filter(client=client).count()
+
+    industries = Industry.objects.all()
+
+    return render(request, 'campaigns/client_list.html', {
+        'clients': clients,
+        'industries': industries
+    })
+
+
+def client_detail(request, client_id):
+    """Kundebillede - fuld profil med AI-data og segmenteret overblik."""
+    from .models import GeographicRegion, DanishCity, IndustryService
+
+    client = get_object_or_404(Client, id=client_id)
+    campaigns = Campaign.objects.filter(client=client).order_by('-created_at')
+
+    # Get all geographic regions with cities for the map
+    geographic_regions = GeographicRegion.objects.filter(is_active=True).prefetch_related('cities').order_by('name')
+
+    # Parse client's campaign_config if exists
+    campaign_config = client.campaign_config or {}
+    company_info = campaign_config.get('company_info', {})
+    geo_config = campaign_config.get('geo_config', {})
+    campaigns_config = campaign_config.get('campaigns', {})
+
+    # Get selected region IDs from client
+    selected_region_ids = client.geographic_regions or []
+
+    # Get industries and services from campaign_config
+    selected_industry_ids = campaign_config.get('industry_ids', [])
+    selected_service_ids = campaign_config.get('service_ids', [])
+
+    # Fetch actual industry and service objects
+    industries_with_services = []
+    if selected_industry_ids:
+        for industry in Industry.objects.filter(id__in=selected_industry_ids):
+            services = IndustryService.objects.filter(
+                industry=industry,
+                id__in=selected_service_ids
+            ) if selected_service_ids else []
+            industries_with_services.append({
+                'industry': industry,
+                'services': list(services)
+            })
+
+    # Get all USPs (both predefined and AI-detected)
+    # Replace variables with actual values from campaign_config
+    predefined_usps = []
+    usp_ids = campaign_config.get('usp_ids', [])
+    usp_variable_values = campaign_config.get('usp_variable_values', {})
+    usp_custom_texts = campaign_config.get('usp_custom_texts', {})
+
+    if usp_ids:
+        from usps.models import USPTemplate
+        import re
+
+        for usp in USPTemplate.objects.filter(id__in=usp_ids):
+            usp_id_str = str(usp.id)
+
+            # Check if there's a custom text (fully edited)
+            if usp_id_str in usp_custom_texts:
+                display_text = usp_custom_texts[usp_id_str]
+            else:
+                # Replace variables with user values
+                display_text = usp.text
+                user_values = usp_variable_values.get(usp_id_str, {})
+
+                # Find all variables like {VAR1:default/options} and replace them
+                def replace_var(match):
+                    full_match = match.group(0)
+                    var_name = match.group(1)  # e.g., "VAR1"
+                    var_index = var_name.replace('VAR', '')  # e.g., "1"
+
+                    # Get user value or extract default from the variable definition
+                    if var_index in user_values:
+                        return str(user_values[var_index])
+
+                    # Extract default value from pattern like {VAR1:default/option1/option2}
+                    var_content = match.group(2) if match.lastindex >= 2 else ''
+                    if var_content:
+                        # Default is everything before the first /
+                        default_value = var_content.split('/')[0] if '/' in var_content else var_content
+                        return default_value
+
+                    return full_match  # Keep original if no replacement found
+
+                # Pattern matches {VAR1:content} or {VAR1}
+                display_text = re.sub(r'\{(VAR\d+)(?::([^}]*))?\}', replace_var, display_text)
+
+            # Create a simple object with the display text
+            predefined_usps.append({
+                'id': usp.id,
+                'text': display_text,
+                'main_category': usp.main_category.name if usp.main_category else None
+            })
+
+    custom_usps = campaign_config.get('custom_usps', [])
+    detected_usps = client.detected_usps or []
+
+    # Get crawled pages from crawlState
+    crawl_state = campaign_config.get('crawlState', {})
+    scraped_pages = crawl_state.get('scraped_pages', {})
+    extracted_reviews = crawl_state.get('extracted_reviews', [])
+
+    # Build cities comparison data
+    # Get all cities from selected regions
+    selected_cities = set()
+    if selected_region_ids:
+        for region in geographic_regions:
+            if region.id in selected_region_ids:
+                for city in region.cities.all():
+                    selected_cities.add(city.city_name)
+
+    # Get cities that already have campaigns/bysider created
+    created_bysider = set()
+    byside_urls = geo_config.get('byside_urls', [])
+    for byside in byside_urls:
+        if byside.get('exists') or byside.get('edited'):
+            created_bysider.add(byside.get('city', ''))
+
+    return render(request, 'campaigns/client_detail.html', {
+        'client': client,
+        'campaigns': campaigns,
+        'geographic_regions': geographic_regions,
+        'selected_region_ids': selected_region_ids,
+        'campaign_config': campaign_config,
+        'company_info': company_info,
+        'geo_config': geo_config,
+        'industries_with_services': industries_with_services,
+        'predefined_usps': predefined_usps,
+        'custom_usps': custom_usps,
+        'detected_usps': detected_usps,
+        'selected_cities': list(selected_cities),
+        'created_bysider': list(created_bysider),
+        'byside_urls': byside_urls,
+        'scraped_pages': scraped_pages,
+        'extracted_reviews': extracted_reviews,
+        'crawl_state': crawl_state,
+        'google_maps_api_key': 'AIzaSyBDH6MTS0Hq0ISb0bNQjEAC14321pzM0jw',
+    })
+
+
+@csrf_exempt
+def get_client_ajax(request, client_id):
+    """Hent enkelt kunde data via AJAX."""
+    try:
+        client = get_object_or_404(Client, id=client_id)
+        return JsonResponse({
+            'success': True,
+            'client': {
+                'id': client.id,
+                'name': client.name,
+                'website_url': client.website_url,
+                'industry_id': client.industry_id,
+                'description': client.description or ''
+            }
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@csrf_exempt
+def create_client_ajax(request):
+    """Opret ny kunde via AJAX."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'})
+
+    try:
+        data = json.loads(request.body)
+
+        industry = None
+        if data.get('industry_id'):
+            industry = get_object_or_404(Industry, id=data['industry_id'])
+
+        # Get user if authenticated, otherwise None
+        created_by = request.user if request.user.is_authenticated else None
+
+        client = Client.objects.create(
+            name=data['name'],
+            website_url=data['website_url'],
+            industry=industry,
+            description=data.get('description', ''),
+            created_by=created_by
+        )
+
+        return JsonResponse({
+            'success': True,
+            'client_id': client.id,
+            'message': 'Kunde oprettet'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@csrf_exempt
+def update_client_ajax(request, client_id):
+    """Opdater kunde via AJAX."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'})
+
+    try:
+        client = get_object_or_404(Client, id=client_id)
+        data = json.loads(request.body)
+
+        client.name = data.get('name', client.name)
+        client.website_url = data.get('website_url', client.website_url)
+        client.description = data.get('description', client.description)
+
+        if data.get('industry_id'):
+            client.industry = get_object_or_404(Industry, id=data['industry_id'])
+        elif 'industry_id' in data and data['industry_id'] is None:
+            client.industry = None
+
+        client.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Kunde opdateret'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@csrf_exempt
+def delete_client_ajax(request, client_id):
+    """Slet kunde via AJAX."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'})
+
+    try:
+        client = get_object_or_404(Client, id=client_id)
+        client.delete()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Kunde slettet'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@csrf_exempt
+def save_client_from_builder(request):
+    """Gem Campaign Builder data som kunde."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'})
+
+    try:
+        data = json.loads(request.body)
+
+        if data.get('client_id'):
+            # Opdater eksisterende kunde
+            client = get_object_or_404(Client, id=data['client_id'])
+        else:
+            # Opret ny kunde
+            if not data.get('name'):
+                return JsonResponse({'success': False, 'error': 'Kundenavn er påkrævet'})
+            client = Client(name=data['name'])
+
+        # Opdater felter
+        if data.get('website_url'):
+            client.website_url = data['website_url']
+        if data.get('description'):
+            client.description = data['description']
+        if data.get('company_profile'):
+            client.company_profile = data['company_profile']
+        if data.get('detected_services'):
+            client.detected_services = data['detected_services']
+        if data.get('detected_usps'):
+            client.detected_usps = data['detected_usps']
+        if data.get('selected_purposes') is not None:
+            client.selected_purposes = data['selected_purposes']
+        if data.get('geographic_regions') is not None:
+            client.geographic_regions = data['geographic_regions']
+        if data.get('selected_services') is not None:
+            client.selected_services = data['selected_services']
+        if data.get('selected_usps') is not None:
+            client.selected_usps = data['selected_usps']
+        if data.get('campaign_config'):
+            client.campaign_config = data['campaign_config']
+
+        client.save()
+
+        return JsonResponse({
+            'success': True,
+            'client_id': client.id,
+            'message': 'Kunde gemt fra Campaign Builder'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+def get_client_campaign_data(request, client_id):
+    """Hent kunde data til Campaign Builder."""
+    try:
+        client = get_object_or_404(Client, id=client_id)
+
+        return JsonResponse({
+            'success': True,
+            'client_id': client.id,
+            'name': client.name,
+            'website_url': client.website_url or '',
+            'description': client.description or '',
+            'company_profile': client.company_profile,
+            'detected_services': client.detected_services,
+            'detected_usps': client.detected_usps,
+            'selected_purposes': client.selected_purposes or [],
+            'geographic_regions': client.geographic_regions or [],
+            'selected_services': client.selected_services or [],
+            'selected_usps': client.selected_usps or [],
+            'campaign_config': client.campaign_config,
+            'scraped_data': client.scraped_data
+        }, json_dumps_params={'ensure_ascii': False})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})

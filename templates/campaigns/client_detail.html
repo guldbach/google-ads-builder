@@ -584,9 +584,9 @@
                         <ul class="space-y-3">
                             {% for usp in predefined_usps %}
                             <li class="bg-white rounded-lg p-3 border border-gray-200">
-                                <div class="font-medium text-gray-900 mb-1">{{ usp.headline_text }}</div>
-                                {% if usp.category %}
-                                <span class="text-xs text-gray-500">{{ usp.category.name }}</span>
+                                <div class="font-medium text-gray-900 mb-1">{{ usp.text }}</div>
+                                {% if usp.main_category %}
+                                <span class="text-xs text-gray-500">{{ usp.main_category }}</span>
                                 {% endif %}
                             </li>
                             {% endfor %}

@@ -307,6 +307,42 @@
         <div id="selected-purposes-summary" class="mt-8 text-center" style="display: none;">
             <p class="text-sm text-gray-500">Valgte formål: <span id="purposes-count" class="font-semibold text-purple-600">0</span></p>
         </div>
+
+        <!-- Kunde Valg -->
+        <div class="mt-8 p-6 bg-gray-50 rounded-xl border border-gray-200 max-w-4xl mx-auto">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <span class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-xl mr-3 shadow-lg text-white">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                </span>
+                Kunde
+            </h3>
+            <p class="text-sm text-gray-600 mb-4">Vælg en eksisterende kunde eller fortsæt uden at vælge (du kan gemme som ny kunde til sidst)</p>
+            <div class="flex items-center gap-4">
+                <select id="client-select" class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white">
+                    <option value="">Ny kunde (oprettes senere)</option>
+                    {% for client in clients %}
+                    <option value="{{ client.id }}">{{ client.name }}</option>
+                    {% endfor %}
+                </select>
+                <button type="button" id="load-client-btn" onclick="loadClientData()"
+                        class="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium hover:shadow-lg transition-all duration-200 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    Indlæs
+                </button>
+            </div>
+            <div id="client-loaded-feedback" class="mt-3 hidden">
+                <p class="text-sm text-green-600 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span id="client-loaded-name">Kunde data indlæst</span>
+                </p>
+            </div>
+        </div>
     </div>
 
     <!-- STEP 1 (NY): Website URL Input -->
@@ -1141,6 +1177,43 @@
                 <!-- Export options will be generated dynamically based on selected purposes -->
             </div>
         </div>
+
+        <!-- Gem som Kunde Section -->
+        <div class="mt-8 pt-8 border-t border-gray-200">
+            <div class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-6 border border-blue-100">
+                <div class="flex items-center justify-between flex-wrap gap-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Gem Kundedata</h3>
+                            <p class="text-sm text-gray-600">Gem alle indsamlede data til kundeprofil for senere brug</p>
+                        </div>
+                    </div>
+                    <button id="save-as-client-btn" onclick="saveAsClient()"
+                            class="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium hover:shadow-lg transition-all duration-200 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                        </svg>
+                        Gem som Kunde
+                    </button>
+                </div>
+
+                <!-- Feedback after save -->
+                <div id="client-saved-link" class="mt-4 hidden">
+                    <a id="client-profile-link" href="#" target="_blank"
+                       class="inline-flex items-center gap-2 text-purple-600 hover:text-purple-800 font-medium transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                        Se kundeprofil
+                    </a>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -1505,6 +1578,7 @@ function showRobertoUspAnalysis() {
 let currentStep = 0;  // Start at step 0 (purpose selection)
 
 let campaignConfig = {
+    client_id: null,  // Selected client ID (null = new client)
     selected_purposes: [],  // ['company_description', 'google_ads', 'seo', 'programmatic']
     industry_ids: [],  // Changed from industry_id to support multiple industries
     service_ids: [],
@@ -3361,27 +3435,27 @@ function validateCurrentStep() {
                 return false;
             }
             return true;
-        case 7:  // SEO Info - Sidebar med services
+        case 7:  // SEO Info - Page-based structure
             // Check that all SEO pages have meta title and description
-            const seoServiceIds = getServicesForPurpose('seo');
-            if (seoServiceIds.length === 0) {
-                // No SEO services selected, allow to continue
+            // Use allSeoPageKeys (page paths) instead of service IDs
+            if (!allSeoPageKeys || allSeoPageKeys.length === 0) {
+                // No SEO pages, allow to continue
                 return true;
             }
 
-            // Check each service page
-            for (const serviceId of seoServiceIds) {
-                const seoPage = campaignConfig.seo_pages[serviceId];
+            // Check each page
+            for (const page of allSeoPageKeys) {
+                const seoPage = campaignConfig.seo_pages[page.path];
                 if (!seoPage || !seoPage.meta_title || !seoPage.meta_title.trim()) {
-                    const serviceName = seoPage?.service_name || `Service ${serviceId}`;
-                    alert(`Indtast venligst meta titel for "${serviceName}"`);
-                    setActiveSeoService(serviceId);
+                    const pageName = page.page_title || page.path;
+                    alert(`Indtast venligst meta titel for "${pageName}"`);
+                    setActiveSeoPage(page.path);
                     return false;
                 }
                 if (!seoPage.meta_description || !seoPage.meta_description.trim()) {
-                    const serviceName = seoPage?.service_name || `Service ${serviceId}`;
-                    alert(`Indtast venligst meta beskrivelse for "${serviceName}"`);
-                    setActiveSeoService(serviceId);
+                    const pageName = page.page_title || page.path;
+                    alert(`Indtast venligst meta beskrivelse for "${pageName}"`);
+                    setActiveSeoPage(page.path);
                     return false;
                 }
             }
@@ -3725,6 +3799,161 @@ function getCookie(name) {
 }
 
 // =====================================================
+// Client Data Loading & Saving
+// =====================================================
+
+async function loadClientData() {
+    const clientId = $('#client-select').val();
+    if (!clientId) {
+        showToast('Vælg en kunde først', 'warning');
+        return;
+    }
+
+    const btn = $('#load-client-btn');
+    const originalHtml = btn.html();
+    btn.prop('disabled', true).html(`
+        <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        Indlæser...
+    `);
+
+    try {
+        const response = await fetch(`/ajax/clients/${clientId}/campaign-data/`);
+        const data = await response.json();
+
+        if (data.success) {
+            // Store client ID
+            campaignConfig.client_id = parseInt(clientId);
+
+            // Pre-fill website URL
+            if (data.website_url) {
+                crawlState.website_url = data.website_url;
+                $('#website-url-input').val(data.website_url);
+            }
+
+            // Restore company profile if exists
+            if (data.company_profile) {
+                campaignConfig.company_info.profile = data.company_profile;
+            }
+
+            // Restore selected purposes
+            if (data.selected_purposes && data.selected_purposes.length > 0) {
+                campaignConfig.selected_purposes = data.selected_purposes;
+                data.selected_purposes.forEach(purpose => {
+                    $(`.purpose-card[data-purpose="${purpose}"]`).addClass('selected');
+                });
+                const count = data.selected_purposes.length;
+                $('#purposes-count').text(count);
+                $('#selected-purposes-summary').toggle(count > 0);
+            }
+
+            // Restore geographic regions
+            if (data.geographic_regions && data.geographic_regions.length > 0) {
+                campaignConfig.geographic_region_ids = data.geographic_regions;
+            }
+
+            // Restore detected services
+            if (data.detected_services) {
+                campaignConfig.custom_services = data.detected_services;
+            }
+
+            // Restore detected USPs
+            if (data.detected_usps) {
+                campaignConfig.usp_analysis.matched_usps = data.detected_usps;
+            }
+
+            // Show feedback
+            $('#client-loaded-name').text(`${data.name} - data indlæst`);
+            $('#client-loaded-feedback').removeClass('hidden');
+
+            showToast(`Kunde "${data.name}" indlæst`, 'success');
+            debouncedSaveState();
+        } else {
+            showToast('Fejl ved indlæsning: ' + data.error, 'error');
+        }
+    } catch (error) {
+        console.error('Error loading client data:', error);
+        showToast('Fejl ved indlæsning af kunde data', 'error');
+    } finally {
+        btn.prop('disabled', false).html(originalHtml);
+    }
+}
+
+async function saveAsClient() {
+    let clientName = '';
+
+    // If new client, ask for name
+    if (!campaignConfig.client_id) {
+        clientName = prompt('Indtast kundenavn:');
+        if (!clientName) {
+            showToast('Kundenavn er påkrævet', 'warning');
+            return;
+        }
+    }
+
+    const btn = $('#save-as-client-btn');
+    const originalHtml = btn.html();
+    btn.prop('disabled', true).html(`
+        <svg class="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        Gemmer...
+    `);
+
+    const data = {
+        client_id: campaignConfig.client_id,
+        name: clientName,
+        website_url: crawlState.website_url || '',
+        description: campaignConfig.company_info?.core_competencies || '',
+        company_profile: campaignConfig.company_info?.profile || {},
+        detected_services: campaignConfig.custom_services || [],
+        detected_usps: campaignConfig.usp_analysis?.matched_usps || [],
+        selected_purposes: campaignConfig.selected_purposes || [],
+        geographic_regions: campaignConfig.geographic_region_ids || [],
+        selected_services: campaignConfig.service_ids || [],
+        selected_usps: campaignConfig.usp_ids || [],
+        campaign_config: campaignConfig  // Full backup
+    };
+
+    try {
+        const response = await fetch('/ajax/clients/save-from-builder/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            campaignConfig.client_id = result.client_id;
+
+            // Update dropdown to show client is saved
+            if (clientName) {
+                $('#client-select').append(`<option value="${result.client_id}" selected>${clientName}</option>`);
+            }
+
+            showToast('Kunde gemt!', 'success');
+
+            // Show link to client profile
+            $('#client-saved-link').removeClass('hidden');
+            $('#client-profile-link').attr('href', `/clients/${result.client_id}/`);
+        } else {
+            showToast('Fejl: ' + result.error, 'error');
+        }
+    } catch (error) {
+        console.error('Error saving client:', error);
+        showToast('Fejl ved gemning af kunde', 'error');
+    } finally {
+        btn.prop('disabled', false).html(originalHtml);
+    }
+}
+
+// =====================================================
 // AI Company Description Generation
 // =====================================================
 
@@ -3835,11 +4064,12 @@ async function generateCompanyDescriptionAI() {
                 campaignConfig.company_info.key_points = data.key_points;
             }
 
-            // Show appropriate success message
+            // Show appropriate success message with model info
+            const modelInfo = data.model_used ? ` (Model: ${data.model_used})` : '';
             if (data.used_research) {
-                showToast('Beskrivelse genereret med online research!', 'success');
+                showToast(`Beskrivelse genereret med online research!${modelInfo}`, 'success');
             } else {
-                showToast('Beskrivelse genereret!', 'success');
+                showToast(`Beskrivelse genereret!${modelInfo}`, 'success');
             }
             debouncedSaveState();
         } else {
@@ -12922,6 +13152,10 @@ async function generateSeoContentForPage(pagePath) {
     const serviceNames = page.services.map(s => s.name);
     const scrapedData = getScrapedPageData(pagePath);
 
+    // Get company profile and USPs for context
+    const companyProfile = campaignConfig.company_profile || null;
+    const usps = getActiveUsps();
+
     showRobertoLoading('seo_content');
 
     try {
@@ -12931,11 +13165,15 @@ async function generateSeoContentForPage(pagePath) {
             headers: { 'X-CSRFToken': '{{ csrf_token }}' },
             contentType: 'application/json',
             data: JSON.stringify({
+                action: scrapedData ? 'rewrite' : 'generate_new',
+                service_name: serviceNames.join(' & '),  // Backend expects service_name (singular)
                 page_path: pagePath,
                 page_title: page.page_title,
-                service_names: serviceNames,
                 existing_content: scrapedData?.content || '',
-                usps: getActiveUsps()
+                existing_meta_title: scrapedData?.meta_title || '',
+                existing_meta_description: scrapedData?.meta_description || '',
+                company_profile: companyProfile,
+                usps: usps
             })
         });
 
