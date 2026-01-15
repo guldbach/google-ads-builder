@@ -5962,6 +5962,10 @@ def client_detail(request, client_id):
         if byside.get('exists') or byside.get('edited'):
             created_bysider.add(byside.get('city', ''))
 
+    # Format company profile as pretty JSON for display
+    if company_info.get('profile'):
+        company_info['profile_json'] = json.dumps(company_info['profile'], indent=2, ensure_ascii=False)
+
     return render(request, 'campaigns/client_detail.html', {
         'client': client,
         'campaigns': campaigns,
