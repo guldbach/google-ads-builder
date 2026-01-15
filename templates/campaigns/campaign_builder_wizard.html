@@ -13856,6 +13856,12 @@ function getActiveUsps() {
 
 // Get service name for programmatic geo
 function getServiceNameForProgrammatic() {
+    // 0. Check custom services with programmatic purpose FIRST (AI-suggested services)
+    const customProgrammaticServices = getCustomServicesForPurpose('programmatic');
+    if (customProgrammaticServices.length > 0) {
+        return customProgrammaticServices[0].name;
+    }
+
     // 1. Try to get from selected services via serverData.services_by_id (most reliable)
     if (campaignConfig.service_ids && campaignConfig.service_ids.length > 0) {
         const firstServiceId = campaignConfig.service_ids[0];
@@ -13920,6 +13926,16 @@ function getServiceNameForProgrammatic() {
 
 // Get service ID for programmatic geo (used for few-shot examples)
 function getServiceIdForProgrammatic() {
+    // 0. Check custom services with programmatic purpose FIRST (AI-suggested services)
+    const customProgrammaticServices = getCustomServicesForPurpose('programmatic');
+    if (customProgrammaticServices.length > 0) {
+        // Return custom_X format for custom services
+        const index = campaignConfig.custom_services.indexOf(customProgrammaticServices[0]);
+        if (index !== -1) {
+            return `custom_${index}`;
+        }
+    }
+
     // 1. Check service_ids first (user explicitly selected services)
     if (campaignConfig.service_ids && campaignConfig.service_ids.length > 0) {
         return campaignConfig.service_ids[0];
