@@ -3824,51 +3824,138 @@ async function loadClientData() {
         const data = await response.json();
 
         if (data.success) {
-            // Store client ID
-            campaignConfig.client_id = parseInt(clientId);
+            console.log('Loading full campaign config from client:', data);
 
-            // Pre-fill website URL
-            if (data.website_url) {
-                crawlState.website_url = data.website_url;
-                $('#website-url-input').val(data.website_url);
+            // If we have a full campaign_config saved, restore it
+            if (data.campaign_config && Object.keys(data.campaign_config).length > 0) {
+                // Deep merge campaign_config into local campaignConfig
+                // This preserves any new fields in the local object while restoring saved data
+                const savedConfig = data.campaign_config;
+
+                // Restore all campaign config fields
+                campaignConfig.client_id = parseInt(clientId);
+                campaignConfig.selected_purposes = savedConfig.selected_purposes || [];
+                campaignConfig.industry_ids = savedConfig.industry_ids || [];
+                campaignConfig.service_ids = savedConfig.service_ids || [];
+                campaignConfig.service_purposes = savedConfig.service_purposes || {};
+                campaignConfig.usp_ids = savedConfig.usp_ids || [];
+                campaignConfig.usp_custom_texts = savedConfig.usp_custom_texts || {};
+                campaignConfig.usp_variable_values = savedConfig.usp_variable_values || {};
+                campaignConfig.custom_usps = savedConfig.custom_usps || [];
+                campaignConfig.custom_services = savedConfig.custom_services || [];
+                campaignConfig.custom_service_purposes = savedConfig.custom_service_purposes || {};
+                campaignConfig.suggested_industries = savedConfig.suggested_industries || [];
+                campaignConfig.negative_keyword_list_ids = savedConfig.negative_keyword_list_ids || [];
+                campaignConfig.budget_strategy_id = savedConfig.budget_strategy_id || null;
+                campaignConfig.ad_template_id = savedConfig.ad_template_id || null;
+                campaignConfig.geographic_region_ids = savedConfig.geographic_region_ids || [];
+                campaignConfig.industry_authorizations = savedConfig.industry_authorizations || {};
+
+                // Restore nested objects
+                if (savedConfig.company_info) {
+                    campaignConfig.company_info = { ...campaignConfig.company_info, ...savedConfig.company_info };
+                }
+                if (savedConfig.seo_info) {
+                    campaignConfig.seo_info = { ...campaignConfig.seo_info, ...savedConfig.seo_info };
+                }
+                if (savedConfig.seo_pages) {
+                    campaignConfig.seo_pages = savedConfig.seo_pages;
+                }
+                if (savedConfig.programmatic_info) {
+                    campaignConfig.programmatic_info = { ...campaignConfig.programmatic_info, ...savedConfig.programmatic_info };
+                }
+                if (savedConfig.geo_config) {
+                    campaignConfig.geo_config = { ...campaignConfig.geo_config, ...savedConfig.geo_config };
+                }
+                if (savedConfig.campaigns) {
+                    campaignConfig.campaigns = savedConfig.campaigns;
+                }
+                if (savedConfig.custom_negative_keywords) {
+                    campaignConfig.custom_negative_keywords = savedConfig.custom_negative_keywords;
+                }
+                if (savedConfig.template_ad_group) {
+                    campaignConfig.template_ad_group = savedConfig.template_ad_group;
+                }
+                if (savedConfig.usp_analysis) {
+                    campaignConfig.usp_analysis = { ...campaignConfig.usp_analysis, ...savedConfig.usp_analysis };
+                }
+                if (savedConfig.service_detection) {
+                    campaignConfig.service_detection = { ...campaignConfig.service_detection, ...savedConfig.service_detection };
+                }
+                if (savedConfig.geo_map_targeting) {
+                    campaignConfig.geo_map_targeting = savedConfig.geo_map_targeting;
+                }
+
+                // Restore crawlState from scraped_data if available
+                if (data.scraped_data) {
+                    crawlState.scraped_pages = data.scraped_data.scraped_pages || {};
+                    crawlState.extracted_reviews = data.scraped_data.extracted_reviews || [];
+                    crawlState.sitemap_urls = data.scraped_data.sitemap_urls || [];
+                    crawlState.urls_found = data.scraped_data.urls_found || 0;
+                    crawlState.city_matches = data.scraped_data.city_matches || [];
+                }
+
+                // Pre-fill website URL
+                if (data.website_url) {
+                    crawlState.website_url = data.website_url;
+                }
+
+                console.log('Restored campaignConfig:', campaignConfig);
+
+                // Run all UI restore handlers to update the interface
+                await restoreUIFromState();
+
+                // Show feedback
+                $('#client-loaded-name').text(`${data.name} - alle data indlæst`);
+                $('#client-loaded-feedback').removeClass('hidden');
+                showToast(`Kunde "${data.name}" - alle kampagne data indlæst`, 'success');
+            } else {
+                // Fallback: No saved campaign_config, use individual fields
+                campaignConfig.client_id = parseInt(clientId);
+
+                // Pre-fill website URL
+                if (data.website_url) {
+                    crawlState.website_url = data.website_url;
+                    $('#website-url-input').val(data.website_url);
+                }
+
+                // Restore company profile if exists
+                if (data.company_profile) {
+                    campaignConfig.company_info.profile = data.company_profile;
+                }
+
+                // Restore selected purposes
+                if (data.selected_purposes && data.selected_purposes.length > 0) {
+                    campaignConfig.selected_purposes = data.selected_purposes;
+                    data.selected_purposes.forEach(purpose => {
+                        $(`.purpose-card[data-purpose="${purpose}"]`).addClass('selected');
+                    });
+                    const count = data.selected_purposes.length;
+                    $('#purposes-count').text(count);
+                    $('#selected-purposes-summary').toggle(count > 0);
+                }
+
+                // Restore geographic regions
+                if (data.geographic_regions && data.geographic_regions.length > 0) {
+                    campaignConfig.geographic_region_ids = data.geographic_regions;
+                }
+
+                // Restore detected services
+                if (data.detected_services) {
+                    campaignConfig.custom_services = data.detected_services;
+                }
+
+                // Restore detected USPs
+                if (data.detected_usps) {
+                    campaignConfig.usp_analysis.matched_usps = data.detected_usps;
+                }
+
+                // Show feedback
+                $('#client-loaded-name').text(`${data.name} - basis data indlæst`);
+                $('#client-loaded-feedback').removeClass('hidden');
+                showToast(`Kunde "${data.name}" indlæst (basis data)`, 'success');
             }
 
-            // Restore company profile if exists
-            if (data.company_profile) {
-                campaignConfig.company_info.profile = data.company_profile;
-            }
-
-            // Restore selected purposes
-            if (data.selected_purposes && data.selected_purposes.length > 0) {
-                campaignConfig.selected_purposes = data.selected_purposes;
-                data.selected_purposes.forEach(purpose => {
-                    $(`.purpose-card[data-purpose="${purpose}"]`).addClass('selected');
-                });
-                const count = data.selected_purposes.length;
-                $('#purposes-count').text(count);
-                $('#selected-purposes-summary').toggle(count > 0);
-            }
-
-            // Restore geographic regions
-            if (data.geographic_regions && data.geographic_regions.length > 0) {
-                campaignConfig.geographic_region_ids = data.geographic_regions;
-            }
-
-            // Restore detected services
-            if (data.detected_services) {
-                campaignConfig.custom_services = data.detected_services;
-            }
-
-            // Restore detected USPs
-            if (data.detected_usps) {
-                campaignConfig.usp_analysis.matched_usps = data.detected_usps;
-            }
-
-            // Show feedback
-            $('#client-loaded-name').text(`${data.name} - data indlæst`);
-            $('#client-loaded-feedback').removeClass('hidden');
-
-            showToast(`Kunde "${data.name}" indlæst`, 'success');
             debouncedSaveState();
         } else {
             showToast('Fejl ved indlæsning: ' + data.error, 'error');
@@ -11940,13 +12027,61 @@ async function renderSeoBuilder() {
     const customServices = getCustomServicesForPurpose('seo');
     console.log('Custom services for SEO:', customServices.length);
 
-    if (seoServiceIds.length === 0 && customServices.length === 0) {
+    // Check if we have existing SEO pages from restored data
+    const existingSeoPages = Object.keys(campaignConfig.seo_pages || {}).filter(key => key.startsWith('/'));
+    const hasExistingPages = existingSeoPages.length > 0;
+    console.log('Existing SEO pages:', existingSeoPages.length);
+
+    if (seoServiceIds.length === 0 && customServices.length === 0 && !hasExistingPages) {
         $('#seo-builder-container').html(`
             <div class="text-center py-12 text-gray-500">
                 <p class="text-lg mb-2">Ingen services valgt til SEO</p>
                 <p class="text-sm">Gå tilbage til Step 2 og vælg services med SEO formål</p>
             </div>
         `);
+        return;
+    }
+
+    // If we have existing pages but no current services, build from existing pages
+    if (seoServiceIds.length === 0 && customServices.length === 0 && hasExistingPages) {
+        console.log('Building SEO sidebar from existing restored pages');
+
+        // Build allSeoPageKeys from existing seo_pages
+        allSeoPageKeys = [];
+
+        existingSeoPages.sort((a, b) => {
+            if (a === '/') return -1;
+            if (b === '/') return 1;
+            return a.localeCompare(b);
+        }).forEach(path => {
+            const pageData = campaignConfig.seo_pages[path];
+            allSeoPageKeys.push({
+                path: path,
+                page_title: pageData.page_title || (path === '/' ? 'Forside' : path.replace(/\//g, ' ').trim()),
+                services: (pageData.services || []).map(name => ({ name, color: '#8B5CF6', isCustom: false })),
+                color: '#8B5CF6'
+            });
+        });
+
+        console.log('[SEO Builder] Restored', allSeoPageKeys.length, 'pages from saved data');
+
+        // Render sidebar
+        renderSeoSidebar();
+
+        // Set first page as active
+        if (!activeSeoPagePath && allSeoPageKeys.length > 0) {
+            setActiveSeoPage(allSeoPageKeys[0].path);
+        } else if (activeSeoPagePath) {
+            const pageExists = allSeoPageKeys.some(p => p.path === activeSeoPagePath);
+            if (pageExists) {
+                renderActiveSeoContent(activeSeoPagePath);
+            } else if (allSeoPageKeys.length > 0) {
+                setActiveSeoPage(allSeoPageKeys[0].path);
+            }
+        }
+
+        // Setup event handlers
+        setupSeoEventHandlers();
         return;
     }
 
