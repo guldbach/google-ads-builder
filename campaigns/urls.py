@@ -72,7 +72,18 @@ urlpatterns = [
     
     # Campaign Builder URLs
     path('campaign-builder/', views.campaign_builder_wizard, name='campaign_builder_wizard'),
-    
+
+    # Client Management URLs
+    path('clients/', views.client_list, name='client_list'),
+    path('clients/<int:client_id>/', views.client_detail, name='client_detail'),
+    path('ajax/clients/<int:client_id>/', views.get_client_ajax, name='get_client_ajax'),
+    path('ajax/clients/create/', views.create_client_ajax, name='create_client_ajax'),
+    path('ajax/clients/<int:client_id>/update/', views.update_client_ajax, name='update_client_ajax'),
+    path('ajax/clients/<int:client_id>/delete/', views.delete_client_ajax, name='delete_client_ajax'),
+    path('ajax/clients/save-from-builder/', views.save_client_from_builder, name='save_client_from_builder'),
+    path('ajax/clients/<int:client_id>/campaign-data/', views.get_client_campaign_data, name='get_client_campaign_data'),
+    path('ajax/client/<int:client_id>/update-company-info/', views.update_client_company_info, name='update_client_company_info'),
+
     # Industry Manager AJAX URLs
     path('ajax/get-industry-services/<int:industry_id>/', views.get_industry_services_ajax, name='get_industry_services_ajax'),
     path('ajax/get-service-keywords/<int:service_id>/', views.get_service_keywords_ajax, name='get_service_keywords_ajax'),

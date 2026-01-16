@@ -2154,7 +2154,8 @@ Brug informationen fra online research til at supplere med eksterne anmeldelser 
             return {
                 'description': description,
                 'key_points': key_points,
-                'profile': profile
+                'profile': profile,
+                'model_used': model_settings.get('model', 'unknown')
             }
 
         except Exception as e:

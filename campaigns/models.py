@@ -398,9 +398,9 @@ class Client(models.Model):
 
     name = models.CharField(max_length=200)
     website_url = models.URLField()
-    industry = models.ForeignKey(Industry, on_delete=models.CASCADE)
+    industry = models.ForeignKey(Industry, on_delete=models.CASCADE, null=True, blank=True)
     description = models.TextField(blank=True)
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -412,6 +412,14 @@ class Client(models.Model):
     # AI-detected data
     detected_services = models.JSONField(null=True, blank=True, help_text="AI-detected services fra hjemmeside")
     detected_usps = models.JSONField(null=True, blank=True, help_text="AI-detected USPs fra hjemmeside")
+
+    # Campaign Builder data
+    company_profile = models.JSONField(null=True, blank=True, help_text="Virksomhedsprofil fra AI-analyse")
+    selected_purposes = models.JSONField(default=list, blank=True, help_text="Valgte formål fra Campaign Builder")
+    geographic_regions = models.JSONField(default=list, blank=True, help_text="Valgte geografiske regioner")
+    selected_services = models.JSONField(default=list, blank=True, help_text="Valgte services fra Campaign Builder")
+    selected_usps = models.JSONField(default=list, blank=True, help_text="Valgte USPs fra Campaign Builder")
+    campaign_config = models.JSONField(null=True, blank=True, help_text="Fuld Campaign Builder konfiguration")
 
     def __str__(self):
         return self.name

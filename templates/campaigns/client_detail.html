@@ -13,6 +13,141 @@
 <!-- Turf.js for polygon merging -->
 <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
 
+<!-- USP Variable System Styling -->
+<style>
+/* USP Variable Styling - matches Campaign Builder */
+.usp-variable {
+    background: linear-gradient(135deg, #f3e8ff, #fce7f3);
+    padding: 2px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 1px dashed #a855f7;
+    transition: all 0.2s;
+    display: inline-block;
+}
+.usp-variable:hover {
+    background: linear-gradient(135deg, #e9d5ff, #fbcfe8);
+    border-style: solid;
+}
+.usp-variable.editing {
+    background: white;
+    border: 2px solid #a855f7;
+    padding: 1px 5px;
+}
+.usp-variable-input {
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: inherit;
+    font-family: inherit;
+    min-width: 50px;
+    max-width: 150px;
+}
+.usp-text-static {
+    color: #374151;
+}
+
+/* Full-text USP variable (for USPs without variables) */
+.usp-full-text {
+    background: linear-gradient(135deg, #f3e8ff, #fce7f3);
+    padding: 2px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 1px dashed #a855f7;
+    transition: all 0.2s;
+    display: inline-block;
+}
+.usp-full-text:hover {
+    background: linear-gradient(135deg, #e9d5ff, #fbcfe8);
+    border-style: solid;
+}
+.usp-full-text.editing {
+    background: white;
+    border: 2px solid #a855f7;
+    padding: 1px 5px;
+}
+.usp-full-text-input {
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: inherit;
+    font-family: inherit;
+    min-width: 100px;
+}
+
+/* Custom USP click-to-edit */
+.custom-usp-display-text {
+    cursor: pointer;
+}
+.custom-usp-display-text:hover {
+    color: #9333ea;
+}
+
+/* INLINE USP variables - looks normal by default, editable on dblclick */
+.inline-usp-variable {
+    background: transparent;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    cursor: text;
+    display: inline;
+}
+.inline-usp-variable:hover {
+    background: transparent;
+    border: none;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-decoration-color: #a855f7;
+}
+.inline-usp-variable.editing {
+    background: linear-gradient(135deg, #f3e8ff, #fce7f3);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 2px solid #a855f7;
+    display: inline-block;
+}
+
+/* USP Item - Normal state (simple, like custom USPs) */
+.usp-display-item .usp-category-label {
+    display: none;
+}
+
+/* USP Item Edit Mode */
+.usp-display-item.usp-edit-mode {
+    border-color: #a855f7 !important;
+    background-color: #faf5ff !important;
+    box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.2);
+}
+.usp-display-item.usp-edit-mode .usp-category-label {
+    display: block;
+}
+.usp-delete-btn {
+    opacity: 0;
+    transform: scale(0.8);
+    transition: all 0.2s;
+}
+.usp-display-item.usp-edit-mode .usp-delete-btn {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Custom USP Item Edit Mode (same styling as predefined USPs) */
+.custom-usp-item.custom-usp-edit-mode {
+    border-color: #3b82f6 !important;
+    background-color: #eff6ff !important;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+.custom-usp-item .custom-usp-delete-btn {
+    opacity: 0;
+    transform: scale(0.8);
+    transition: all 0.2s;
+}
+.custom-usp-item.custom-usp-edit-mode .custom-usp-delete-btn {
+    opacity: 1;
+    transform: scale(1);
+}
+</style>
+
 {% csrf_token %}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
@@ -249,52 +384,162 @@
                             <span class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3 text-sm">1</span>
                             Virksomhedsbeskrivelse
                         </h4>
-                        {% if company_info.core_competencies %}
-                        <div class="bg-white rounded-lg p-4 border border-gray-200">
-                            <p class="text-gray-700 leading-relaxed">{{ company_info.core_competencies }}</p>
-                        </div>
-                        <button onclick="copyText('{{ company_info.core_competencies|escapejs }}')" class="mt-3 text-sm text-purple-600 hover:text-purple-800 flex items-center gap-1">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
-                            </svg>
-                            Kopier
-                        </button>
 
-                        {% if company_info.key_points %}
-                        <div class="mt-4">
-                            <h5 class="text-sm font-medium text-gray-700 mb-2">Kernepunkter:</h5>
-                            <ul class="space-y-1">
-                                {% for point in company_info.key_points %}
-                                <li class="flex items-start gap-2 text-gray-600">
-                                    <span class="text-green-500 mt-1">
-                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                                        </svg>
-                                    </span>
-                                    {{ point }}
-                                </li>
-                                {% endfor %}
-                            </ul>
+                        <!-- View mode -->
+                        <div id="description-view-mode">
+                            {% if company_info.core_competencies %}
+                            <div class="bg-white rounded-lg p-4 border border-gray-200 cursor-pointer hover:border-purple-300 hover:bg-purple-50 transition-colors" ondblclick="toggleDescriptionEdit()" title="Dobbeltklik for at redigere">
+                                <p id="description-display" class="text-gray-700 leading-relaxed whitespace-pre-line">{{ company_info.core_competencies }}</p>
+                            </div>
+                            <button onclick="copyText('{{ company_info.core_competencies|escapejs }}')" class="mt-3 text-sm text-purple-600 hover:text-purple-800 flex items-center gap-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                                </svg>
+                                Kopier
+                            </button>
+                            {% elif client.description %}
+                            <div class="bg-white rounded-lg p-4 border border-gray-200 cursor-pointer hover:border-purple-300 hover:bg-purple-50 transition-colors" ondblclick="toggleDescriptionEdit()" title="Dobbeltklik for at redigere">
+                                <p id="description-display" class="text-gray-700 leading-relaxed whitespace-pre-line">{{ client.description }}</p>
+                            </div>
+                            <button onclick="copyText('{{ client.description|escapejs }}')" class="mt-3 text-sm text-purple-600 hover:text-purple-800 flex items-center gap-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                                </svg>
+                                Kopier
+                            </button>
+                            {% else %}
+                            <div class="bg-white rounded-lg p-4 border border-gray-200 border-dashed cursor-pointer hover:border-purple-300 hover:bg-purple-50 transition-colors" ondblclick="toggleDescriptionEdit()" title="Dobbeltklik for at tilføje beskrivelse">
+                                <p id="description-display" class="text-gray-400 italic">Dobbeltklik for at tilføje beskrivelse</p>
+                            </div>
+                            {% endif %}
                         </div>
-                        {% endif %}
-                        {% elif client.description %}
-                        <div class="bg-white rounded-lg p-4 border border-gray-200">
-                            <p class="text-gray-700 leading-relaxed">{{ client.description }}</p>
+
+                        <!-- Edit mode -->
+                        <div id="description-edit-mode" class="hidden">
+                            <textarea id="description-textarea" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none overflow-hidden" style="min-height: 100px;" placeholder="Skriv virksomhedsbeskrivelse..." oninput="autoResizeTextarea(this)">{{ company_info.core_competencies|default:client.description|default:"" }}</textarea>
+                            <div class="flex justify-end gap-2 mt-3">
+                                <button onclick="cancelDescriptionEdit()" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Annuller</button>
+                                <button onclick="saveDescription()" class="px-4 py-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700">Gem</button>
+                            </div>
                         </div>
-                        <button onclick="copyText('{{ client.description|escapejs }}')" class="mt-3 text-sm text-purple-600 hover:text-purple-800 flex items-center gap-1">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
-                            </svg>
-                            Kopier
-                        </button>
-                        {% else %}
-                        <p class="text-gray-400 italic">Ingen beskrivelse gemt</p>
-                        {% endif %}
                     </div>
 
-                    <!-- Company Profile JSON (collapsible) -->
+                    <!-- USP'er (moved from separate tab) -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                        <!-- Valgte USP'er -->
+                        <div class="bg-gray-50 rounded-xl p-6">
+                            <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                <span class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
+                                    <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
+                                    </svg>
+                                </span>
+                                Valgte USP'er
+                                <span id="predefined-usps-count" class="ml-2 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">{{ predefined_usps|length }}</span>
+                            </h4>
+                            <div id="predefined-usps-view">
+                                {% if predefined_usps %}
+                                <ul id="predefined-usps-list" class="space-y-3">
+                                    {% for usp in predefined_usps %}
+                                    <li class="bg-white rounded-lg p-3 border border-gray-200 text-gray-700 hover:border-purple-300 hover:bg-purple-50 transition-colors usp-display-item"
+                                        data-usp-id="{{ usp.id }}"
+                                        data-original-text="{{ usp.original_text }}"
+                                        data-has-variables="{{ usp.has_variables|yesno:'true,false' }}"
+                                        data-category="{{ usp.main_category|default:'' }}">
+                                        <span class="usp-display-text">{{ usp.text }}</span>
+                                        {% if usp.main_category %}
+                                        <span class="usp-category-label text-xs text-gray-500 mt-1 block">{{ usp.main_category }}</span>
+                                        {% endif %}
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                                {% else %}
+                                <div id="predefined-usps-empty" class="bg-white rounded-lg p-4 border border-gray-200 border-dashed hover:border-purple-300 hover:bg-purple-50 transition-colors cursor-pointer" onclick="openUspModal()">
+                                    <p class="text-gray-400 italic">Klik for at vælge USP'er</p>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <!-- Bulk Update Button -->
+                            <button type="button" onclick="openUspModal()" class="mt-4 w-full px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:shadow-lg transition-all duration-200 flex items-center justify-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                </svg>
+                                Bulk opdater USP'er
+                            </button>
+                        </div>
+
+                        <!-- Brugerdefinerede USP'er -->
+                        <div class="bg-gray-50 rounded-xl p-6">
+                            <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                <span class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                                    <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                    </svg>
+                                </span>
+                                Brugerdefinerede USP'er
+                                <span id="custom-usps-count" class="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">{{ custom_usps|length }}</span>
+                            </h4>
+
+                            <div id="custom-usps-list" class="space-y-2">
+                                {% for usp in custom_usps %}
+                                <div class="bg-white rounded-lg p-3 border border-gray-200 text-gray-700 hover:border-blue-300 hover:bg-blue-50 transition-colors custom-usp-item"
+                                     data-usp-index="{{ forloop.counter0 }}"
+                                     data-usp-text="{{ usp }}">
+                                    <span class="custom-usp-text">{{ usp }}</span>
+                                </div>
+                                {% empty %}
+                                <div id="custom-usps-empty" class="bg-white rounded-lg p-4 border border-gray-200 border-dashed text-center">
+                                    <p class="text-gray-400 italic">Ingen brugerdefinerede USP'er</p>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <!-- Add new USP button -->
+                            <button onclick="addNewCustomUsp()" class="mt-3 w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-blue-400 hover:text-blue-600 flex items-center justify-center gap-2 transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                </svg>
+                                Tilføj USP
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Geografisk Dækning (collapsible) -->
+                    {% if selected_cities %}
+                    <div id="geo-coverage-section" class="mt-6">
+                        <div class="flex items-center gap-2">
+                            <button type="button" id="toggle-geo-coverage" class="flex-1 flex items-center justify-between px-4 py-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors" onclick="toggleGeoCoverage()">
+                                <span class="flex items-center text-sm font-medium text-gray-700">
+                                    <svg class="w-4 h-4 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    Geografisk Dækning
+                                    <span class="ml-2 text-xs text-gray-500">{{ selected_cities|length }} byer</span>
+                                </span>
+                                <svg id="geo-coverage-toggle-icon" class="w-5 h-5 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </button>
+                            <button type="button" onclick="openGeoModal()" class="px-3 py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-lg hover:shadow-lg transition-all duration-200" title="Rediger geografisk dækning">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div id="geo-coverage-content" class="mt-2 hidden">
+                            <div class="bg-white rounded-lg p-4 border border-gray-200">
+                                <div class="grid grid-cols-3 gap-x-4 gap-y-1 text-sm text-gray-600">
+                                    {% for city in selected_cities %}
+                                    <span>{{ city }}</span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Company Profile JSON (collapsible) - moved under USPs -->
                     {% if company_info.profile %}
-                    <div id="client-profile-json-section">
+                    <div id="client-profile-json-section" class="mt-6">
                         <button type="button" id="toggle-client-profile-json" class="w-full flex items-center justify-between px-4 py-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors" onclick="toggleClientProfileJson()">
                             <span class="flex items-center text-sm font-medium text-gray-700">
                                 <svg class="w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -319,60 +564,6 @@
                                     Kopiér JSON
                                 </button>
                             </div>
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    <!-- USP'er (moved from separate tab) -->
-                    {% if predefined_usps or custom_usps %}
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-                        <!-- Valgte USP'er -->
-                        <div class="bg-gray-50 rounded-xl p-6">
-                            <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                <span class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
-                                    <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
-                                    </svg>
-                                </span>
-                                Valgte USP'er
-                                <span class="ml-2 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">{{ predefined_usps|length }}</span>
-                            </h4>
-                            {% if predefined_usps %}
-                            <ul class="space-y-3">
-                                {% for usp in predefined_usps %}
-                                <li class="bg-white rounded-lg p-3 border border-gray-200">
-                                    <div class="font-medium text-gray-900 mb-1">{{ usp.text }}</div>
-                                    {% if usp.main_category %}
-                                    <span class="text-xs text-gray-500">{{ usp.main_category }}</span>
-                                    {% endif %}
-                                </li>
-                                {% endfor %}
-                            </ul>
-                            {% else %}
-                            <p class="text-gray-400 italic">Ingen valgte USP'er</p>
-                            {% endif %}
-                        </div>
-
-                        <!-- Brugerdefinerede USP'er -->
-                        <div class="bg-gray-50 rounded-xl p-6">
-                            <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                <span class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                                    <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                                    </svg>
-                                </span>
-                                Brugerdefinerede USP'er
-                                <span class="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">{{ custom_usps|length }}</span>
-                            </h4>
-                            {% if custom_usps %}
-                            <div class="space-y-2">
-                                {% for usp in custom_usps %}
-                                <div class="bg-white rounded-lg p-3 border border-gray-200 text-gray-700">{{ usp }}</div>
-                                {% endfor %}
-                            </div>
-                            {% else %}
-                            <p class="text-gray-400 italic">Ingen brugerdefinerede USP'er</p>
-                            {% endif %}
                         </div>
                     </div>
                     {% endif %}
@@ -926,6 +1117,104 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                     </svg>
                     Luk
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- USP Selection Modal -->
+<div id="usp-modal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black bg-opacity-50 transition-opacity duration-300" onclick="closeUspModal()"></div>
+    <div class="absolute bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col" style="top: 5%; left: 10%; right: 10%; bottom: 5%;">
+        <!-- Modal Header -->
+        <div class="p-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-purple-50 to-pink-50">
+            <div>
+                <h3 class="text-xl font-bold text-gray-900 flex items-center">
+                    <span class="w-10 h-10 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg flex items-center justify-center mr-3 text-white">⭐</span>
+                    Vælg USP'er
+                </h3>
+                <p class="text-sm text-gray-600 ml-13">Vælg eller tilføj USP'er for {{ client.name }}</p>
+            </div>
+            <button onclick="closeUspModal()" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="flex-1 overflow-y-auto p-6">
+            <!-- Custom USPs Input Section -->
+            <div class="mb-8 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-200">
+                <h4 class="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                    <span class="mr-2">➕</span> Tilføj egne USPs
+                </h4>
+                <div class="flex gap-3 mb-4">
+                    <input type="text" id="modal-custom-usp-input" class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="Skriv din egen USP...">
+                    <button type="button" onclick="addModalCustomUsp()" class="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:shadow-lg transition-all duration-200">
+                        Tilføj
+                    </button>
+                </div>
+                <div id="modal-custom-usps-container" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <!-- Custom USPs rendered here -->
+                </div>
+            </div>
+
+            <!-- USP Categories & Templates -->
+            <div>
+                <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <span class="mr-2">⭐</span> Vælg USPs fra listen
+                </h4>
+                <div class="space-y-6">
+                    {% for category in usp_categories %}
+                    <div class="bg-gray-50 rounded-xl p-6">
+                        <!-- Category Header -->
+                        <h5 class="text-base font-medium text-gray-900 mb-4 flex items-center">
+                            <span class="w-8 h-8 rounded-lg mr-3 flex items-center justify-center text-white text-lg" style="background-color: {{ category.color|default:'#8B5CF6' }};">
+                                {{ category.icon|default:'⭐' }}
+                            </span>
+                            {{ category.name }}
+                            <span class="ml-2 px-2 py-0.5 bg-purple-100 text-purple-800 text-xs rounded-full">{{ category.usptemplate_set.count }} USPs</span>
+                        </h5>
+
+                        <!-- USP Template Cards Grid -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {% for usp in category.usptemplate_set.all %}
+                            <div class="flex items-start p-3 bg-white rounded-lg border border-gray-200 hover:border-purple-300 transition-colors modal-usp-item" data-usp-id="{{ usp.id }}">
+                                <input type="checkbox"
+                                       class="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded modal-usp-checkbox"
+                                       data-usp-id="{{ usp.id }}"
+                                       data-original-text="{{ usp.text }}"
+                                       {% if usp.id in usp_ids %}checked{% endif %}>
+                                <div class="flex-1 ml-3">
+                                    <p class="font-medium text-gray-900 text-sm modal-usp-display-text" data-usp-id="{{ usp.id }}" data-original-text="{{ usp.text }}">{{ usp.text }}</p>
+                                    {% if usp.is_cta %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 mt-1">CTA</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="text-gray-500 italic">Ingen USP kategorier fundet</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="p-4 border-t border-gray-200 bg-gray-50 flex justify-between items-center">
+            <div class="text-sm text-gray-600">
+                <span id="modal-usp-count">0</span> USP'er valgt
+            </div>
+            <div class="flex gap-3">
+                <button onclick="closeUspModal()" class="px-4 py-2 text-gray-600 hover:text-gray-800">
+                    Annuller
+                </button>
+                <button onclick="saveUspSelection()" class="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:shadow-lg transition-all duration-200">
+                    Gem USP'er
                 </button>
             </div>
         </div>
@@ -1504,6 +1793,19 @@ function toggleClientProfileJson() {
     }
 }
 
+// Toggle geo coverage display
+function toggleGeoCoverage() {
+    const content = document.getElementById('geo-coverage-content');
+    const icon = document.getElementById('geo-coverage-toggle-icon');
+    if (content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+        icon.classList.add('rotate-180');
+    } else {
+        content.classList.add('hidden');
+        icon.classList.remove('rotate-180');
+    }
+}
+
 // Copy client profile JSON
 function copyClientProfileJson() {
     const jsonDisplay = document.getElementById('client-profile-json-display');
@@ -1513,6 +1815,1185 @@ function copyClientProfileJson() {
         });
     }
 }
+
+// =====================================================
+// EDIT FUNCTIONALITY - Virksomhed section
+// =====================================================
+
+// Store original values for cancel functionality
+let originalDescription = '';
+let originalCustomUsps = [];
+
+// Auto-resize textarea to fit content
+function autoResizeTextarea(textarea) {
+    textarea.style.height = 'auto';
+    textarea.style.height = textarea.scrollHeight + 'px';
+}
+
+// Toggle description edit mode (activated by double-click)
+function toggleDescriptionEdit() {
+    const viewMode = document.getElementById('description-view-mode');
+    const editMode = document.getElementById('description-edit-mode');
+    const textarea = document.getElementById('description-textarea');
+
+    if (editMode.classList.contains('hidden')) {
+        // Store original value
+        originalDescription = textarea.value;
+        // Switch to edit mode
+        viewMode.classList.add('hidden');
+        editMode.classList.remove('hidden');
+        // Auto-resize textarea to fit content
+        autoResizeTextarea(textarea);
+        textarea.focus();
+    } else {
+        cancelDescriptionEdit();
+    }
+}
+
+function cancelDescriptionEdit() {
+    const viewMode = document.getElementById('description-view-mode');
+    const editMode = document.getElementById('description-edit-mode');
+    const textarea = document.getElementById('description-textarea');
+
+    // Restore original value
+    textarea.value = originalDescription;
+    // Switch back to view mode
+    editMode.classList.add('hidden');
+    viewMode.classList.remove('hidden');
+}
+
+async function saveDescription() {
+    const textarea = document.getElementById('description-textarea');
+    const newDescription = textarea.value.trim();
+
+    try {
+        const response = await fetch(`/ajax/client/${clientId}/update-company-info/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({
+                description: newDescription
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Update view mode display
+            const displayEl = document.getElementById('description-display');
+            if (displayEl) {
+                if (newDescription) {
+                    displayEl.textContent = newDescription;
+                    displayEl.classList.remove('text-gray-400', 'italic');
+                    displayEl.classList.add('text-gray-700');
+                } else {
+                    displayEl.textContent = 'Ingen beskrivelse gemt';
+                    displayEl.classList.add('text-gray-400', 'italic');
+                    displayEl.classList.remove('text-gray-700');
+                }
+            }
+
+            // Update originalDescription so next edit starts with correct value
+            originalDescription = newDescription;
+
+            // Switch back to view mode
+            cancelDescriptionEdit();
+            showToast('Beskrivelse gemt');
+        } else {
+            showToast('Fejl: ' + (data.error || 'Kunne ikke gemme'), 'error');
+        }
+    } catch (error) {
+        console.error('Error saving description:', error);
+        showToast('Fejl ved gem af beskrivelse', 'error');
+    }
+}
+
+// =====================================================
+// Custom USP Individual Edit Functions (like predefined USPs)
+// =====================================================
+
+// Store for custom USPs data
+let customUspsData = [...{{ custom_usps|safe }}];
+
+// Get all custom USPs from the DOM
+function getCustomUspsFromDOM() {
+    const items = document.querySelectorAll('#custom-usps-list .custom-usp-item');
+    return Array.from(items).map(item => item.dataset.uspText || item.querySelector('.custom-usp-text')?.textContent || '').filter(v => v);
+}
+
+// Enter edit mode for custom USP item (show input + delete button)
+function enterCustomUspEditMode(item) {
+    const $item = $(item);
+    if ($item.hasClass('custom-usp-edit-mode')) return;
+
+    // Exit any other custom USP edit modes first
+    exitAllCustomUspEditModes();
+
+    $item.addClass('custom-usp-edit-mode');
+    const currentText = $item.data('usp-text') || $item.find('.custom-usp-text').text();
+    const index = $item.data('usp-index');
+
+    // Create wrapper with flex layout
+    if ($item.find('.custom-usp-edit-wrapper').length === 0) {
+        const $textSpan = $item.find('.custom-usp-text');
+
+        // Create wrapper with input and delete button
+        const wrapper = $('<div class="custom-usp-edit-wrapper flex items-center gap-2"></div>');
+
+        // Create input field
+        const input = $(`<input type="text" value="${escapeHtml(currentText)}" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent custom-usp-edit-input">`);
+
+        // Add delete button
+        const deleteBtn = $(`
+            <button type="button" class="custom-usp-delete-btn text-red-500 hover:text-red-700 p-2 flex-shrink-0"
+                    onclick="deleteCustomUsp(${index}, this)" title="Fjern USP">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        `);
+
+        // Hide text span and add wrapper
+        $textSpan.hide();
+        wrapper.append(input);
+        wrapper.append(deleteBtn);
+        $item.append(wrapper);
+
+        // Focus input and select all
+        input.focus().select();
+
+        // Handle Enter key to save
+        input.on('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                saveCustomUspEdit($item, input.val().trim());
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                exitCustomUspEditMode($item[0]);
+            }
+        });
+
+        // Handle blur to save
+        input.on('blur', function(e) {
+            // Small delay to check if delete button was clicked
+            setTimeout(() => {
+                if ($item.hasClass('custom-usp-edit-mode')) {
+                    saveCustomUspEdit($item, input.val().trim());
+                }
+            }, 150);
+        });
+    }
+}
+
+// Exit edit mode for custom USP item
+function exitCustomUspEditMode(item) {
+    const $item = $(item);
+    $item.removeClass('custom-usp-edit-mode');
+
+    // Remove wrapper and show text span
+    const $wrapper = $item.find('.custom-usp-edit-wrapper');
+    if ($wrapper.length > 0) {
+        $wrapper.remove();
+    }
+
+    const $textSpan = $item.find('.custom-usp-text');
+    $textSpan.show();
+}
+
+// Exit all custom USP edit modes
+function exitAllCustomUspEditModes() {
+    $('.custom-usp-item.custom-usp-edit-mode').each(function() {
+        exitCustomUspEditMode(this);
+    });
+}
+
+// Save custom USP edit
+async function saveCustomUspEdit($item, newText) {
+    const index = parseInt($item.data('usp-index'));
+    const originalText = $item.data('usp-text');
+
+    // If text is empty, delete the USP
+    if (!newText) {
+        deleteCustomUsp(index, null);
+        return;
+    }
+
+    // If text hasn't changed, just exit edit mode
+    if (newText === originalText) {
+        exitCustomUspEditMode($item[0]);
+        return;
+    }
+
+    // Update local data
+    customUspsData[index] = newText;
+
+    // Save to server
+    try {
+        const response = await fetch(`/ajax/client/${clientId}/update-company-info/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({
+                custom_usps: customUspsData
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Update the item
+            $item.data('usp-text', newText);
+            $item.find('.custom-usp-text').text(newText);
+            exitCustomUspEditMode($item[0]);
+            showToast('USP gemt');
+        } else {
+            showToast('Fejl: ' + (data.error || 'Kunne ikke gemme'), 'error');
+            // Revert local data
+            customUspsData[index] = originalText;
+        }
+    } catch (error) {
+        console.error('Error saving custom USP:', error);
+        showToast('Fejl ved gem af USP', 'error');
+        // Revert local data
+        customUspsData[index] = originalText;
+    }
+}
+
+// Delete custom USP
+async function deleteCustomUsp(index, btnElement) {
+    // Remove from local array
+    customUspsData.splice(index, 1);
+
+    // Save to server
+    try {
+        const response = await fetch(`/ajax/client/${clientId}/update-company-info/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({
+                custom_usps: customUspsData
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Rebuild the list
+            rebuildCustomUspsList();
+            showToast('USP slettet');
+        } else {
+            showToast('Fejl: ' + (data.error || 'Kunne ikke slette'), 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting custom USP:', error);
+        showToast('Fejl ved sletning af USP', 'error');
+    }
+}
+
+// Add new custom USP
+async function addNewCustomUsp() {
+    // Exit any existing edit modes
+    exitAllCustomUspEditModes();
+
+    // Add empty USP to data
+    const newIndex = customUspsData.length;
+    customUspsData.push('');
+
+    // Remove empty state if present
+    const emptyEl = document.getElementById('custom-usps-empty');
+    if (emptyEl) {
+        emptyEl.remove();
+    }
+
+    // Create new item element
+    const listEl = document.getElementById('custom-usps-list');
+    const newItem = document.createElement('div');
+    newItem.className = 'bg-white rounded-lg p-3 border border-gray-200 text-gray-700 hover:border-blue-300 hover:bg-blue-50 transition-colors custom-usp-item';
+    newItem.setAttribute('data-usp-index', newIndex);
+    newItem.setAttribute('data-usp-text', '');
+    newItem.innerHTML = '<span class="custom-usp-text"></span>';
+    listEl.appendChild(newItem);
+
+    // Enter edit mode for the new item
+    enterCustomUspEditMode(newItem);
+
+    // Update count
+    updateCustomUspsCount();
+}
+
+// Rebuild custom USPs list after delete
+function rebuildCustomUspsList() {
+    const listEl = document.getElementById('custom-usps-list');
+
+    if (customUspsData.length === 0) {
+        listEl.innerHTML = `
+            <div id="custom-usps-empty" class="bg-white rounded-lg p-4 border border-gray-200 border-dashed text-center">
+                <p class="text-gray-400 italic">Ingen brugerdefinerede USP'er</p>
+            </div>
+        `;
+    } else {
+        let html = '';
+        customUspsData.forEach((usp, index) => {
+            html += `
+                <div class="bg-white rounded-lg p-3 border border-gray-200 text-gray-700 hover:border-blue-300 hover:bg-blue-50 transition-colors custom-usp-item"
+                     data-usp-index="${index}"
+                     data-usp-text="${escapeHtml(usp)}">
+                    <span class="custom-usp-text">${escapeHtml(usp)}</span>
+                </div>
+            `;
+        });
+        listEl.innerHTML = html;
+    }
+
+    // Update count
+    updateCustomUspsCount();
+}
+
+// Update custom USPs count badge
+function updateCustomUspsCount() {
+    const countEl = document.getElementById('custom-usps-count');
+    if (countEl) {
+        countEl.textContent = customUspsData.length;
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// =====================================================
+// USP Variable System Functions (matches Campaign Builder)
+// =====================================================
+
+// Parse USP text and identify variables with format {VARIABEL:default}
+function parseUspVariables(text) {
+    const regex = /\{([A-ZÆØÅ0-9_]+)(?::([^}]*))?\}/g;
+    const variables = [];
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+        variables.push({
+            fullMatch: match[0],
+            name: match[1],
+            defaultValue: match[2] || '',
+            startIndex: match.index,
+            endIndex: match.index + match[0].length
+        });
+    }
+    return variables;
+}
+
+// Check if USP text contains variables
+function uspHasVariables(text) {
+    return parseUspVariables(text).length > 0;
+}
+
+// Get USP display text with default values substituted (plain text, no HTML)
+function getUspDisplayText(text) {
+    const variables = parseUspVariables(text);
+    if (variables.length === 0) {
+        return text;
+    }
+    let result = text;
+    for (let i = variables.length - 1; i >= 0; i--) {
+        const v = variables[i];
+        result = result.substring(0, v.startIndex) + v.defaultValue + result.substring(v.endIndex);
+    }
+    return result;
+}
+
+// Render USP with clickable variable spans
+function renderUspWithVariables(text, uspId) {
+    const variables = parseUspVariables(text);
+    if (variables.length === 0) {
+        return escapeHtml(text);
+    }
+
+    let html = '';
+    let lastIndex = 0;
+
+    variables.forEach((v, idx) => {
+        if (v.startIndex > lastIndex) {
+            html += `<span class="usp-text-static">${escapeHtml(text.substring(lastIndex, v.startIndex))}</span>`;
+        }
+
+        const userValues = modalUspVariableValues[uspId] || {};
+        const currentValue = userValues[idx] !== undefined ? userValues[idx] : v.defaultValue;
+
+        html += `<span class="usp-variable"
+                      data-usp-id="${uspId}"
+                      data-var-name="${v.name}"
+                      data-var-index="${idx}"
+                      data-default="${escapeHtml(v.defaultValue)}"
+                      title="Klik for at redigere ${v.name}">${escapeHtml(currentValue)}</span>`;
+
+        lastIndex = v.endIndex;
+    });
+
+    if (lastIndex < text.length) {
+        html += `<span class="usp-text-static">${escapeHtml(text.substring(lastIndex))}</span>`;
+    }
+
+    return html;
+}
+
+// Get final USP text with all variables substituted
+function getUspFinalText(uspId, originalText) {
+    const variables = parseUspVariables(originalText);
+    if (variables.length === 0) {
+        return modalUspCustomTexts[uspId] || originalText;
+    }
+
+    const userValues = modalUspVariableValues[uspId] || {};
+    let result = originalText;
+    for (let i = variables.length - 1; i >= 0; i--) {
+        const v = variables[i];
+        const value = userValues[i] !== undefined ? userValues[i] : v.defaultValue;
+        result = result.substring(0, v.startIndex) + value + result.substring(v.endIndex);
+    }
+    return result;
+}
+
+// Start inline editing of a variable
+function startVariableEdit(element) {
+    const $el = $(element);
+    if ($el.hasClass('editing')) return;
+
+    const uspId = $el.data('usp-id');
+    const varIndex = $el.data('var-index');
+    const varName = $el.data('var-name');
+    const defaultValue = $el.data('default');
+
+    const userValues = modalUspVariableValues[uspId] || {};
+    const currentValue = userValues[varIndex] !== undefined ? userValues[varIndex] : defaultValue;
+
+    $el.addClass('editing');
+    const inputWidth = Math.max(50, currentValue.length * 8 + 20);
+    $el.html(`<input type="text" class="usp-variable-input" value="${escapeHtml(currentValue)}" style="width: ${inputWidth}px;" placeholder="${escapeHtml(varName)}">`);
+
+    const $input = $el.find('input');
+    $input.focus().select();
+}
+
+// Save variable edit
+function saveVariableEdit($input) {
+    const $span = $input.closest('.usp-variable');
+    const uspId = $span.data('usp-id');
+    const varIndex = $span.data('var-index');
+    const defaultValue = $span.data('default');
+    const newValue = $input.val().trim();
+
+    if (!modalUspVariableValues[uspId]) {
+        modalUspVariableValues[uspId] = {};
+    }
+
+    const valueToSave = newValue || defaultValue;
+    modalUspVariableValues[uspId][varIndex] = valueToSave;
+
+    $span.removeClass('editing');
+    $span.html(escapeHtml(valueToSave));
+
+    console.log('Variable saved:', uspId, varIndex, valueToSave);
+}
+
+// Cancel variable edit
+function cancelVariableEdit($input) {
+    const $span = $input.closest('.usp-variable');
+    const uspId = $span.data('usp-id');
+    const varIndex = $span.data('var-index');
+    const defaultValue = $span.data('default');
+
+    const userValues = modalUspVariableValues[uspId] || {};
+    const currentValue = userValues[varIndex] !== undefined ? userValues[varIndex] : defaultValue;
+
+    $span.removeClass('editing');
+    $span.html(escapeHtml(currentValue));
+}
+
+// Update USP display text based on checked state
+function updateUspDisplayText(uspId, isChecked) {
+    const displayEl = document.querySelector(`.modal-usp-display-text[data-usp-id="${uspId}"]`);
+    if (!displayEl) return;
+
+    const originalText = displayEl.dataset.originalText;
+    const hasVars = uspHasVariables(originalText);
+
+    if (isChecked && hasVars) {
+        // Show with clickable variable spans
+        displayEl.innerHTML = renderUspWithVariables(originalText, uspId);
+        displayEl.classList.add('usp-has-variables');
+    } else if (hasVars) {
+        // Show plain text with defaults
+        displayEl.innerHTML = escapeHtml(getUspDisplayText(originalText));
+        displayEl.classList.remove('usp-has-variables');
+    } else {
+        // No variables, just show original text
+        displayEl.innerHTML = escapeHtml(originalText);
+    }
+}
+
+// =====================================================
+// INLINE USP Variable Editing (on page display)
+// =====================================================
+
+// Store for inline variable values (separate from modal)
+let inlineUspVariableValues = {};
+
+// Initialize inline USP display with clickable variable spans
+function initializeInlineUspVariables() {
+    // Load initial values from Django
+    inlineUspVariableValues = JSON.parse(JSON.stringify({{ usp_variable_values|safe }}));
+
+    // Find all USP display items and render variable spans
+    document.querySelectorAll('.usp-display-item').forEach(item => {
+        const uspId = item.dataset.uspId;
+        const originalText = item.dataset.originalText;
+        const hasVariables = item.dataset.hasVariables === 'true';
+
+        if (hasVariables && originalText) {
+            const displayTextEl = item.querySelector('.usp-display-text');
+            if (displayTextEl) {
+                displayTextEl.innerHTML = renderInlineUspWithVariables(originalText, uspId);
+            }
+        }
+    });
+}
+
+// Render USP with clickable variable spans for inline display
+function renderInlineUspWithVariables(text, uspId) {
+    const variables = parseUspVariables(text);
+    if (variables.length === 0) {
+        return escapeHtml(text);
+    }
+
+    let html = '';
+    let lastIndex = 0;
+
+    variables.forEach((v, idx) => {
+        if (v.startIndex > lastIndex) {
+            html += `<span class="usp-text-static">${escapeHtml(text.substring(lastIndex, v.startIndex))}</span>`;
+        }
+
+        const userValues = inlineUspVariableValues[uspId] || {};
+        const currentValue = userValues[idx] !== undefined ? userValues[idx] : v.defaultValue;
+
+        html += `<span class="usp-variable inline-usp-variable"
+                      data-usp-id="${uspId}"
+                      data-var-name="${v.name}"
+                      data-var-index="${idx}"
+                      data-default="${escapeHtml(v.defaultValue)}"
+                      title="Klik for at redigere ${v.name}">${escapeHtml(currentValue)}</span>`;
+
+        lastIndex = v.endIndex;
+    });
+
+    if (lastIndex < text.length) {
+        html += `<span class="usp-text-static">${escapeHtml(text.substring(lastIndex))}</span>`;
+    }
+
+    return html;
+}
+
+// Start inline variable edit (on page, not modal)
+function startInlineVariableEdit(element) {
+    const $el = $(element);
+    if ($el.hasClass('editing')) return;
+
+    const uspId = $el.data('usp-id');
+    const varIndex = $el.data('var-index');
+    const varName = $el.data('var-name');
+    const defaultValue = $el.data('default');
+
+    const userValues = inlineUspVariableValues[uspId] || {};
+    const currentValue = userValues[varIndex] !== undefined ? userValues[varIndex] : defaultValue;
+
+    $el.addClass('editing');
+    const inputWidth = Math.max(50, currentValue.length * 8 + 20);
+    $el.html(`<input type="text" class="inline-usp-variable-input usp-variable-input" value="${escapeHtml(currentValue)}" style="width: ${inputWidth}px;" placeholder="${escapeHtml(varName)}">`);
+
+    const $input = $el.find('input');
+    $input.focus().select();
+}
+
+// Save inline variable edit and persist to server
+async function saveInlineVariableEdit($input) {
+    const $span = $input.closest('.inline-usp-variable');
+    const uspId = $span.data('usp-id');
+    const varIndex = $span.data('var-index');
+    const defaultValue = $span.data('default');
+    const newValue = $input.val().trim();
+
+    if (!inlineUspVariableValues[uspId]) {
+        inlineUspVariableValues[uspId] = {};
+    }
+
+    const valueToSave = newValue || defaultValue;
+    inlineUspVariableValues[uspId][varIndex] = valueToSave;
+
+    $span.removeClass('editing');
+    $span.html(escapeHtml(valueToSave));
+
+    // Save to server
+    try {
+        const response = await fetch(`/ajax/client/${clientId}/update-company-info/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({
+                usp_variable_values: inlineUspVariableValues
+            })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            showToast('Variabel opdateret');
+        } else {
+            showToast('Fejl ved gem', 'error');
+        }
+    } catch (error) {
+        console.error('Error saving variable:', error);
+        showToast('Fejl ved gem', 'error');
+    }
+}
+
+// Cancel inline variable edit
+function cancelInlineVariableEdit($input) {
+    const $span = $input.closest('.inline-usp-variable');
+    const uspId = $span.data('usp-id');
+    const varIndex = $span.data('var-index');
+    const defaultValue = $span.data('default');
+
+    const userValues = inlineUspVariableValues[uspId] || {};
+    const currentValue = userValues[varIndex] !== undefined ? userValues[varIndex] : defaultValue;
+
+    $span.removeClass('editing');
+    $span.html(escapeHtml(currentValue));
+}
+
+// =====================================================
+// USP Item Edit Mode (with delete button)
+// =====================================================
+
+// Store for inline USP IDs (mutable copy)
+let inlineUspIds = [];
+
+// Initialize inline USP IDs from Django
+function initializeInlineUspIds() {
+    inlineUspIds = [...{{ usp_ids|safe }}];
+}
+
+// Enter edit mode for USP item (show delete button inline like custom USPs)
+function enterUspEditMode(item) {
+    const $item = $(item);
+    if ($item.hasClass('usp-edit-mode')) return;
+
+    $item.addClass('usp-edit-mode');
+
+    // Wrap content in flex container and add delete button (like custom USPs)
+    if ($item.find('.usp-edit-wrapper').length === 0) {
+        const uspId = $item.data('usp-id');
+        const $displayText = $item.find('.usp-display-text');
+        const $categoryLabel = $item.find('.usp-category-label');
+
+        // Create wrapper with flex layout
+        const wrapper = $('<div class="usp-edit-wrapper flex items-center gap-2"></div>');
+        const contentDiv = $('<div class="flex-1"></div>');
+
+        // Move content into wrapper
+        $displayText.detach().appendTo(contentDiv);
+        $categoryLabel.detach().appendTo(contentDiv);
+        wrapper.append(contentDiv);
+
+        // Add delete button (same style as custom USPs)
+        const deleteBtn = `
+            <button type="button" class="usp-delete-btn text-red-500 hover:text-red-700 p-2 flex-shrink-0"
+                    onclick="deleteInlineUsp(${uspId}, this)" title="Fjern USP">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        `;
+        wrapper.append(deleteBtn);
+
+        $item.append(wrapper);
+    }
+
+    // Also trigger variable edit if there's a variable
+    const $variable = $item.find('.inline-usp-variable').first();
+    if ($variable.length > 0 && !$variable.hasClass('editing')) {
+        startInlineVariableEdit($variable[0]);
+    }
+}
+
+// Exit edit mode for USP item
+function exitUspEditMode(item) {
+    const $item = $(item);
+    $item.removeClass('usp-edit-mode');
+
+    // Restore original structure - move content out of wrapper
+    const $wrapper = $item.find('.usp-edit-wrapper');
+    if ($wrapper.length > 0) {
+        const $displayText = $wrapper.find('.usp-display-text');
+        const $categoryLabel = $wrapper.find('.usp-category-label');
+
+        // Move content back to item
+        $displayText.detach().prependTo($item);
+        if ($categoryLabel.length > 0) {
+            $categoryLabel.detach().appendTo($item);
+        }
+
+        // Remove wrapper (includes delete button)
+        $wrapper.remove();
+    }
+}
+
+// Exit all USP edit modes
+function exitAllUspEditModes() {
+    $('.usp-display-item.usp-edit-mode').each(function() {
+        exitUspEditMode(this);
+    });
+}
+
+// Delete USP from inline list and save to server
+async function deleteInlineUsp(uspId, btnElement) {
+    // Remove from local array
+    inlineUspIds = inlineUspIds.filter(id => id !== uspId);
+
+    // Remove the DOM element with animation
+    const $item = $(btnElement).closest('.usp-display-item');
+    $item.fadeOut(200, function() {
+        $(this).remove();
+
+        // Update count
+        const countEl = document.getElementById('predefined-usps-count');
+        if (countEl) {
+            countEl.textContent = inlineUspIds.length;
+        }
+
+        // Show empty state if no more USPs
+        if (inlineUspIds.length === 0) {
+            $('#predefined-usps-list').html(`
+                <div id="predefined-usps-empty" class="bg-white rounded-lg p-4 border border-gray-200 border-dashed hover:border-purple-300 hover:bg-purple-50 transition-colors cursor-pointer" onclick="openUspModal()">
+                    <p class="text-gray-400 italic">Klik for at vælge USP'er</p>
+                </div>
+            `);
+        }
+    });
+
+    // Save to server
+    try {
+        const response = await fetch(`/ajax/client/${clientId}/update-company-info/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({
+                usp_ids: inlineUspIds
+            })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            showToast('USP fjernet');
+            // Update initialUspIds for modal sync
+            initialUspIds.length = 0;
+            initialUspIds.push(...inlineUspIds);
+        } else {
+            showToast('Fejl ved sletning', 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting USP:', error);
+        showToast('Fejl ved sletning', 'error');
+    }
+}
+
+function getCsrfToken() {
+    const cookie = document.cookie.split(';').find(c => c.trim().startsWith('csrftoken='));
+    return cookie ? cookie.split('=')[1] : '';
+}
+
+// =====================================================
+// USP MODAL FUNCTIONALITY
+// =====================================================
+
+// Store modal state
+let modalUspIds = [];
+let modalCustomUsps = [];
+let modalUspVariableValues = {};
+let modalUspCustomTexts = {};
+
+// Initialize from Django template data
+const initialUspIds = {{ usp_ids|safe }};
+const initialUspVariableValues = {{ usp_variable_values|safe }};
+const initialUspCustomTexts = {{ usp_custom_texts|safe }};
+
+function openUspModal() {
+    // Reset modal state to current saved values
+    modalUspIds = [...initialUspIds];
+    modalCustomUsps = [...({{ custom_usps|safe }} || [])];
+    modalUspVariableValues = JSON.parse(JSON.stringify(initialUspVariableValues));
+    modalUspCustomTexts = JSON.parse(JSON.stringify(initialUspCustomTexts));
+
+    // Update checkboxes to reflect current selection and render USP texts with variables
+    document.querySelectorAll('.modal-usp-checkbox').forEach(checkbox => {
+        const uspId = parseInt(checkbox.dataset.uspId);
+        const isChecked = modalUspIds.includes(uspId);
+        checkbox.checked = isChecked;
+
+        // Update display text with variable spans if checked
+        updateUspDisplayText(uspId, isChecked);
+    });
+
+    // Render custom USPs in modal
+    renderModalCustomUsps();
+
+    // Update count
+    updateModalUspCount();
+
+    // Show modal
+    document.getElementById('usp-modal').classList.remove('hidden');
+}
+
+function closeUspModal() {
+    document.getElementById('usp-modal').classList.add('hidden');
+}
+
+function renderModalCustomUsps() {
+    const container = document.getElementById('modal-custom-usps-container');
+    if (!container) return;
+
+    if (modalCustomUsps.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    let html = '';
+    modalCustomUsps.forEach((usp, index) => {
+        html += `
+            <div class="flex items-start p-3 bg-white rounded-lg border border-purple-200 modal-custom-usp-item" data-index="${index}">
+                <span class="w-5 h-5 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs flex items-center justify-center mt-0.5 flex-shrink-0">✓</span>
+                <div class="flex-1 px-2">
+                    <p class="font-medium text-gray-900 text-sm custom-usp-display-text cursor-pointer hover:text-purple-600" data-index="${index}">${escapeHtml(usp)}</p>
+                    <input type="text" class="custom-usp-edit-input w-full px-2 py-1 border border-purple-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm" style="display: none;" value="${escapeHtml(usp)}" data-index="${index}">
+                </div>
+                <button type="button" onclick="removeModalCustomUsp(${index})" class="text-gray-400 hover:text-red-500 p-1 flex-shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+function addModalCustomUsp() {
+    const input = document.getElementById('modal-custom-usp-input');
+    const value = input.value.trim();
+    if (!value) return;
+
+    modalCustomUsps.push(value);
+    input.value = '';
+    renderModalCustomUsps();
+    updateModalUspCount();
+}
+
+function removeModalCustomUsp(index) {
+    modalCustomUsps.splice(index, 1);
+    renderModalCustomUsps();
+    updateModalUspCount();
+}
+
+function updateModalUspCount() {
+    const checkboxes = document.querySelectorAll('.modal-usp-checkbox:checked');
+    const templateCount = checkboxes.length;
+    const customCount = modalCustomUsps.length;
+    const total = templateCount + customCount;
+
+    const countEl = document.getElementById('modal-usp-count');
+    if (countEl) {
+        countEl.textContent = total;
+    }
+}
+
+// Handle checkbox changes - also update USP display with/without variable spans
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('modal-usp-checkbox')) {
+        const uspId = parseInt(e.target.dataset.uspId);
+        const isChecked = e.target.checked;
+
+        if (isChecked) {
+            if (!modalUspIds.includes(uspId)) {
+                modalUspIds.push(uspId);
+            }
+        } else {
+            modalUspIds = modalUspIds.filter(id => id !== uspId);
+        }
+
+        // Update display text with variable spans if checked
+        updateUspDisplayText(uspId, isChecked);
+        updateModalUspCount();
+    }
+});
+
+// Handle Enter key in custom USP input
+document.addEventListener('keypress', function(e) {
+    if (e.target.id === 'modal-custom-usp-input' && e.key === 'Enter') {
+        e.preventDefault();
+        addModalCustomUsp();
+    }
+});
+
+// =====================================================
+// Event Handlers for INLINE USP Variable Editing (on page)
+// =====================================================
+
+// Double-click on USP item to enter edit mode (with delete button)
+$(document).on('dblclick', '.usp-display-item', function(e) {
+    e.stopPropagation();
+    // Exit other edit modes first
+    exitAllUspEditModes();
+    enterUspEditMode(this);
+});
+
+// Double-click on inline variable span to start editing (for direct variable click)
+$(document).on('dblclick', '.inline-usp-variable', function(e) {
+    e.stopPropagation();
+    // Also enter edit mode for parent item
+    const $item = $(this).closest('.usp-display-item');
+    if (!$item.hasClass('usp-edit-mode')) {
+        exitAllUspEditModes();
+        enterUspEditMode($item[0]);
+    } else {
+        startInlineVariableEdit(this);
+    }
+});
+
+// Double-click on custom USP item to enter edit mode
+$(document).on('dblclick', '.custom-usp-item', function(e) {
+    e.stopPropagation();
+    enterCustomUspEditMode(this);
+});
+
+// Click outside to exit edit mode (both predefined and custom USPs)
+$(document).on('click', function(e) {
+    // Exit predefined USP edit modes
+    if (!$(e.target).closest('.usp-display-item').length &&
+        !$(e.target).closest('.usp-delete-btn').length) {
+        exitAllUspEditModes();
+    }
+    // Exit custom USP edit modes
+    if (!$(e.target).closest('.custom-usp-item').length &&
+        !$(e.target).closest('.custom-usp-delete-btn').length) {
+        exitAllCustomUspEditModes();
+    }
+});
+
+// Blur on inline variable input to save
+$(document).on('blur', '.inline-usp-variable-input', function() {
+    saveInlineVariableEdit($(this));
+});
+
+// Enter/Escape on inline variable input
+$(document).on('keydown', '.inline-usp-variable-input', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        saveInlineVariableEdit($(this));
+    } else if (e.key === 'Escape') {
+        e.preventDefault();
+        cancelInlineVariableEdit($(this));
+    }
+});
+
+// =====================================================
+// Event Handlers for MODAL USP Variable Editing (in modal)
+// =====================================================
+
+// Click on modal variable span to start editing (not inline)
+$(document).on('click', '.usp-variable:not(.inline-usp-variable)', function(e) {
+    e.stopPropagation();
+    startVariableEdit(this);
+});
+
+// Blur on modal variable input to save
+$(document).on('blur', '.usp-variable-input:not(.inline-usp-variable-input)', function() {
+    saveVariableEdit($(this));
+});
+
+// Enter/Escape on modal variable input
+$(document).on('keydown', '.usp-variable-input:not(.inline-usp-variable-input)', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        saveVariableEdit($(this));
+    } else if (e.key === 'Escape') {
+        e.preventDefault();
+        cancelVariableEdit($(this));
+    }
+});
+
+// =====================================================
+// Event Handlers for Custom USP Click-to-Edit (jQuery)
+// =====================================================
+
+// Click on custom USP text to edit
+$(document).on('click', '.custom-usp-display-text', function() {
+    const item = $(this).closest('.modal-custom-usp-item');
+    const displayText = item.find('.custom-usp-display-text');
+    const editInput = item.find('.custom-usp-edit-input');
+
+    displayText.hide();
+    editInput.show().focus().select();
+});
+
+// Blur on custom USP input to save
+$(document).on('blur', '.custom-usp-edit-input', function() {
+    saveCustomUspEdit($(this));
+});
+
+// Enter/Escape on custom USP input
+$(document).on('keypress', '.custom-usp-edit-input', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        saveCustomUspEdit($(this));
+    }
+});
+
+$(document).on('keydown', '.custom-usp-edit-input', function(e) {
+    if (e.key === 'Escape') {
+        e.preventDefault();
+        cancelCustomUspEdit($(this));
+    }
+});
+
+// Save custom USP edit
+function saveCustomUspEdit($input) {
+    const item = $input.closest('.modal-custom-usp-item');
+    const displayText = item.find('.custom-usp-display-text');
+    const index = parseInt($input.data('index'));
+    const newValue = $input.val().trim();
+
+    if (newValue && newValue !== modalCustomUsps[index]) {
+        modalCustomUsps[index] = newValue;
+        displayText.text(newValue);
+    }
+
+    $input.hide();
+    displayText.show();
+}
+
+// Cancel custom USP edit
+function cancelCustomUspEdit($input) {
+    const item = $input.closest('.modal-custom-usp-item');
+    const displayText = item.find('.custom-usp-display-text');
+    const index = parseInt($input.data('index'));
+
+    $input.val(modalCustomUsps[index]);
+    $input.hide();
+    displayText.show();
+}
+
+async function saveUspSelection() {
+    // Get selected USP IDs from checkboxes
+    const selectedIds = [];
+    document.querySelectorAll('.modal-usp-checkbox:checked').forEach(checkbox => {
+        selectedIds.push(parseInt(checkbox.dataset.uspId));
+    });
+
+    try {
+        const response = await fetch(`/ajax/client/${clientId}/update-company-info/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({
+                usp_ids: selectedIds,
+                custom_usps: modalCustomUsps,
+                usp_variable_values: modalUspVariableValues,
+                usp_custom_texts: modalUspCustomTexts
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Update the display on the page
+            updatePredefinedUspsDisplay(selectedIds);
+            updateCustomUspsDisplay(modalCustomUsps);
+
+            // Update initial values for next modal open
+            initialUspIds.length = 0;
+            initialUspIds.push(...selectedIds);
+
+            closeUspModal();
+            showToast('USP\'er gemt');
+
+            // Reload page to get fresh data with resolved variable values
+            setTimeout(() => location.reload(), 500);
+        } else {
+            showToast('Fejl: ' + (data.error || 'Kunne ikke gemme'), 'error');
+        }
+    } catch (error) {
+        console.error('Error saving USPs:', error);
+        showToast('Fejl ved gem af USP\'er', 'error');
+    }
+}
+
+function updatePredefinedUspsDisplay(uspIds) {
+    const listEl = document.getElementById('predefined-usps-list');
+    const emptyEl = document.getElementById('predefined-usps-empty');
+    const countEl = document.getElementById('predefined-usps-count');
+    const viewEl = document.getElementById('predefined-usps-view');
+
+    // Update count
+    if (countEl) {
+        countEl.textContent = uspIds.length;
+    }
+
+    // We'll reload the page to get fresh rendered USPs with variable substitution
+    // For now just update the count
+}
+
+function updateCustomUspsDisplay(customUsps) {
+    const listEl = document.getElementById('custom-usps-list');
+    const emptyEl = document.getElementById('custom-usps-empty');
+    const countEl = document.getElementById('custom-usps-count');
+    const viewEl = document.getElementById('custom-usps-view-mode');
+
+    // Update count
+    if (countEl) {
+        countEl.textContent = customUsps.length;
+    }
+
+    // Update list
+    if (customUsps.length > 0) {
+        let html = '';
+        customUsps.forEach(usp => {
+            html += `<div class="bg-white rounded-lg p-3 border border-gray-200 text-gray-700 hover:border-blue-300 hover:bg-blue-50 transition-colors">${escapeHtml(usp)}</div>`;
+        });
+
+        if (listEl) {
+            listEl.innerHTML = html;
+            listEl.classList.remove('hidden');
+        }
+        if (emptyEl) emptyEl.classList.add('hidden');
+    } else {
+        if (listEl) listEl.classList.add('hidden');
+        if (emptyEl) emptyEl.classList.remove('hidden');
+    }
+}
+
+// =====================================================
 
 function editClient() {
     window.location.href = `/clients/?edit=${clientId}`;
@@ -1604,6 +3085,10 @@ function focusCity(postalCode) {
 // EVENT HANDLERS
 // =====================================================
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize inline USP variable editing and IDs
+    initializeInlineUspVariables();
+    initializeInlineUspIds();
+
     const searchInput = document.getElementById('city-search');
     if (searchInput) {
         searchInput.addEventListener('input', () => {

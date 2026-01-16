@@ -5,6 +5,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib import messages
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
+from django.db.models import Prefetch
 from .models import (
     Industry, Client, Campaign, AdGroup, Ad, Keyword, PerformanceDataImport,
     HistoricalCampaignPerformance, HistoricalKeywordPerformance,
@@ -5901,6 +5902,12 @@ def client_detail(request, client_id):
         for usp in USPTemplate.objects.filter(id__in=usp_ids):
             usp_id_str = str(usp.id)
 
+            # Find all variables - pattern matches {VARNAME:default} or {VARNAME}
+            # Same regex as JavaScript: /\{([A-ZÆØÅ0-9_]+)(?::([^}]*))?\}/g
+            variable_pattern = r'\{([A-ZÆØÅ0-9_]+)(?::([^}]*))?\}'
+            variables = list(re.finditer(variable_pattern, usp.text))
+            has_variables = len(variables) > 0
+
             # Check if there's a custom text (fully edited)
             if usp_id_str in usp_custom_texts:
                 display_text = usp_custom_texts[usp_id_str]
@@ -5909,32 +5916,35 @@ def client_detail(request, client_id):
                 display_text = usp.text
                 user_values = usp_variable_values.get(usp_id_str, {})
 
-                # Find all variables like {VAR1:default/options} and replace them
-                def replace_var(match):
-                    full_match = match.group(0)
-                    var_name = match.group(1)  # e.g., "VAR1"
-                    var_index = var_name.replace('VAR', '')  # e.g., "1"
+                if variables:
+                    # Replace backwards to preserve indices
+                    result = display_text
+                    for idx in range(len(variables) - 1, -1, -1):
+                        match = variables[idx]
+                        var_name = match.group(1)  # e.g., "SERVICE", "VAR1"
+                        var_content = match.group(2) if match.lastindex >= 2 else ''
 
-                    # Get user value or extract default from the variable definition
-                    if var_index in user_values:
-                        return str(user_values[var_index])
+                        # Get user value by index (matches JavaScript storage)
+                        idx_str = str(idx)
+                        if idx_str in user_values:
+                            replacement = str(user_values[idx_str])
+                        elif var_content:
+                            # Use default value (everything before first /)
+                            replacement = var_content.split('/')[0] if '/' in var_content else var_content
+                        else:
+                            replacement = var_name  # Fallback to variable name
 
-                    # Extract default value from pattern like {VAR1:default/option1/option2}
-                    var_content = match.group(2) if match.lastindex >= 2 else ''
-                    if var_content:
-                        # Default is everything before the first /
-                        default_value = var_content.split('/')[0] if '/' in var_content else var_content
-                        return default_value
+                        # Replace this variable
+                        result = result[:match.start()] + replacement + result[match.end():]
 
-                    return full_match  # Keep original if no replacement found
+                    display_text = result
 
-                # Pattern matches {VAR1:content} or {VAR1}
-                display_text = re.sub(r'\{(VAR\d+)(?::([^}]*))?\}', replace_var, display_text)
-
-            # Create a simple object with the display text
+            # Create a simple object with both display text and original text
             predefined_usps.append({
                 'id': usp.id,
                 'text': display_text,
+                'original_text': usp.text,  # Original text with variable syntax
+                'has_variables': has_variables,
                 'main_category': usp.main_category.name if usp.main_category else None
             })
 
@@ -5966,6 +5976,15 @@ def client_detail(request, client_id):
     if company_info.get('profile'):
         company_info['profile_json'] = json.dumps(company_info['profile'], indent=2, ensure_ascii=False)
 
+    # Get USP categories for the USP selection modal
+    from usps.models import USPMainCategory
+    usp_categories = USPMainCategory.objects.filter(is_active=True).prefetch_related(
+        Prefetch(
+            'usptemplate_set',
+            queryset=USPTemplate.objects.filter(is_active=True).order_by('priority_rank', 'text')
+        )
+    ).order_by('sort_order', 'name')
+
     return render(request, 'campaigns/client_detail.html', {
         'client': client,
         'campaigns': campaigns,
@@ -5985,6 +6004,10 @@ def client_detail(request, client_id):
         'extracted_reviews': extracted_reviews,
         'crawl_state': crawl_state,
         'google_maps_api_key': 'AIzaSyBDH6MTS0Hq0ISb0bNQjEAC14321pzM0jw',
+        'usp_categories': usp_categories,
+        'usp_ids': usp_ids,
+        'usp_variable_values': json.dumps(usp_variable_values),
+        'usp_custom_texts': json.dumps(usp_custom_texts),
     })
 
 
@@ -6082,6 +6105,55 @@ def delete_client_ajax(request, client_id):
         return JsonResponse({
             'success': True,
             'message': 'Kunde slettet'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@csrf_exempt
+def update_client_company_info(request, client_id):
+    """Update client company info (description, custom USPs) via AJAX."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'})
+
+    try:
+        client = get_object_or_404(Client, id=client_id)
+        data = json.loads(request.body)
+
+        # Get existing campaign_config
+        campaign_config = client.campaign_config or {}
+
+        # Update description if provided
+        if 'description' in data:
+            new_description = data['description']
+            # Update in company_info within campaign_config
+            company_info = campaign_config.get('company_info', {})
+            company_info['core_competencies'] = new_description
+            campaign_config['company_info'] = company_info
+            # Also update client.description for backward compatibility
+            client.description = new_description
+
+        # Update custom_usps if provided
+        if 'custom_usps' in data:
+            campaign_config['custom_usps'] = data['custom_usps']
+
+        # Update USP selection if provided
+        if 'usp_ids' in data:
+            campaign_config['usp_ids'] = data['usp_ids']
+
+        if 'usp_variable_values' in data:
+            campaign_config['usp_variable_values'] = data['usp_variable_values']
+
+        if 'usp_custom_texts' in data:
+            campaign_config['usp_custom_texts'] = data['usp_custom_texts']
+
+        # Save changes
+        client.campaign_config = campaign_config
+        client.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Virksomhedsinfo opdateret'
         })
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
