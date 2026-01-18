@@ -1061,7 +1061,7 @@
                                 </svg>
                                 Eksisterende sider (0 credits)
                             </h4>
-                            <div id="existing-pages-list" class="space-y-2 max-h-64 overflow-y-auto">
+                            <div id="existing-pages-list" class="space-y-2">
                                 <!-- Dynamisk liste af eksisterende sider med links -->
                             </div>
                             <p id="no-existing-pages" class="text-sm text-green-600 italic hidden">Ingen eksisterende sider fundet</p>
@@ -1082,10 +1082,51 @@
                                     <button type="button" onclick="deselectAllMissingPages()" class="text-xs text-yellow-700 hover:text-yellow-900 font-medium">Fravælg alle</button>
                                 </div>
                             </div>
-                            <div id="missing-pages-list" class="space-y-2 max-h-64 overflow-y-auto">
+                            <div id="missing-pages-list" class="space-y-2">
                                 <!-- Dynamisk liste af manglende sider med checkboxes -->
                             </div>
                             <p id="no-missing-pages" class="text-sm text-yellow-600 italic hidden">Alle bysider eksisterer allerede!</p>
+                        </div>
+                    </div>
+
+                    <!-- City Coverage Grid med dots -->
+                    <div class="mt-6 pt-6 border-t border-gray-200">
+                        <div class="flex items-center justify-between mb-4">
+                            <h4 class="font-semibold text-gray-800 flex items-center">
+                                <svg class="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
+                                </svg>
+                                By-oversigt
+                            </h4>
+                            <!-- Legend -->
+                            <div class="flex items-center gap-4 text-xs text-gray-500">
+                                <span class="flex items-center gap-1">
+                                    <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                                    Har byside
+                                </span>
+                                <span class="flex items-center gap-1">
+                                    <span class="w-2 h-2 rounded-full bg-gray-300"></span>
+                                    Ingen byside
+                                </span>
+
+                                <!-- Filter toggle -->
+                                <div class="inline-flex items-center gap-2 ml-auto">
+                                    <span class="text-gray-500">Sekundære byer</span>
+                                    <label for="show-secondary-cities"
+                                           style="position: relative; display: inline-block; width: 44px; height: 24px; cursor: pointer;"
+                                           onclick="toggleSecondaryCities(event)">
+                                        <input type="checkbox" id="show-secondary-cities"
+                                               style="position: absolute; opacity: 0; width: 100%; height: 100%; cursor: pointer; z-index: 10;"
+                                               onchange="filterSecondaryCities()">
+                                        <span id="cb-toggle-track" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #d1d5db; border-radius: 24px; transition: background-color 0.2s; pointer-events: none;"></span>
+                                        <span id="cb-toggle-knob" style="position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; background-color: white; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: transform 0.2s; pointer-events: none;"></span>
+                                    </label>
+                                    <span id="secondary-city-count" class="text-gray-400 tabular-nums"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="city-coverage-grid" class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-1 text-sm text-gray-600 bg-white rounded-lg p-4 border border-gray-200">
+                            <!-- Dynamisk genereret af JavaScript -->
                         </div>
                     </div>
                 </div>
@@ -11492,6 +11533,19 @@ let programmaticState = {
 
 // Initialize Step 9 with data from crawlState (called when step is shown)
 function initStep9FromCrawlState() {
+    // DEBUG: Log crawlState at init
+    console.log('=== initStep9FromCrawlState DEBUG ===');
+    console.log('crawlState.website_url:', crawlState.website_url);
+    console.log('crawlState.crawl_status:', crawlState.crawl_status);
+    console.log('crawlState.urls_found:', crawlState.urls_found);
+    console.log('crawlState.city_matches length:', crawlState.city_matches?.length);
+    console.log('crawlState.existing_count:', crawlState.existing_count);
+    console.log('crawlState.missing_count:', crawlState.missing_count);
+    if (crawlState.city_matches?.length > 0) {
+        console.log('First city_match:', JSON.stringify(crawlState.city_matches[0], null, 2));
+    }
+    console.log('=====================================');
+
     // Pre-populate URL field from crawlState (hidden input)
     if (crawlState.website_url) {
         $('#programmatic-website-url').val(crawlState.website_url);
@@ -11598,6 +11652,12 @@ async function checkCityPages() {
     const websiteUrl = crawlState.website_url || $('#programmatic-website-url').val().trim();
     const selectedCities = getSelectedCities();
 
+    // DEBUG: Log request parameters
+    console.log('=== checkCityPages REQUEST DEBUG ===');
+    console.log('Website URL:', websiteUrl);
+    console.log('Selected cities count:', selectedCities.length);
+    console.log('Selected cities (first 10):', selectedCities.slice(0, 10));
+
     if (!websiteUrl) {
         alert('Crawl venligst sitemap først');
         return;
@@ -11610,6 +11670,9 @@ async function checkCityPages() {
 
     // Get the service name from campaign config
     const serviceName = getServiceNameForProgrammatic();
+    console.log('Service name for matching:', serviceName);
+    console.log('========================================');
+
     if (!serviceName) {
         alert('Ingen service valgt. Gå tilbage og vælg en service.');
         return;
@@ -11636,6 +11699,14 @@ async function checkCityPages() {
         $('#city-page-status-loading').addClass('hidden');
 
         if (response.success) {
+            // DEBUG: Log full API response
+            console.log('=== checkCityPages API Response DEBUG ===');
+            console.log('Full response:', response);
+            console.log('response.results:', response.results);
+            console.log('response.existing_count:', response.existing_count);
+            console.log('response.missing_count:', response.missing_count);
+            console.log('==========================================');
+
             programmaticState.city_matches = response.results || [];
             programmaticState.existing_count = response.existing_count || 0;
             programmaticState.missing_count = response.missing_count || 0;
@@ -11665,6 +11736,18 @@ async function checkCityPages() {
 
 // Render the city page lists (existing and missing)
 function renderCityPageLists(results) {
+    // DEBUG: Log what we receive
+    console.log('=== renderCityPageLists DEBUG ===');
+    console.log('Total results:', results.length);
+    console.log('Sample results (first 5):', results.slice(0, 5));
+    console.log('Results with existing status:', results.filter(r => r.status === 'existing').length);
+    console.log('Results with missing status:', results.filter(r => r.status === 'missing').length);
+    console.log('Results with other/no status:', results.filter(r => r.status !== 'existing' && r.status !== 'missing').length);
+    if (results.length > 0) {
+        console.log('First result full object:', JSON.stringify(results[0], null, 2));
+    }
+    console.log('=================================');
+
     const existingList = $('#existing-pages-list');
     const missingList = $('#missing-pages-list');
     existingList.empty();
@@ -11680,8 +11763,9 @@ function renderCityPageLists(results) {
     } else {
         $('#no-existing-pages').addClass('hidden');
         existingPages.forEach(result => {
+            const isPrimary = result.is_primary !== false;  // Default to true if not specified
             const item = `
-                <div class="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-green-100">
+                <div class="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-green-100 city-page-item" data-is-primary="${isPrimary}" data-has-existing="true">
                     <span class="text-sm font-medium text-gray-900">${escapeHtml(result.city)}</span>
                     <a href="${escapeHtml(result.existing_url)}" target="_blank" class="text-xs text-blue-600 hover:underline flex items-center">
                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -11701,8 +11785,9 @@ function renderCityPageLists(results) {
     } else {
         $('#no-missing-pages').addClass('hidden');
         missingPages.forEach((result, index) => {
+            const isPrimary = result.is_primary !== false;  // Default to true if not specified
             const item = `
-                <div class="flex items-center py-2 px-3 bg-white rounded-lg border border-yellow-100">
+                <div class="flex items-center py-2 px-3 bg-white rounded-lg border border-yellow-100 city-page-item" data-is-primary="${isPrimary}" data-has-existing="false">
                     <input type="checkbox"
                            class="missing-page-checkbox w-4 h-4 text-yellow-600 rounded border-gray-300 focus:ring-yellow-500 mr-3"
                            data-city="${escapeHtml(result.city)}"
@@ -11718,6 +11803,42 @@ function renderCityPageLists(results) {
             missingList.append(item);
         });
     }
+
+    // Render city coverage grid with dots
+    renderCityCoverageGrid(results);
+
+    // Apply filter state (default: hide secondary cities without byside)
+    setTimeout(filterSecondaryCities, 50);
+}
+
+// Render the city coverage grid with green/gray dots
+function renderCityCoverageGrid(results) {
+    const coverageGrid = $('#city-coverage-grid');
+    coverageGrid.empty();
+
+    // Results now include both primary and secondary cities from backend
+    if (!results || results.length === 0) {
+        coverageGrid.html('<p class="text-gray-500 text-sm italic col-span-full">Ingen byer valgt</p>');
+        return;
+    }
+
+    // Sort results alphabetically by city name
+    const sortedResults = [...results].sort((a, b) => a.city.localeCompare(b.city, 'da'));
+
+    // Render each city with appropriate dot color and is_primary flag
+    sortedResults.forEach(result => {
+        const hasExisting = result.status === 'existing';
+        const isPrimary = result.is_primary !== false;  // Default to true if not specified
+        const dotColor = hasExisting ? 'bg-green-500' : 'bg-gray-300';
+
+        const item = `
+            <span class="flex items-center gap-1 city-coverage-item" data-city="${escapeHtml(result.city)}" data-is-primary="${isPrimary}" data-has-existing="${hasExisting}">
+                <span class="byside-indicator w-2 h-2 rounded-full ${dotColor} flex-shrink-0"></span>
+                <span class="city-name truncate" title="${escapeHtml(result.city)}">${escapeHtml(result.city)}</span>
+            </span>
+        `;
+        coverageGrid.append(item);
+    });
 }
 
 // Update credits count based on selected missing pages
@@ -11742,6 +11863,94 @@ function selectAllMissingPages() {
 function deselectAllMissingPages() {
     $('.missing-page-checkbox').prop('checked', false);
     updateCreditsCount();
+}
+
+// Filter secondary cities in Programmatic Byside section
+// Logic: Show if isPrimary OR hasExisting OR toggleOn
+function filterSecondaryCities() {
+    const showSecondary = document.getElementById('show-secondary-cities');
+    if (!showSecondary) return;
+
+    const showSecondaryChecked = showSecondary.checked;
+
+    // Update toggle visuals
+    const track = document.getElementById('cb-toggle-track');
+    const knob = document.getElementById('cb-toggle-knob');
+    if (track && knob) {
+        if (showSecondaryChecked) {
+            track.style.background = 'linear-gradient(to right, #a855f7, #ec4899)';
+            knob.style.transform = 'translateX(20px)';
+        } else {
+            track.style.background = '#d1d5db';
+            knob.style.transform = 'translateX(0)';
+        }
+    }
+
+    // Filter items in existing-pages-list
+    document.querySelectorAll('#existing-pages-list .city-page-item').forEach(item => {
+        const isPrimary = item.dataset.isPrimary === 'true';
+        // Existing pages: show if primary OR toggle ON (secondary with existing always shown)
+        // Since these have existing pages, we always show them (secondary with green dot)
+        item.style.display = '';  // Always show existing pages
+    });
+
+    // Filter items in missing-pages-list
+    document.querySelectorAll('#missing-pages-list .city-page-item').forEach(item => {
+        const isPrimary = item.dataset.isPrimary === 'true';
+        // Missing pages: show if primary OR toggle ON
+        if (isPrimary || showSecondaryChecked) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+
+    // Filter city-coverage-grid items
+    document.querySelectorAll('#city-coverage-grid .city-coverage-item').forEach(item => {
+        const isPrimary = item.dataset.isPrimary === 'true';
+        const hasExisting = item.dataset.hasExisting === 'true';
+
+        // Show if: isPrimary OR hasExisting (green dot) OR toggleOn
+        if (isPrimary || hasExisting || showSecondaryChecked) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+
+    updateSecondaryCityCount();
+}
+
+// Backup toggle handler for label click
+function toggleSecondaryCities(event) {
+    // Don't double-toggle if checkbox was clicked directly
+    if (event.target.tagName === 'INPUT') return;
+
+    const checkbox = document.getElementById('show-secondary-cities');
+    if (checkbox) {
+        checkbox.checked = !checkbox.checked;
+        filterSecondaryCities();
+    }
+}
+
+// Update displayed count next to toggle
+function updateSecondaryCityCount() {
+    const total = document.querySelectorAll('#city-coverage-grid .city-coverage-item').length;
+    const secondaryWithoutExisting = document.querySelectorAll('#city-coverage-grid .city-coverage-item[data-is-primary="false"][data-has-existing="false"]').length;
+    const countSpan = document.getElementById('secondary-city-count');
+    const toggle = document.getElementById('show-secondary-cities');
+
+    if (countSpan && secondaryWithoutExisting > 0) {
+        if (toggle && toggle.checked) {
+            countSpan.textContent = `(${secondaryWithoutExisting} sekundære vises)`;
+            countSpan.className = 'text-purple-600 tabular-nums font-medium';
+        } else {
+            countSpan.textContent = `(${secondaryWithoutExisting} skjulte)`;
+            countSpan.className = 'text-gray-400 tabular-nums';
+        }
+    } else if (countSpan) {
+        countSpan.textContent = '';
+    }
 }
 
 // Generate AI Meta Tags (7 titles + 7 descriptions)
