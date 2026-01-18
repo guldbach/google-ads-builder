@@ -5566,6 +5566,171 @@ def match_city_pages_ajax(request):
         return JsonResponse({'success': False, 'error': str(e)})
 
 
+# =====================================================
+# TRACKED PAGES / SMART CRAWLER ENDPOINTS
+# =====================================================
+
+@csrf_exempt
+def sync_sitemap_ajax(request, client_id):
+    """
+    AJAX endpoint til at synkronisere TrackedPages med sitemap.
+    POST: {}
+    Returns: {success, new_pages, updated_pages, total_pages, message}
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'})
+
+    try:
+        from .smart_crawler import SmartCrawler
+        from .models import Client
+
+        client = get_object_or_404(Client, id=client_id)
+        crawler = SmartCrawler(client)
+        result = crawler.sync_sitemap()
+
+        return JsonResponse(result)
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@csrf_exempt
+def get_tracked_pages_ajax(request, client_id):
+    """
+    AJAX endpoint til at hente alle tracked pages for en client.
+    GET: ?type=byside|service|blog|other&status=live|pending|existing
+    Returns: {success, pages: [{url_path, page_type, status, ...}], stats: {...}}
+    """
+    try:
+        from .models import Client, TrackedPage
+        from .smart_crawler import SmartCrawler
+
+        client = get_object_or_404(Client, id=client_id)
+
+        # Get filter parameters
+        page_type_filter = request.GET.get('type', '')
+        status_filter = request.GET.get('status', '')
+        search_query = request.GET.get('search', '').lower()
+
+        # Query pages
+        pages = TrackedPage.objects.filter(client=client)
+
+        # Apply type filter
+        if page_type_filter and page_type_filter != 'all':
+            pages = pages.filter(page_type=page_type_filter)
+
+        # Apply status filter
+        if status_filter == 'live':
+            pages = pages.filter(created_by_us=True, found_in_sitemap=True)
+        elif status_filter == 'pending':
+            pages = pages.filter(created_by_us=True, found_in_sitemap=False)
+        elif status_filter == 'existing':
+            pages = pages.filter(created_by_us=False)
+
+        # Apply search
+        if search_query:
+            pages = pages.filter(url_path__icontains=search_query)
+
+        # Serialize pages
+        pages_data = []
+        for page in pages[:500]:  # Limit to 500
+            pages_data.append({
+                'id': page.id,
+                'url_path': page.url_path,
+                'full_url': page.full_url,
+                'page_type': page.page_type,
+                'page_type_label': page.page_type_label,
+                'status': page.status,
+                'status_color': page.status_color,
+                'status_label': page.status_label,
+                'created_by_us': page.created_by_us,
+                'found_in_sitemap': page.found_in_sitemap,
+                'meta_title': page.meta_title,
+                'last_modified': page.last_modified_header.isoformat() if page.last_modified_header else None,
+                'last_crawled': page.last_crawled_at.isoformat() if page.last_crawled_at else None,
+            })
+
+        # Get stats
+        crawler = SmartCrawler(client)
+        stats = crawler.get_page_stats()
+
+        return JsonResponse({
+            'success': True,
+            'pages': pages_data,
+            'stats': stats
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@csrf_exempt
+def check_page_modifications_ajax(request, client_id):
+    """
+    AJAX endpoint til at checke modifications for alle tracked pages.
+    POST: {}
+    Returns: {success, checked, modified, unchanged, errors}
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'})
+
+    try:
+        from .smart_crawler import SmartCrawler
+        from .models import Client
+
+        client = get_object_or_404(Client, id=client_id)
+        crawler = SmartCrawler(client)
+        result = crawler.check_modifications()
+
+        return JsonResponse({
+            'success': True,
+            **result
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@csrf_exempt
+def update_page_status_ajax(request, client_id):
+    """
+    AJAX endpoint til at opdatere status for en tracked page.
+    POST: {page_id: int, created_by_us: bool}
+    Returns: {success, page: {...}}
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'})
+
+    try:
+        from .models import Client, TrackedPage
+
+        client = get_object_or_404(Client, id=client_id)
+        data = json.loads(request.body)
+
+        page_id = data.get('page_id')
+        created_by_us = data.get('created_by_us', False)
+
+        page = get_object_or_404(TrackedPage, id=page_id, client=client)
+        page.created_by_us = created_by_us
+        if created_by_us and not page.exported_at:
+            page.exported_at = timezone.now()
+        page.save()
+
+        return JsonResponse({
+            'success': True,
+            'page': {
+                'id': page.id,
+                'url_path': page.url_path,
+                'status': page.status,
+                'status_color': page.status_color,
+                'status_label': page.status_label,
+            }
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
 @csrf_exempt
 def generate_programmatic_descriptions_ajax(request):
     """
@@ -5966,11 +6131,41 @@ def client_detail(request, client_id):
                     selected_cities.add(city.city_name)
 
     # Get cities that already have campaigns/bysider created
+    # Also count how many byside pages exist per city (for clients with multiple services/branches)
     created_bysider = set()
+    byside_counts = {}  # city_name -> count of existing pages
+
+    # Method 1: Check byside_urls from geo_config
     byside_urls = geo_config.get('byside_urls', [])
     for byside in byside_urls:
         if byside.get('exists') or byside.get('edited'):
-            created_bysider.add(byside.get('city', ''))
+            city_name = byside.get('city', '')
+            created_bysider.add(city_name)
+            byside_counts[city_name] = byside_counts.get(city_name, 0) + 1
+
+    # Method 2: Detect byside pages from seo_pages URLs
+    # This catches cases where the website has city pages but byside_urls wasn't populated
+    seo_pages = campaign_config.get('seo_pages', {})
+    if seo_pages and selected_cities:
+        from .geo_utils import DanishSlugGenerator
+
+        # Create a mapping of slug -> city_name for faster lookup
+        city_slug_map = {}
+        for city in selected_cities:
+            slug = DanishSlugGenerator.slugify(city)
+            city_slug_map[slug] = city
+            # Also add common variations (without hyphens, with dashes)
+            city_slug_map[slug.replace('-', '')] = city
+
+        # Check each seo_page URL for city slugs
+        for page_url in seo_pages.keys():
+            page_url_lower = page_url.lower()
+            for slug, city_name in city_slug_map.items():
+                # Check if the slug appears in the URL (e.g., /elektriker-kobenhavn/)
+                if slug in page_url_lower:
+                    created_bysider.add(city_name)
+                    byside_counts[city_name] = byside_counts.get(city_name, 0) + 1
+                    break  # Only count each URL once per city
 
     # Format company profile as pretty JSON for display
     if company_info.get('profile'):
@@ -6000,6 +6195,7 @@ def client_detail(request, client_id):
         'selected_cities': list(selected_cities),
         'created_bysider': list(created_bysider),
         'byside_urls': byside_urls,
+        'byside_counts': json.dumps(byside_counts),
         'scraped_pages': scraped_pages,
         'extracted_reviews': extracted_reviews,
         'crawl_state': crawl_state,

@@ -230,6 +230,9 @@
             <button onclick="showSection('geo')" class="section-tab px-6 py-4 text-sm font-medium text-gray-600 hover:text-purple-600 border-b-2 border-transparent hover:border-purple-600 transition-all" data-section="geo">
                 Geo-Kampagne
             </button>
+            <button onclick="showSection('pages')" class="section-tab px-6 py-4 text-sm font-medium text-gray-600 hover:text-purple-600 border-b-2 border-transparent hover:border-purple-600 transition-all" data-section="pages">
+                📄 Sider
+            </button>
         </div>
 
         <!-- Section Content -->
@@ -527,9 +530,24 @@
                         </div>
                         <div id="geo-coverage-content" class="mt-2 hidden">
                             <div class="bg-white rounded-lg p-4 border border-gray-200">
+                                <!-- Legend -->
+                                <div class="flex items-center gap-4 mb-3 text-xs text-gray-500 border-b border-gray-100 pb-2">
+                                    <span class="flex items-center gap-1">
+                                        <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                                        Har byside
+                                    </span>
+                                    <span class="flex items-center gap-1">
+                                        <span class="w-2 h-2 rounded-full bg-gray-300"></span>
+                                        Ingen byside
+                                    </span>
+                                </div>
                                 <div class="grid grid-cols-3 gap-x-4 gap-y-1 text-sm text-gray-600">
                                     {% for city in selected_cities %}
-                                    <span>{{ city }}</span>
+                                    <span class="flex items-center gap-1 city-coverage-item" data-city="{{ city }}">
+                                        <span class="byside-indicator w-2 h-2 rounded-full bg-gray-300 flex-shrink-0"></span>
+                                        <span class="city-name">{{ city }}</span>
+                                        <span class="byside-count text-xs text-green-600 font-medium hidden"></span>
+                                    </span>
                                     {% endfor %}
                                 </div>
                             </div>
@@ -978,6 +996,131 @@
                 </div>
             </div>
 
+            <!-- PAGES SECTION (Sider) -->
+            <div id="section-pages" class="section-content hidden">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h3 class="text-xl font-semibold text-gray-900">Website Sider</h3>
+                        <p class="text-sm text-gray-500 mt-1">Oversigt over alle sider på websitet og sider oprettet af os</p>
+                    </div>
+                    <button onclick="syncSitemap()" id="sync-sitemap-btn" class="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all duration-200 flex items-center space-x-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        <span>Sync Sitemap</span>
+                    </button>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-green-50 rounded-xl p-4 border border-green-100">
+                        <div class="text-3xl font-bold text-green-600" id="pages-live-count">0</div>
+                        <div class="text-sm text-green-700">🟢 Live (oprettet af os)</div>
+                    </div>
+                    <div class="bg-yellow-50 rounded-xl p-4 border border-yellow-100">
+                        <div class="text-3xl font-bold text-yellow-600" id="pages-pending-count">0</div>
+                        <div class="text-sm text-yellow-700">🟡 Pending (eksporteret)</div>
+                    </div>
+                    <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                        <div class="text-3xl font-bold text-gray-600" id="pages-existing-count">0</div>
+                        <div class="text-sm text-gray-700">⚪ Eksisterende</div>
+                    </div>
+                    <div class="bg-purple-50 rounded-xl p-4 border border-purple-100">
+                        <div class="text-3xl font-bold text-purple-600" id="pages-total-count">0</div>
+                        <div class="text-sm text-purple-700">Total sider</div>
+                    </div>
+                </div>
+
+                <!-- Segment Tabs -->
+                <div class="bg-white rounded-xl border border-gray-200 mb-6">
+                    <div class="flex flex-wrap border-b border-gray-200 px-4">
+                        <button onclick="filterPages('all')" class="page-filter-btn active px-4 py-3 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-purple-600 hover:border-purple-600 transition-all" data-filter="all">
+                            Alle <span class="ml-1 px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs" id="pages-filter-all-count">0</span>
+                        </button>
+                        <button onclick="filterPages('byside')" class="page-filter-btn px-4 py-3 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-purple-600 hover:border-purple-600 transition-all" data-filter="byside">
+                            Bysider <span class="ml-1 px-2 py-0.5 bg-blue-100 text-blue-600 rounded-full text-xs" id="pages-filter-byside-count">0</span>
+                        </button>
+                        <button onclick="filterPages('service')" class="page-filter-btn px-4 py-3 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-purple-600 hover:border-purple-600 transition-all" data-filter="service">
+                            Servicesider <span class="ml-1 px-2 py-0.5 bg-purple-100 text-purple-600 rounded-full text-xs" id="pages-filter-service-count">0</span>
+                        </button>
+                        <button onclick="filterPages('blog')" class="page-filter-btn px-4 py-3 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-purple-600 hover:border-purple-600 transition-all" data-filter="blog">
+                            Blogindlæg <span class="ml-1 px-2 py-0.5 bg-green-100 text-green-600 rounded-full text-xs" id="pages-filter-blog-count">0</span>
+                        </button>
+                        <button onclick="filterPages('other')" class="page-filter-btn px-4 py-3 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-purple-600 hover:border-purple-600 transition-all" data-filter="other">
+                            Andre <span class="ml-1 px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs" id="pages-filter-other-count">0</span>
+                        </button>
+                    </div>
+
+                    <!-- Status Filter & Search -->
+                    <div class="p-4 border-b border-gray-100 flex flex-wrap items-center gap-4">
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm text-gray-600">Status:</label>
+                            <select id="pages-status-filter" onchange="filterPages()" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                <option value="all">Alle</option>
+                                <option value="live">🟢 Live</option>
+                                <option value="pending">🟡 Pending</option>
+                                <option value="existing">⚪ Eksisterende</option>
+                            </select>
+                        </div>
+                        <div class="flex-1 max-w-xs">
+                            <input type="text" id="pages-search" placeholder="Søg URL..." class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent" oninput="filterPages()">
+                        </div>
+                    </div>
+
+                    <!-- Pages Table -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="text-left text-sm text-gray-500 border-b border-gray-200 bg-gray-50">
+                                    <th class="px-4 py-3 font-medium">URL</th>
+                                    <th class="px-4 py-3 font-medium">Type</th>
+                                    <th class="px-4 py-3 font-medium text-center">Status</th>
+                                    <th class="px-4 py-3 font-medium">Sidst tjekket</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pages-table-body" class="divide-y divide-gray-100">
+                                <!-- Pages will be loaded via JS -->
+                                <tr>
+                                    <td colspan="4" class="px-4 py-12 text-center text-gray-400 italic">
+                                        Klik "Sync Sitemap" for at hente sider fra websitet
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="p-4 border-t border-gray-100 flex items-center justify-between">
+                        <div class="text-sm text-gray-500">
+                            Viser <span id="pages-showing">0</span> af <span id="pages-total">0</span> sider
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="loadPreviousPage()" id="pages-prev-btn" disabled class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">Forrige</button>
+                            <button onclick="loadNextPage()" id="pages-next-btn" disabled class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">Næste</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Legend -->
+                <div class="bg-gray-50 rounded-xl p-4">
+                    <h4 class="font-medium text-gray-900 mb-3">Farvekoder</h4>
+                    <div class="flex flex-wrap gap-6 text-sm">
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full bg-green-500"></span>
+                            <span class="text-gray-600">🟢 Live - oprettet af os og fundet i sitemap</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full bg-yellow-500"></span>
+                            <span class="text-gray-600">🟡 Pending - eksporteret men ikke i sitemap endnu</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full bg-gray-400"></span>
+                            <span class="text-gray-600">⚪ Eksisterende - kundens egen side</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -1234,6 +1377,9 @@ const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 const clientId = {{ client.id }};
 
 // City data from Django
+// Byside page counts per city (for clients with multiple services/branches)
+const bysideCounts = {{ byside_counts|safe }};
+
 const allCities = [
     {% for region in geographic_regions %}
         {% for city in region.cities.all %}
@@ -1244,11 +1390,37 @@ const allCities = [
             lng: {{ city.longitude|default:"12.5683" }},
             postalCode: "{{ city.postal_code }}",
             isSelected: {% if city.city_name in selected_cities %}true{% else %}false{% endif %},
-            isCreated: {% if city.city_name in created_bysider %}true{% else %}false{% endif %}
+            isCreated: {% if city.city_name in created_bysider %}true{% else %}false{% endif %},
+            bysideCount: bysideCounts["{{ city.city_name|escapejs }}"] || 0
         },
         {% endfor %}
     {% endfor %}
 ];
+
+// Initialize byside indicators in geo-coverage-section
+function initBysideIndicators() {
+    document.querySelectorAll('.city-coverage-item').forEach(item => {
+        const cityName = item.dataset.city;
+        const count = bysideCounts[cityName] || 0;
+        const indicator = item.querySelector('.byside-indicator');
+        const countSpan = item.querySelector('.byside-count');
+
+        if (count > 0) {
+            // Has byside pages - show green dot
+            indicator.classList.remove('bg-gray-300');
+            indicator.classList.add('bg-green-500');
+
+            // Show count if more than 1
+            if (count > 1) {
+                countSpan.textContent = `(${count})`;
+                countSpan.classList.remove('hidden');
+            }
+        }
+    });
+}
+
+// Run on page load
+document.addEventListener('DOMContentLoaded', initBysideIndicators);
 
 // =====================================================
 // LEAFLET MAP - DAWA Postal Code Polygons
@@ -1557,10 +1729,14 @@ function createGeoJsonLayer(postalData) {
                 layer.setStyle(getPolygonStyle(nr, true));
                 layer.bringToFront();
 
-                // Show tooltip
+                // Show tooltip with byside count
                 var displayName = feature.properties.displayName || feature.properties.navn;
                 var status = getCityStatus(nr);
-                var statusText = status === 'created' ? 'Oprettet' : status === 'missing' ? 'Mangler' : 'Ikke valgt';
+                var city = allCities.find(c => c.postalCode === nr);
+                var bysideCount = city ? city.bysideCount : 0;
+                var statusText = status === 'created'
+                    ? (bysideCount > 1 ? `${bysideCount} bysider` : 'Oprettet')
+                    : status === 'missing' ? 'Mangler' : 'Ikke valgt';
 
                 layer.bindTooltip(`<strong>${displayName}</strong><br>${nr}<br><span style="color: ${status === 'created' ? '#22c55e' : status === 'missing' ? '#f97316' : '#666'};">${statusText}</span>`, {
                     permanent: false,
@@ -1815,6 +1991,226 @@ function copyClientProfileJson() {
         });
     }
 }
+
+// =====================================================
+// TRACKED PAGES (Sider) SECTION
+// =====================================================
+
+let trackedPages = [];
+let currentPageFilter = 'all';
+let currentStatusFilter = 'all';
+let currentSearchQuery = '';
+let currentPageOffset = 0;
+const pageLimit = 50;
+
+// Sync sitemap to fetch pages from website
+async function syncSitemap() {
+    const btn = document.getElementById('sync-sitemap-btn');
+    const originalContent = btn.innerHTML;
+
+    btn.innerHTML = `
+        <svg class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+        <span>Syncer...</span>
+    `;
+    btn.disabled = true;
+
+    try {
+        const response = await fetch(`/ajax/clients/${clientId}/sync-sitemap/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showToast(`${data.message}. ${data.new_pages} nye, ${data.updated_pages} opdaterede.`);
+            loadTrackedPages();
+        } else {
+            showToast('Fejl: ' + (data.message || 'Kunne ikke synce sitemap'), 'error');
+        }
+    } catch (error) {
+        console.error('Error syncing sitemap:', error);
+        showToast('Fejl ved sync af sitemap', 'error');
+    } finally {
+        btn.innerHTML = originalContent;
+        btn.disabled = false;
+    }
+}
+
+// Load tracked pages from API
+async function loadTrackedPages() {
+    try {
+        const params = new URLSearchParams({
+            type: currentPageFilter,
+            status: currentStatusFilter,
+            search: currentSearchQuery,
+            offset: currentPageOffset,
+            limit: pageLimit
+        });
+
+        const response = await fetch(`/ajax/clients/${clientId}/tracked-pages/?${params}`);
+        const data = await response.json();
+
+        if (data.success) {
+            trackedPages = data.pages;
+            updatePageStats(data.stats.by_status, data.stats.total);
+            updatePageTypeCounts(data.stats.by_type, data.stats.total);
+            renderPagesTable();
+            updatePagination(data.stats.total, currentPageOffset);
+        } else {
+            showToast('Fejl ved hentning af sider', 'error');
+        }
+    } catch (error) {
+        console.error('Error loading tracked pages:', error);
+    }
+}
+
+// Update stats cards
+function updatePageStats(statusCounts, total) {
+    document.getElementById('pages-live-count').textContent = statusCounts.live || 0;
+    document.getElementById('pages-pending-count').textContent = statusCounts.pending || 0;
+    document.getElementById('pages-existing-count').textContent = statusCounts.existing || 0;
+    document.getElementById('pages-total-count').textContent = total || 0;
+}
+
+// Update filter tab counts
+function updatePageTypeCounts(typeCounts, total) {
+    document.getElementById('pages-filter-all-count').textContent = total || 0;
+    document.getElementById('pages-filter-byside-count').textContent = typeCounts.byside || 0;
+    document.getElementById('pages-filter-service-count').textContent = typeCounts.service || 0;
+    document.getElementById('pages-filter-blog-count').textContent = typeCounts.blog || 0;
+    document.getElementById('pages-filter-other-count').textContent = typeCounts.other || 0;
+}
+
+// Render pages table
+function renderPagesTable() {
+    const tbody = document.getElementById('pages-table-body');
+
+    if (trackedPages.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="4" class="px-4 py-12 text-center text-gray-400 italic">
+                    ${currentPageFilter === 'all' && currentStatusFilter === 'all' && !currentSearchQuery
+                        ? 'Klik "Sync Sitemap" for at hente sider fra websitet'
+                        : 'Ingen sider matcher filteret'}
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    const typeLabels = {
+        'byside': { text: 'Byside', class: 'bg-blue-100 text-blue-700' },
+        'service': { text: 'Service', class: 'bg-purple-100 text-purple-700' },
+        'blog': { text: 'Blog', class: 'bg-green-100 text-green-700' },
+        'other': { text: 'Andre', class: 'bg-gray-100 text-gray-700' }
+    };
+
+    const statusBadges = {
+        'live': { text: 'Live', class: 'bg-green-100 text-green-700', dot: 'bg-green-500' },
+        'pending': { text: 'Pending', class: 'bg-yellow-100 text-yellow-700', dot: 'bg-yellow-500' },
+        'existing': { text: 'Eksisterende', class: 'bg-gray-100 text-gray-600', dot: 'bg-gray-400' }
+    };
+
+    tbody.innerHTML = trackedPages.map(page => {
+        const type = typeLabels[page.page_type] || typeLabels['other'];
+        const status = statusBadges[page.status] || statusBadges['existing'];
+        const lastChecked = page.last_checked_at
+            ? new Date(page.last_checked_at).toLocaleDateString('da-DK')
+            : '-';
+
+        return `
+            <tr class="hover:bg-gray-50 transition-colors">
+                <td class="px-4 py-3">
+                    <a href="${page.full_url || '#'}" target="_blank" class="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium">
+                        ${page.url_path}
+                    </a>
+                </td>
+                <td class="px-4 py-3">
+                    <span class="px-2 py-1 ${type.class} text-xs font-medium rounded-full">${type.text}</span>
+                </td>
+                <td class="px-4 py-3 text-center">
+                    <span class="inline-flex items-center gap-1.5 px-2 py-1 ${status.class} text-xs font-medium rounded-full">
+                        <span class="w-2 h-2 rounded-full ${status.dot}"></span>
+                        ${status.text}
+                    </span>
+                </td>
+                <td class="px-4 py-3 text-sm text-gray-500">${lastChecked}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// Filter pages by type
+function filterPages(pageType) {
+    if (pageType && pageType !== currentPageFilter) {
+        currentPageFilter = pageType;
+        currentPageOffset = 0;
+
+        // Update active filter button
+        document.querySelectorAll('.page-filter-btn').forEach(btn => {
+            if (btn.dataset.filter === pageType) {
+                btn.classList.add('active', 'border-purple-600', 'text-purple-600');
+            } else {
+                btn.classList.remove('active', 'border-purple-600', 'text-purple-600');
+            }
+        });
+    }
+
+    // Get status filter
+    currentStatusFilter = document.getElementById('pages-status-filter').value;
+
+    // Get search query
+    currentSearchQuery = document.getElementById('pages-search').value.trim();
+
+    loadTrackedPages();
+}
+
+// Update pagination
+function updatePagination(total, offset) {
+    const showing = Math.min(offset + trackedPages.length, total);
+    document.getElementById('pages-showing').textContent = trackedPages.length > 0 ? `${offset + 1}-${showing}` : '0';
+    document.getElementById('pages-total').textContent = total;
+
+    document.getElementById('pages-prev-btn').disabled = offset === 0;
+    document.getElementById('pages-next-btn').disabled = offset + pageLimit >= total;
+}
+
+// Pagination handlers
+function loadPreviousPage() {
+    if (currentPageOffset >= pageLimit) {
+        currentPageOffset -= pageLimit;
+        loadTrackedPages();
+    }
+}
+
+function loadNextPage() {
+    currentPageOffset += pageLimit;
+    loadTrackedPages();
+}
+
+// Load pages when switching to pages tab
+document.addEventListener('DOMContentLoaded', function() {
+    // Only load pages if section is shown
+    const pagesSection = document.getElementById('section-pages');
+    if (pagesSection && !pagesSection.classList.contains('hidden')) {
+        loadTrackedPages();
+    }
+});
+
+// Also load when tab is clicked
+const originalShowSection = window.showSection;
+window.showSection = function(sectionId) {
+    originalShowSection(sectionId);
+    if (sectionId === 'pages' && trackedPages.length === 0) {
+        loadTrackedPages();
+    }
+};
 
 // =====================================================
 // EDIT FUNCTIONALITY - Virksomhed section
@@ -3035,19 +3431,28 @@ function populateCityList(filter) {
         );
     }
 
-    container.innerHTML = cities.map(city => `
+    container.innerHTML = cities.map(city => {
+        const count = city.bysideCount || 0;
+        const badgeText = city.isCreated
+            ? (count > 1 ? `${count} sider` : 'Oprettet')
+            : 'Mangler';
+
+        return `
         <div class="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer" onclick="focusCity('${city.postalCode}')">
             <div class="flex items-center justify-between">
-                <div>
-                    <div class="font-medium text-gray-900">${city.name}</div>
-                    <div class="text-xs text-gray-500">${city.postalCode} · ${city.region}</div>
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full flex-shrink-0 ${city.isCreated ? 'bg-green-500' : 'bg-gray-300'}"></span>
+                    <div>
+                        <div class="font-medium text-gray-900">${city.name}</div>
+                        <div class="text-xs text-gray-500">${city.postalCode} · ${city.region}</div>
+                    </div>
                 </div>
                 <span class="px-2 py-1 text-xs font-medium rounded-full ${city.isCreated ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}">
-                    ${city.isCreated ? 'Oprettet' : 'Mangler'}
+                    ${badgeText}
                 </span>
             </div>
         </div>
-    `).join('');
+    `}).join('');
 
     if (cities.length === 0) {
         container.innerHTML = '<p class="text-gray-400 text-center py-8">Ingen byer fundet</p>';

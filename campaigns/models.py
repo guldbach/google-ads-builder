@@ -1729,3 +1729,117 @@ class SchemaMarkupTemplate(models.Model):
             placeholder = "{" + key.upper() + "}"
             result = result.replace(placeholder, str(value))
         return result
+
+
+class TrackedPage(models.Model):
+    """
+    Tracker alle sider på kundens website + sider vi har lavet.
+    Bruges til smart re-crawling og side-oversigt.
+    """
+    PAGE_TYPE_CHOICES = [
+        ('byside', 'Byside'),
+        ('service', 'Serviceside'),
+        ('blog', 'Blogindlæg'),
+        ('other', 'Andre sider'),
+    ]
+
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name='tracked_pages'
+    )
+    url_path = models.CharField(
+        max_length=500,
+        help_text="URL path, e.g. /elektriker-kobenhavn/"
+    )
+    full_url = models.URLField(blank=True)
+
+    # Status tracking
+    created_by_us = models.BooleanField(
+        default=False,
+        help_text="Oprettet/exporteret af os"
+    )
+    found_in_sitemap = models.BooleanField(
+        default=False,
+        help_text="Fundet ved sitemap crawl"
+    )
+
+    # Page type (auto-detected)
+    page_type = models.CharField(
+        max_length=20,
+        choices=PAGE_TYPE_CHOICES,
+        default='service'
+    )
+
+    # Modification tracking (HTTP headers)
+    last_modified_header = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Last-Modified header fra HTTP response"
+    )
+    etag = models.CharField(max_length=500, blank=True)
+    content_hash = models.CharField(
+        max_length=64,
+        blank=True,
+        help_text="SHA256 hash af side-indhold"
+    )
+
+    # Timestamps
+    first_discovered_at = models.DateTimeField(auto_now_add=True)
+    last_crawled_at = models.DateTimeField(null=True, blank=True)
+    last_checked_at = models.DateTimeField(null=True, blank=True)
+    exported_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Hvornår siden blev exporteret fra Campaign Builder"
+    )
+
+    # Cached content
+    meta_title = models.CharField(max_length=500, blank=True)
+    meta_description = models.TextField(blank=True)
+
+    class Meta:
+        unique_together = ['client', 'url_path']
+        ordering = ['-last_crawled_at']
+        verbose_name = "Tracked Page"
+        verbose_name_plural = "Tracked Pages"
+
+    def __str__(self):
+        return f"{self.client.name} - {self.url_path}"
+
+    @property
+    def status(self):
+        """Returner status: live, pending, eller existing"""
+        if self.created_by_us:
+            return 'live' if self.found_in_sitemap else 'pending'
+        return 'existing'
+
+    @property
+    def status_color(self):
+        """Returner CSS farve klasse for status"""
+        if self.created_by_us and self.found_in_sitemap:
+            return 'green'  # 🟢 Live - oprettet af os og i sitemap
+        elif self.created_by_us:
+            return 'yellow'  # 🟡 Pending - exporteret men ikke i sitemap endnu
+        else:
+            return 'gray'  # ⚪ Eksisterende på website
+
+    @property
+    def status_label(self):
+        """Returner dansk label for status"""
+        if self.created_by_us and self.found_in_sitemap:
+            return 'Live'
+        elif self.created_by_us:
+            return 'Pending'
+        return 'Eksisterende'
+
+    @property
+    def page_type_label(self):
+        """Returner dansk label for side-type"""
+        labels = {
+            'byside': 'Byside',
+            'service': 'Service',
+            'blog': 'Blog',
+            'other': 'Anden',
+        }
+        return labels.get(self.page_type, 'Ukendt')

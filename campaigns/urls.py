@@ -84,6 +84,12 @@ urlpatterns = [
     path('ajax/clients/<int:client_id>/campaign-data/', views.get_client_campaign_data, name='get_client_campaign_data'),
     path('ajax/client/<int:client_id>/update-company-info/', views.update_client_company_info, name='update_client_company_info'),
 
+    # Tracked Pages / Smart Crawler URLs
+    path('ajax/clients/<int:client_id>/sync-sitemap/', views.sync_sitemap_ajax, name='sync_sitemap_ajax'),
+    path('ajax/clients/<int:client_id>/tracked-pages/', views.get_tracked_pages_ajax, name='get_tracked_pages_ajax'),
+    path('ajax/clients/<int:client_id>/check-modifications/', views.check_page_modifications_ajax, name='check_page_modifications_ajax'),
+    path('ajax/clients/<int:client_id>/update-page-status/', views.update_page_status_ajax, name='update_page_status_ajax'),
+
     # Industry Manager AJAX URLs
     path('ajax/get-industry-services/<int:industry_id>/', views.get_industry_services_ajax, name='get_industry_services_ajax'),
     path('ajax/get-service-keywords/<int:service_id>/', views.get_service_keywords_ajax, name='get_service_keywords_ajax'),
