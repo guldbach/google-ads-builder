@@ -21,7 +21,8 @@ from .geographic_views import (
     delete_danish_city_ajax, update_danish_city_ajax, delete_geographic_region_ajax,
     edit_geographic_region_ajax, download_danish_cities_template, import_danish_cities_excel,
     analyze_excel_import_cities, execute_excel_import_cities, suggest_postal_code_ajax,
-    generate_negative_city_list, get_negative_city_count
+    generate_negative_city_list, get_negative_city_count,
+    suggest_secondary_cities_ajax, add_secondary_cities_ajax
 )
 from usps.models import USPTemplate, ClientUSP, USPMainCategory
 from crawler.tasks import crawl_client_website
@@ -6122,13 +6123,26 @@ def client_detail(request, client_id):
     extracted_reviews = crawl_state.get('extracted_reviews', [])
 
     # Build cities comparison data
-    # Get all cities from selected regions
+    # Get all cities from selected regions (both primary and secondary)
+    from .models import SecondaryCityMapping
+
     selected_cities = set()
+    primary_cities = set()  # Track which are primary for UI distinction
+
     if selected_region_ids:
         for region in geographic_regions:
             if region.id in selected_region_ids:
                 for city in region.cities.all():
                     selected_cities.add(city.city_name)
+                    primary_cities.add(city.city_name)
+
+        # Add secondary cities mapped to primary cities
+        if primary_cities:
+            secondary_mappings = SecondaryCityMapping.objects.filter(
+                primary_city__in=primary_cities
+            )
+            for mapping in secondary_mappings:
+                selected_cities.add(mapping.secondary_city)
 
     # Get cities that already have campaigns/bysider created
     # Also count how many byside pages exist per city (for clients with multiple services/branches)
@@ -6146,11 +6160,11 @@ def client_detail(request, client_id):
     # Method 2: Detect byside pages from seo_pages URLs
     # This catches cases where the website has city pages but byside_urls wasn't populated
     seo_pages = campaign_config.get('seo_pages', {})
+    city_slug_map = {}  # Initialize here so it's available for Method 3
     if seo_pages and selected_cities:
         from .geo_utils import DanishSlugGenerator
 
         # Create a mapping of slug -> city_name for faster lookup
-        city_slug_map = {}
         for city in selected_cities:
             slug = DanishSlugGenerator.slugify(city)
             city_slug_map[slug] = city
@@ -6166,6 +6180,31 @@ def client_detail(request, client_id):
                     created_bysider.add(city_name)
                     byside_counts[city_name] = byside_counts.get(city_name, 0) + 1
                     break  # Only count each URL once per city
+
+    # Method 3: Check TrackedPages from sitemap sync
+    # This catches pages discovered via sitemap crawling
+    from .models import TrackedPage
+    tracked_pages = TrackedPage.objects.filter(client=client, page_type='byside', found_in_sitemap=True)
+    if tracked_pages.exists() and selected_cities:
+        from .geo_utils import DanishSlugGenerator
+
+        # Create a mapping of slug -> city_name for faster lookup (if not already created)
+        if not city_slug_map:
+            city_slug_map = {}
+            for city in selected_cities:
+                slug = DanishSlugGenerator.slugify(city)
+                city_slug_map[slug] = city
+                city_slug_map[slug.replace('-', '')] = city
+
+        for page in tracked_pages:
+            url_path_lower = page.url_path.lower()
+            for slug, city_name in city_slug_map.items():
+                if slug in url_path_lower:
+                    created_bysider.add(city_name)
+                    # Only add if not already counted from other sources
+                    if city_name not in byside_counts:
+                        byside_counts[city_name] = 1
+                    break
 
     # Format company profile as pretty JSON for display
     if company_info.get('profile'):
@@ -6193,6 +6232,7 @@ def client_detail(request, client_id):
         'custom_usps': custom_usps,
         'detected_usps': detected_usps,
         'selected_cities': list(selected_cities),
+        'primary_cities': list(primary_cities),
         'created_bysider': list(created_bysider),
         'byside_urls': byside_urls,
         'byside_counts': json.dumps(byside_counts),

@@ -172,7 +172,7 @@
                 <div>
                     <h1 class="text-4xl font-bold text-gray-900 mb-2">{{ client.name }}</h1>
                     {% if client.website_url %}
-                    <a href="{{ client.website_url }}" target="_blank" class="text-blue-600 hover:text-blue-800 text-lg flex items-center space-x-2">
+                    <a href="{% if 'http' in client.website_url %}{{ client.website_url }}{% else %}https://{{ client.website_url }}{% endif %}" target="_blank" class="text-blue-600 hover:text-blue-800 text-lg flex items-center space-x-2">
                         <span>{{ client.website_url }}</span>
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
@@ -531,7 +531,7 @@
                         <div id="geo-coverage-content" class="mt-2 hidden">
                             <div class="bg-white rounded-lg p-4 border border-gray-200">
                                 <!-- Legend -->
-                                <div class="flex items-center gap-4 mb-3 text-xs text-gray-500 border-b border-gray-100 pb-2">
+                                <div class="flex flex-wrap items-center gap-4 mb-3 text-xs text-gray-500 border-b border-gray-100 pb-2">
                                     <span class="flex items-center gap-1">
                                         <span class="w-2 h-2 rounded-full bg-green-500"></span>
                                         Har byside
@@ -540,15 +540,46 @@
                                         <span class="w-2 h-2 rounded-full bg-gray-300"></span>
                                         Ingen byside
                                     </span>
+                                    <span class="flex items-center gap-1">
+                                        <span class="w-2 h-2 rounded-full bg-yellow-500"></span>
+                                        I sitemap, ikke i dækning
+                                    </span>
+                                    <!-- Filter toggle -->
+                                    <div class="inline-flex items-center gap-2 ml-auto">
+                                        <span class="text-xs text-gray-500">Sekundære byer</span>
+                                        <label for="show-secondary-cities" style="position: relative; display: inline-block; width: 44px; height: 24px; cursor: pointer;">
+                                            <input type="checkbox" id="show-secondary-cities" style="opacity: 0; width: 0; height: 0;" onchange="filterSecondaryCities()">
+                                            <span id="toggle-track" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; border-radius: 24px; transition: background-color 0.2s;"></span>
+                                            <span id="toggle-knob" style="position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; background-color: white; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: transform 0.2s;"></span>
+                                        </label>
+                                        <span id="secondary-city-count" class="text-xs text-gray-400 tabular-nums"></span>
+                                    </div>
                                 </div>
                                 <div class="grid grid-cols-3 gap-x-4 gap-y-1 text-sm text-gray-600">
                                     {% for city in selected_cities %}
-                                    <span class="flex items-center gap-1 city-coverage-item" data-city="{{ city }}">
+                                    <span class="flex items-center gap-1 city-coverage-item" data-city="{{ city }}" data-is-primary="{% if city in primary_cities %}true{% else %}false{% endif %}">
                                         <span class="byside-indicator w-2 h-2 rounded-full bg-gray-300 flex-shrink-0"></span>
                                         <span class="city-name">{{ city }}</span>
                                         <span class="byside-count text-xs text-green-600 font-medium hidden"></span>
                                     </span>
                                     {% endfor %}
+                                </div>
+                            </div>
+
+                            <!-- Suggested cities from sitemap (not in geo coverage) -->
+                            <div id="suggested-cities-container" class="mt-3 hidden">
+                                <div class="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+                                    <div class="flex items-center gap-2 mb-3 text-sm font-medium text-yellow-800">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                                        </svg>
+                                        <span>Byer i sitemap - ikke i geografisk dækning</span>
+                                        <span id="suggested-cities-count" class="ml-auto px-2 py-0.5 bg-yellow-200 text-yellow-800 rounded-full text-xs font-bold">0</span>
+                                    </div>
+                                    <p class="text-xs text-yellow-700 mb-3">Disse byer har bysider på websitet, men er ikke valgt i geografisk dækning. Overvej at tilføje dem.</p>
+                                    <div id="suggested-cities-list" class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                        <!-- Populated by JavaScript -->
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1422,6 +1453,193 @@ function initBysideIndicators() {
 // Run on page load
 document.addEventListener('DOMContentLoaded', initBysideIndicators);
 
+// Filter secondary cities in coverage grid
+function filterSecondaryCities() {
+    const showSecondary = document.getElementById('show-secondary-cities');
+    if (!showSecondary) return;
+
+    const showSecondaryChecked = showSecondary.checked;
+
+    // Update toggle visuals
+    const track = document.getElementById('toggle-track');
+    const knob = document.getElementById('toggle-knob');
+    if (track && knob) {
+        if (showSecondaryChecked) {
+            track.style.background = 'linear-gradient(to right, #a855f7, #ec4899)';
+            knob.style.transform = 'translateX(20px)';
+        } else {
+            track.style.background = '#d1d5db';
+            knob.style.transform = 'translateX(0)';
+        }
+    }
+
+    document.querySelectorAll('.city-coverage-item').forEach(item => {
+        const isPrimary = item.dataset.isPrimary === 'true';
+        const indicator = item.querySelector('.byside-indicator');
+        const hasByside = indicator && indicator.classList.contains('bg-green-500');
+
+        // Show if: primary city OR (toggle is ON) OR (secondary with green dot)
+        if (isPrimary || showSecondaryChecked || hasByside) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+
+    updateCityCount();
+}
+
+// Update displayed city count in header
+function updateCityCount() {
+    const total = document.querySelectorAll('.city-coverage-item').length;
+    const visible = document.querySelectorAll('.city-coverage-item:not([style*="display: none"])').length;
+    const secondary = document.querySelectorAll('.city-coverage-item[data-is-primary="false"]').length;
+
+    // Update header count
+    const headerCount = document.querySelector('#toggle-geo-coverage .text-xs');
+    if (headerCount) {
+        headerCount.textContent = `${visible} byer`;
+    }
+
+    // Update secondary count next to toggle
+    const secondaryCount = document.getElementById('secondary-city-count');
+    if (secondaryCount) {
+        secondaryCount.textContent = `(+${secondary})`;
+    }
+}
+
+// Initialize filter on page load (default: hide secondary)
+document.addEventListener('DOMContentLoaded', function() {
+    // Run after initBysideIndicators
+    setTimeout(filterSecondaryCities, 100);
+});
+
+// Extract city slug from various URL patterns
+function extractCitySlugFromUrl(urlPath) {
+    const path = urlPath.toLowerCase().replace(/^\/|\/$/g, '');
+
+    // Pattern 1: /service-i-city/ (with -i-)
+    let match = path.match(/^[a-z]+-i-(.+)$/);
+    if (match) return match[1];
+
+    // Pattern 2: /service-city/ (standard)
+    match = path.match(/^[a-z]+-(.+)$/);
+    if (match) return match[1];
+
+    return null;
+}
+
+// Update byside indicators from tracked pages data (called after sitemap sync)
+function updateBysideIndicatorsFromPages() {
+    // Check if trackedPages is available
+    if (typeof trackedPages === 'undefined' || !Array.isArray(trackedPages)) {
+        console.log('trackedPages not available yet');
+        return;
+    }
+
+    // Get byside pages from trackedPages global variable
+    const bysidePages = trackedPages.filter(p => p.page_type === 'byside');
+
+    if (bysidePages.length === 0) return;
+
+    // Build a set of city slugs that have byside pages
+    const bysideSlugs = new Set();
+    bysidePages.forEach(page => {
+        const citySlug = extractCitySlugFromUrl(page.url_path);
+        if (citySlug) {
+            bysideSlugs.add(citySlug);
+        }
+    });
+
+    // Update indicators
+    document.querySelectorAll('.city-coverage-item').forEach(item => {
+        const cityName = item.dataset.city;
+        const indicator = item.querySelector('.byside-indicator');
+
+        // Create slug from city name (simple Danish slug)
+        const citySlug = cityName.toLowerCase()
+            .replace(/æ/g, 'ae')
+            .replace(/ø/g, 'oe')
+            .replace(/å/g, 'aa')
+            .replace(/\s+/g, '-')
+            .replace(/[^a-z0-9-]/g, '');
+
+        // Check if this city has a byside page
+        if (bysideSlugs.has(citySlug)) {
+            indicator.classList.remove('bg-gray-300');
+            indicator.classList.add('bg-green-500');
+        }
+    });
+}
+
+// Update indicators directly from sync result data (more accurate)
+function updateBysideIndicatorsFromSyncResult(bysideCities) {
+    if (!bysideCities || !Array.isArray(bysideCities)) return;
+
+    // Build a set of primary city slugs that have byside pages
+    // Use matched_primary_slug if available (for secondary cities), otherwise city_slug
+    const matchedPrimarySlugs = new Set();
+    bysideCities.forEach(c => {
+        if (c.matched_primary_slug) {
+            matchedPrimarySlugs.add(c.matched_primary_slug);
+        } else {
+            matchedPrimarySlugs.add(c.city_slug);
+        }
+    });
+
+    // Update indicators
+    document.querySelectorAll('.city-coverage-item').forEach(item => {
+        const cityName = item.dataset.city;
+        const indicator = item.querySelector('.byside-indicator');
+
+        // Create slug from city name (this is the primary city slug)
+        const citySlug = cityName.toLowerCase()
+            .replace(/æ/g, 'ae')
+            .replace(/ø/g, 'oe')
+            .replace(/å/g, 'aa')
+            .replace(/\s+/g, '-')
+            .replace(/[^a-z0-9-]/g, '');
+
+        // Check if this primary city has a byside page (directly or via secondary city)
+        if (matchedPrimarySlugs.has(citySlug)) {
+            indicator.classList.remove('bg-gray-300');
+            indicator.classList.add('bg-green-500');
+        }
+    });
+}
+
+// Show suggested cities that have pages but are not in geo coverage
+function showSuggestedCities(suggestedCities) {
+    const container = document.getElementById('suggested-cities-container');
+    if (!container) return;
+
+    if (!suggestedCities || suggestedCities.length === 0) {
+        container.classList.add('hidden');
+        return;
+    }
+
+    container.classList.remove('hidden');
+
+    const listElement = document.getElementById('suggested-cities-list');
+    if (!listElement) return;
+
+    listElement.innerHTML = suggestedCities.map(city => `
+        <a href="${city.full_url}" target="_blank" class="flex items-center gap-2 px-2 py-1 bg-yellow-50 border border-yellow-200 rounded hover:bg-yellow-100 transition-colors text-sm">
+            <span class="w-2 h-2 rounded-full bg-yellow-500 flex-shrink-0"></span>
+            <span class="text-gray-700">${city.city_name}</span>
+            <svg class="w-3 h-3 text-gray-400 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+            </svg>
+        </a>
+    `).join('');
+
+    // Update count badge
+    const countBadge = document.getElementById('suggested-cities-count');
+    if (countBadge) {
+        countBadge.textContent = suggestedCities.length;
+    }
+}
+
 // =====================================================
 // LEAFLET MAP - DAWA Postal Code Polygons
 // =====================================================
@@ -2028,8 +2246,21 @@ async function syncSitemap() {
         const data = await response.json();
 
         if (data.success) {
-            showToast(`${data.message}. ${data.new_pages} nye, ${data.updated_pages} opdaterede.`);
+            const bysideMsg = data.byside_count ? ` (${data.byside_count} bysider)` : '';
+            showToast(`${data.message}${bysideMsg}. ${data.new_pages} nye, ${data.updated_pages} opdaterede.`);
             loadTrackedPages();
+
+            // Update byside indicators with fresh data from sync
+            if (data.byside_cities) {
+                updateBysideIndicatorsFromSyncResult(data.byside_cities);
+                // Re-apply filter to show secondary cities that now have green dots
+                filterSecondaryCities();
+            }
+
+            // Show suggested cities (in sitemap but not in geo coverage)
+            if (data.suggested_cities) {
+                showSuggestedCities(data.suggested_cities);
+            }
         } else {
             showToast('Fejl: ' + (data.message || 'Kunne ikke synce sitemap'), 'error');
         }
