@@ -1039,6 +1039,20 @@
                             <span class="text-purple-700 text-sm font-medium">Credits:</span>
                             <span class="font-bold text-purple-800 text-lg" id="credits-count">0</span>
                         </div>
+                        <!-- Sekundære byer toggle -->
+                        <div class="inline-flex items-center gap-2">
+                            <span class="text-gray-500">Sekundære byer</span>
+                            <label for="show-secondary-cities"
+                                   style="position: relative; display: inline-block; width: 44px; height: 24px; cursor: pointer;"
+                                   onclick="toggleSecondaryCities(event)">
+                                <input type="checkbox" id="show-secondary-cities"
+                                       style="position: absolute; opacity: 0; width: 100%; height: 100%; cursor: pointer; z-index: 10;"
+                                       onchange="filterSecondaryCities()">
+                                <span id="cb-toggle-track" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #d1d5db; border-radius: 24px; transition: background-color 0.2s; pointer-events: none;"></span>
+                                <span id="cb-toggle-knob" style="position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; background-color: white; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: transform 0.2s; pointer-events: none;"></span>
+                            </label>
+                            <span id="secondary-city-count" class="text-gray-400 tabular-nums" style="min-width: 160px;"></span>
+                        </div>
                     </div>
                 </div>
 
@@ -1089,44 +1103,37 @@
                         </div>
                     </div>
 
-                    <!-- City Coverage Grid med dots -->
-                    <div class="mt-6 pt-6 border-t border-gray-200">
-                        <div class="flex items-center justify-between mb-4">
-                            <h4 class="font-semibold text-gray-800 flex items-center">
-                                <svg class="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <!-- City Coverage Grid med dots - Collapsible -->
+                    <div id="city-coverage-section" class="mt-6 pt-6 border-t border-gray-200">
+                        <button type="button" id="toggle-city-coverage" class="w-full flex items-center justify-between px-4 py-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors" onclick="toggleCityCoverage()">
+                            <span class="flex items-center text-sm font-medium text-gray-700">
+                                <svg class="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
                                 </svg>
                                 By-oversigt
-                            </h4>
-                            <!-- Legend -->
-                            <div class="flex items-center gap-4 text-xs text-gray-500">
-                                <span class="flex items-center gap-1">
-                                    <span class="w-2 h-2 rounded-full bg-green-500"></span>
-                                    Har byside
-                                </span>
-                                <span class="flex items-center gap-1">
-                                    <span class="w-2 h-2 rounded-full bg-gray-300"></span>
-                                    Ingen byside
-                                </span>
-
-                                <!-- Filter toggle -->
-                                <div class="inline-flex items-center gap-2 ml-auto">
-                                    <span class="text-gray-500">Sekundære byer</span>
-                                    <label for="show-secondary-cities"
-                                           style="position: relative; display: inline-block; width: 44px; height: 24px; cursor: pointer;"
-                                           onclick="toggleSecondaryCities(event)">
-                                        <input type="checkbox" id="show-secondary-cities"
-                                               style="position: absolute; opacity: 0; width: 100%; height: 100%; cursor: pointer; z-index: 10;"
-                                               onchange="filterSecondaryCities()">
-                                        <span id="cb-toggle-track" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #d1d5db; border-radius: 24px; transition: background-color 0.2s; pointer-events: none;"></span>
-                                        <span id="cb-toggle-knob" style="position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; background-color: white; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: transform 0.2s; pointer-events: none;"></span>
-                                    </label>
-                                    <span id="secondary-city-count" class="text-gray-400 tabular-nums"></span>
+                                <span id="city-coverage-count" class="ml-2 text-xs text-gray-500">0 byer</span>
+                            </span>
+                            <svg id="city-coverage-toggle-icon" class="w-5 h-5 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        <div id="city-coverage-content" class="mt-2 hidden">
+                            <div class="bg-white rounded-lg p-4 border border-gray-200">
+                                <!-- Legend -->
+                                <div class="flex flex-wrap items-center gap-4 mb-3 text-xs text-gray-500 border-b border-gray-100 pb-2">
+                                    <span class="flex items-center gap-1">
+                                        <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                                        Har byside
+                                    </span>
+                                    <span class="flex items-center gap-1">
+                                        <span class="w-2 h-2 rounded-full bg-gray-300"></span>
+                                        Ingen byside
+                                    </span>
+                                </div>
+                                <div id="city-coverage-grid" class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-1 text-sm text-gray-600">
+                                    <!-- Dynamisk genereret af JavaScript -->
                                 </div>
                             </div>
-                        </div>
-                        <div id="city-coverage-grid" class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-1 text-sm text-gray-600 bg-white rounded-lg p-4 border border-gray-200">
-                            <!-- Dynamisk genereret af JavaScript -->
                         </div>
                     </div>
                 </div>
@@ -10383,14 +10390,12 @@ var geoCircles = [];  // Array of Leaflet circles (for optional circle mode)
 var geoCircleDrawing = null;  // Current circle being drawn
 var geoPostalCustomizations = {};  // Customizations from PostalCode Manager
 
-// Color scheme for different selection sources
+// Color scheme for geo map (simplified: only byside status matters)
 var GEO_COLORS = {
-    region: { fill: '#3B82F6', stroke: '#2563EB' },    // Blue - from region selection
-    typed: { fill: '#10B981', stroke: '#059669' },     // Green - manually typed
-    clicked: { fill: '#8B5CF6', stroke: '#7C3AED' },   // Purple - clicked on map
-    circle: { fill: '#F59E0B', stroke: '#D97706' },    // Orange - circle mode
+    existing: { fill: '#22c55e', stroke: '#16a34a' },  // Green - byside exists
+    selected: { fill: '#444444', stroke: '#333333' },  // Gray - selected, no byside
     hover: { fill: '#6366F1', stroke: '#4F46E5' },     // Indigo - hover state
-    default: { fill: '#E5E7EB', stroke: '#9CA3AF' }    // Gray - unselected
+    default: { fill: '#E5E7EB', stroke: '#9CA3AF' }    // Light gray - unselected
 };
 
 // Load PostalCode customizations from database
@@ -10747,6 +10752,16 @@ function refreshAllPolygonStyles() {
     console.log('Refreshed polygon styles for', selectedCount, 'selected postal codes');
 }
 
+// Check if a byside exists for a given city name
+function checkBysideExists(cityName) {
+    // Check in programmaticState.city_matches first, then crawlState.city_matches
+    var matches = programmaticState.city_matches || crawlState.city_matches || [];
+    var match = matches.find(function(m) {
+        return m.city === cityName || m.postal_code === cityName;
+    });
+    return match && match.status === 'existing';
+}
+
 // Get style for a postal code polygon
 function getPolygonStyle(feature) {
     var nr = feature.properties.nr;
@@ -10766,10 +10781,15 @@ function getPolygonStyle(feature) {
     }
 
     if (selected) {
-        var colors = GEO_COLORS[selected.source] || GEO_COLORS.clicked;
+        // Determine color based on byside existence, not selection source
+        var postal = geoPostalData[nr];
+        var cityName = postal ? (postal.displayName || postal.navn) : nr;
+        var hasByside = checkBysideExists(cityName);
+        var colors = hasByside ? GEO_COLORS.existing : GEO_COLORS.selected;
+
         return {
             fillColor: colors.fill,
-            fillOpacity: 0.4,
+            fillOpacity: 0.5,
             color: colors.stroke,
             weight: 2,
             opacity: 0.8
@@ -11328,6 +11348,121 @@ function updateGeoSelectionDisplay() {
 
     // Sync region selection state with actual postal code selections
     syncRegionSelectionState();
+
+    // Update city list
+    populateGeoCityList();
+}
+
+// Current filter for geo city list
+var currentGeoCityFilter = 'all';
+
+// Populate the city list in geo modal
+function populateGeoCityList(filter) {
+    if (filter) currentGeoCityFilter = filter;
+
+    var container = document.getElementById('geo-city-list');
+    if (!container) return;
+
+    var searchQuery = $('#geo-city-search').val() ? $('#geo-city-search').val().toLowerCase() : '';
+
+    // Build list of selected cities
+    var cities = [];
+
+    // Add cities from tracked city names
+    geoSelectedCityNames.forEach(function(city) {
+        if (!cities.find(c => c.name === city.name)) {
+            var isCreated = checkBysideExists(city.name);
+            cities.push({
+                name: city.name,
+                postalCode: city.postalCode || 'MULTI',
+                isCreated: isCreated
+            });
+        }
+    });
+
+    // Also add directly selected postal codes not from regions
+    for (var nr in geoSelectedPostals) {
+        var selection = geoSelectedPostals[nr];
+        if (selection.regionIds && selection.regionIds.length > 0) continue;
+        if (selection.regionId) continue;
+
+        var postal = geoPostalData[nr];
+        if (postal) {
+            var displayName = getPostalDisplayName(nr);
+            if (!cities.find(c => c.name === displayName)) {
+                var isCreated = checkBysideExists(displayName);
+                cities.push({
+                    name: displayName,
+                    postalCode: nr,
+                    isCreated: isCreated
+                });
+            }
+        }
+    }
+
+    // Apply filter
+    if (currentGeoCityFilter === 'created') {
+        cities = cities.filter(c => c.isCreated);
+    } else if (currentGeoCityFilter === 'missing') {
+        cities = cities.filter(c => !c.isCreated);
+    }
+
+    // Apply search
+    if (searchQuery) {
+        cities = cities.filter(c =>
+            c.name.toLowerCase().includes(searchQuery) ||
+            c.postalCode.toLowerCase().includes(searchQuery)
+        );
+    }
+
+    // Sort by name
+    cities.sort((a, b) => a.name.localeCompare(b.name, 'da'));
+
+    // Render
+    container.innerHTML = cities.map(city => {
+        var showPostalCode = city.postalCode && city.postalCode !== 'MULTI';
+        return `
+        <div class="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer" onclick="focusGeoCity('${city.postalCode}')">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full flex-shrink-0 ${city.isCreated ? 'bg-green-500' : 'bg-gray-300'}"></span>
+                    <div class="font-medium text-gray-900 text-sm">${city.name}</div>
+                </div>
+                ${showPostalCode ? `<span class="text-sm text-gray-500">${city.postalCode}</span>` : ''}
+            </div>
+        </div>
+    `}).join('');
+
+    if (cities.length === 0) {
+        container.innerHTML = '<p class="text-gray-400 text-center py-8 text-sm">Ingen byer fundet</p>';
+    }
+}
+
+// Filter geo cities
+function filterGeoCities(filter) {
+    document.querySelectorAll('.geo-city-filter-btn').forEach(btn => {
+        btn.classList.remove('active', 'bg-gray-100');
+    });
+    var activeBtn = document.querySelector(`.geo-city-filter-btn[data-filter="${filter}"]`);
+    if (activeBtn) activeBtn.classList.add('active', 'bg-gray-100');
+    populateGeoCityList(filter);
+}
+
+// Focus on a city in the map
+function focusGeoCity(postalCode) {
+    if (postalCode === 'MULTI' || !postalCode) return;
+
+    var postal = geoPostalData[postalCode];
+    if (postal && postal.polygon && geoMap) {
+        geoMap.fitBounds(postal.polygon.getBounds(), { maxZoom: 12 });
+
+        // Highlight briefly
+        var originalStyle = getPolygonStyle({ properties: { nr: postalCode } });
+        postal.polygon.setStyle({ fillColor: '#fbbf24', fillOpacity: 0.8 });
+        setTimeout(function() {
+            postal.polygon.setStyle(originalStyle);
+        }, 2000);
+    }
 }
 
 // Sync geo map targeting data to campaignConfig for immediate use (e.g., generate URLs)
@@ -11525,6 +11660,10 @@ $(document).on('click', '#toggle-circle-mode', function() {
 
 $(document).on('click', '#clear-geo-map-selection', function() {
     clearAllGeoSelections();
+});
+
+$(document).on('input', '#geo-city-search', function() {
+    populateGeoCityList();
 });
 
 // =====================================================
@@ -11847,6 +11986,9 @@ function renderCityCoverageGrid(results) {
         `;
         coverageGrid.append(item);
     });
+
+    // Update the count in the collapsible header
+    updateCityCoverageCount();
 }
 
 // Update credits count based on selected missing pages
@@ -11958,6 +12100,26 @@ function updateSecondaryCityCount() {
         }
     } else if (countSpan) {
         countSpan.textContent = '';
+    }
+}
+
+// Toggle City Coverage section collapse/expand
+function toggleCityCoverage() {
+    const content = document.getElementById('city-coverage-content');
+    const icon = document.getElementById('city-coverage-toggle-icon');
+
+    if (content && icon) {
+        content.classList.toggle('hidden');
+        icon.classList.toggle('rotate-180');
+    }
+}
+
+// Update city coverage count in header
+function updateCityCoverageCount() {
+    const count = document.querySelectorAll('#city-coverage-grid .city-coverage-item').length;
+    const countSpan = document.getElementById('city-coverage-count');
+    if (countSpan) {
+        countSpan.textContent = `${count} byer`;
     }
 }
 
@@ -14469,68 +14631,37 @@ $(document).on('click', '#save-geo-map-selection', function() {
 
                 <!-- Right Side Panel - 25% width -->
                 <div style="width: 25%;" class="flex flex-col gap-4">
-                    <!-- Selected Postal Codes Display -->
-                    <div class="flex-1">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            Valgte postnumre (<span id="geo-panel-city-count" class="font-semibold text-green-600">0</span>):
-                        </label>
-                        <textarea id="geo-panel-selected-cities" readonly
-                                  class="w-full h-48 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm"
-                                  placeholder="Vælg postnumre på kortet eller skriv dem manuelt..."></textarea>
-                    </div>
-
-                    <!-- Postnummer Input -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            Tilføj postnumre manuelt:
-                        </label>
-                        <div class="flex gap-2">
-                            <input type="text" id="geo-postal-input"
-                                   class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                   placeholder="F.eks. 2100, 2200, 2300">
-                            <button type="button" id="geo-add-postal-btn"
-                                    class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-                                Tilføj
-                            </button>
-                        </div>
-                        <p class="text-xs text-gray-500 mt-1">Skriv et eller flere postnumre adskilt med komma</p>
-                    </div>
-
                     <!-- Color Legend -->
                     <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                        <h3 class="font-semibold text-gray-900 mb-2 flex items-center text-sm">
-                            <span class="mr-2">🎨</span> Farvekoder:
-                        </h3>
                         <div class="grid grid-cols-2 gap-2 text-xs">
                             <div class="flex items-center">
-                                <span class="w-3 h-3 rounded mr-2" style="background-color: #3B82F6;"></span>
-                                <span class="text-gray-700">Region-valgte</span>
+                                <span class="w-3 h-3 rounded mr-2" style="background-color: #22c55e;"></span>
+                                <span class="text-gray-700">Byside eksisterer</span>
                             </div>
                             <div class="flex items-center">
-                                <span class="w-3 h-3 rounded mr-2" style="background-color: #10B981;"></span>
-                                <span class="text-gray-700">Manuelt indtastede</span>
-                            </div>
-                            <div class="flex items-center">
-                                <span class="w-3 h-3 rounded mr-2" style="background-color: #8B5CF6;"></span>
-                                <span class="text-gray-700">Klikket på kort</span>
-                            </div>
-                            <div class="flex items-center">
-                                <span class="w-3 h-3 rounded mr-2" style="background-color: #F59E0B;"></span>
-                                <span class="text-gray-700">Cirkel-tegning</span>
+                                <span class="w-3 h-3 rounded mr-2" style="background-color: #444;"></span>
+                                <span class="text-gray-700">Byside mangler</span>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Instructions -->
-                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                        <h3 class="font-semibold text-blue-900 mb-2 flex items-center text-sm">
-                            <span class="mr-2">📍</span> Instruktioner:
-                        </h3>
-                        <ul class="text-xs text-blue-800 space-y-1">
-                            <li><strong>Klik</strong> på et postnummer-område for at vælge/fravælge</li>
-                            <li><strong>Skriv</strong> postnumre i feltet for at tilføje dem</li>
-                            <li><strong>Hold Shift</strong> og klik for at vælge flere områder</li>
-                        </ul>
+                    <!-- Filter Buttons -->
+                    <div class="flex gap-2">
+                        <button onclick="filterGeoCities('all')" class="geo-city-filter-btn flex-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 hover:bg-gray-50 active bg-gray-100" data-filter="all">Alle</button>
+                        <button onclick="filterGeoCities('created')" class="geo-city-filter-btn flex-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-green-200 hover:bg-green-50 text-green-600" data-filter="created">Oprettet</button>
+                        <button onclick="filterGeoCities('missing')" class="geo-city-filter-btn flex-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-orange-200 hover:bg-orange-50 text-orange-600" data-filter="missing">Mangler</button>
+                    </div>
+
+                    <!-- Search Input -->
+                    <div>
+                        <input type="text" id="geo-city-search"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                               placeholder="Søg efter by eller postnummer...">
+                    </div>
+
+                    <!-- City List -->
+                    <div id="geo-city-list" class="flex-1 overflow-y-auto space-y-2" style="max-height: 400px;">
+                        <!-- Cities will be populated by JS -->
                     </div>
                 </div>
             </div>
@@ -14542,16 +14673,10 @@ $(document).on('click', '#save-geo-map-selection', function() {
                     class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
                 Ryd alle valg
             </button>
-            <div class="flex gap-3">
-                <button type="button" id="toggle-circle-mode"
-                        class="px-4 py-2 border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-50 transition-colors">
-                    <span class="mr-1">⭕</span> Cirkel-tegning
-                </button>
-                <button type="button" id="save-geo-map-selection"
-                        class="bg-gradient-to-r from-green-600 to-blue-600 text-white px-6 py-2 rounded-lg hover:shadow-lg transition-all duration-200">
-                    Gem valg
-                </button>
-            </div>
+            <button type="button" id="save-geo-map-selection"
+                    class="bg-gradient-to-r from-green-600 to-blue-600 text-white px-6 py-2 rounded-lg hover:shadow-lg transition-all duration-200">
+                Gem valg
+            </button>
         </div>
     </div>
 </div>
