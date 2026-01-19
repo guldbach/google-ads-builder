@@ -1961,6 +1961,14 @@ registerUIRestoreHandler('custom_usps', (config) => {
     }
 }, { priority: 45 });
 
+// Step 5: Company Info (priority: 48) - Restore company description textarea
+registerUIRestoreHandler('company_info', (config) => {
+    if (config.company_info && config.company_info.core_competencies) {
+        $('#core-competencies').val(config.company_info.core_competencies);
+        console.log('Restored company_info core_competencies:', config.company_info.core_competencies.substring(0, 50) + '...');
+    }
+}, { priority: 48 });
+
 // Step 5: Geo Map Targeting (priority: 50) - Restore geo map selected cities
 registerUIRestoreHandler('geo_map_targeting', (config) => {
     if (config.geo_map_targeting && config.geo_map_targeting.postal_names && config.geo_map_targeting.postal_names.length > 0) {
