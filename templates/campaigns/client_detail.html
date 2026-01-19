@@ -1160,7 +1160,7 @@
 <!-- Geo Map Modal - Full Screen with Campaign Builder Functionality -->
 <div id="geo-modal" class="fixed inset-0 z-50 hidden">
     <div class="absolute inset-0 bg-black bg-opacity-50 transition-opacity duration-300" onclick="closeGeoModal()"></div>
-    <div class="absolute bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col" style="top: 5%; left: 5%; right: 5%; bottom: 5%; min-width: 70%; min-height: 70%;">
+    <div class="absolute inset-0 bg-white shadow-2xl overflow-hidden flex flex-col">
         <!-- Modal Header -->
         <div class="p-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-green-50 to-blue-50">
             <div>
@@ -1188,33 +1188,6 @@
 
             <!-- Right Side Panel -->
             <div class="w-96 border-l border-gray-200 flex flex-col bg-white">
-                <!-- Selected Postal Codes Display -->
-                <div class="p-4 border-b border-gray-200">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        Valgte postnumre (<span id="geo-panel-city-count" class="font-semibold text-green-600">0</span>):
-                    </label>
-                    <textarea id="geo-panel-selected-cities" readonly
-                              class="w-full h-24 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm resize-none"
-                              placeholder="Klik på postnumre på kortet eller skriv dem manuelt..."></textarea>
-                </div>
-
-                <!-- Postnummer Input -->
-                <div class="p-4 border-b border-gray-200">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        Tilføj postnumre manuelt:
-                    </label>
-                    <div class="flex gap-2">
-                        <input type="text" id="geo-postal-input"
-                               class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                               placeholder="F.eks. 2100, 2200, 2300">
-                        <button type="button" id="geo-add-postal-btn"
-                                class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-                            Tilføj
-                        </button>
-                    </div>
-                    <p class="text-xs text-gray-500 mt-1">Skriv et eller flere postnumre adskilt med komma</p>
-                </div>
-
                 <!-- Color Legend -->
                 <div class="p-4 border-b border-gray-200 bg-gray-50">
                     <h4 class="font-semibold text-gray-900 mb-2 flex items-center text-sm">
@@ -1223,19 +1196,11 @@
                     <div class="grid grid-cols-2 gap-2 text-xs">
                         <div class="flex items-center">
                             <span class="w-3 h-3 rounded mr-2" style="background-color: #22c55e;"></span>
-                            <span class="text-gray-700">Byside oprettet</span>
+                            <span class="text-gray-700">Byside eksisterer</span>
                         </div>
                         <div class="flex items-center">
-                            <span class="w-3 h-3 rounded mr-2" style="background-color: #f97316;"></span>
+                            <span class="w-3 h-3 rounded mr-2" style="background-color: #444;"></span>
                             <span class="text-gray-700">Byside mangler</span>
-                        </div>
-                        <div class="flex items-center">
-                            <span class="w-3 h-3 rounded mr-2" style="background-color: #8B5CF6;"></span>
-                            <span class="text-gray-700">Klikket på kort</span>
-                        </div>
-                        <div class="flex items-center">
-                            <span class="w-3 h-3 rounded mr-2" style="background-color: #F59E0B;"></span>
-                            <span class="text-gray-700">Cirkel-tegning</span>
                         </div>
                     </div>
                 </div>
@@ -1256,18 +1221,6 @@
                 <div id="city-list" class="flex-1 overflow-y-auto p-4 space-y-2">
                     <!-- Cities will be populated by JS -->
                 </div>
-
-                <!-- Instructions -->
-                <div class="p-4 border-t border-gray-200 bg-blue-50">
-                    <h4 class="font-semibold text-blue-900 mb-2 flex items-center text-sm">
-                        <span class="mr-2">📍</span> Instruktioner:
-                    </h4>
-                    <ul class="text-xs text-blue-800 space-y-1">
-                        <li><strong>Klik</strong> på et postnummer-område for at se detaljer</li>
-                        <li><strong>Skriv</strong> postnumre i feltet for at tilføje dem</li>
-                        <li><strong>Cirkel-tegning</strong> for at vælge områder visuelt</li>
-                    </ul>
-                </div>
             </div>
         </div>
 
@@ -1281,10 +1234,6 @@
                 Ryd alle valg
             </button>
             <div class="flex gap-3">
-                <button type="button" id="toggle-circle-mode-btn"
-                        class="px-4 py-2 border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-50 transition-colors flex items-center gap-2">
-                    <span>⭕</span> Cirkel-tegning
-                </button>
                 <button type="button" onclick="closeGeoModal()"
                         class="bg-gradient-to-r from-green-600 to-blue-600 text-white px-6 py-2 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1411,7 +1360,7 @@ const clientId = {{ client.id }};
 // Byside page counts per city (for clients with multiple services/branches)
 const bysideCounts = {{ byside_counts|safe }};
 
-const allCities = [
+const _rawCities = [
     {% for region in geographic_regions %}
         {% for city in region.cities.all %}
         {
@@ -1427,6 +1376,14 @@ const allCities = [
         {% endfor %}
     {% endfor %}
 ];
+
+// Deduplicate cities by name (keep first occurrence)
+const allCities = _rawCities.filter((city, index, self) =>
+    index === self.findIndex(c => c.name === city.name)
+);
+
+// Saved postal codes from database (for geo modal initialization)
+const savedPostalCodes = {{ client.selected_postal_codes|safe|default:"[]" }};
 
 // Initialize byside indicators in geo-coverage-section
 function initBysideIndicators() {
@@ -1651,15 +1608,89 @@ var geoCircles = [];  // Array of Leaflet circles
 var geoCircleDrawing = null;  // Current circle being drawn
 var geoSelectedPostals = {};  // Track manually selected postals
 
-// Color scheme for different selection sources
+// Color scheme for geo map (simplified: only byside status matters)
 var GEO_COLORS = {
-    created: { fill: '#22c55e', stroke: '#16a34a' },    // Green - byside created
-    missing: { fill: '#f97316', stroke: '#ea580c' },     // Orange - byside missing
-    clicked: { fill: '#8B5CF6', stroke: '#7C3AED' },   // Purple - clicked on map
-    circle: { fill: '#F59E0B', stroke: '#D97706' },    // Orange/amber - circle mode
+    existing: { fill: '#22c55e', stroke: '#16a34a' },  // Green - byside exists
+    selected: { fill: '#444444', stroke: '#333333' },  // Gray - selected, no byside
     hover: { fill: '#6366F1', stroke: '#4F46E5' },     // Indigo - hover state
-    default: { fill: '#E5E7EB', stroke: '#9CA3AF' }    // Gray - unselected
+    default: { fill: '#E5E7EB', stroke: '#9CA3AF' }    // Light gray - unselected
 };
+
+// Save geo selection to server (real-time saving)
+async function saveGeoSelection(action, postalCodes) {
+    try {
+        const response = await fetch(`/ajax/clients/${clientId}/update-geo-cities/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                action: action,
+                postal_codes: postalCodes
+            })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            showToast('Ændringer gemt', 'success');
+            updateGeoCoverageSection(data);
+        } else {
+            showToast('Fejl: ' + data.error, 'error');
+        }
+        return data;
+    } catch (error) {
+        console.error('Geo save error:', error);
+        showToast('Netværksfejl', 'error');
+        return { success: false };
+    }
+}
+
+// Update the entire geo-coverage section with new data
+function updateGeoCoverageSection(data) {
+    // Update city count in header
+    const countEl = document.querySelector('#toggle-geo-coverage .text-xs');
+    if (countEl) {
+        countEl.textContent = `${data.count} byer`;
+    }
+
+    // Rebuild city grid
+    const gridContainer = document.querySelector('#geo-coverage-content .grid');
+    if (gridContainer && data.cities) {
+        gridContainer.innerHTML = data.cities.map(city => {
+            const indicatorClass = city.hasByside ? 'bg-green-500' : 'bg-gray-300';
+            const countHtml = city.bysideCount > 1
+                ? `<span class="byside-count text-xs text-green-600 font-medium">(${city.bysideCount})</span>`
+                : '<span class="byside-count text-xs text-green-600 font-medium hidden"></span>';
+
+            return `
+                <span class="flex items-center gap-1 city-coverage-item" data-city="${city.name}" data-is-primary="${city.isPrimary}">
+                    <span class="byside-indicator w-2 h-2 rounded-full flex-shrink-0 ${indicatorClass}"></span>
+                    <span class="city-name">${city.name}</span>
+                    ${countHtml}
+                </span>
+            `;
+        }).join('');
+
+        // Update secondary city count
+        const secondaryCount = data.cities.filter(c => !c.isPrimary).length;
+        const secondaryCountEl = document.getElementById('secondary-city-count');
+        if (secondaryCountEl) {
+            secondaryCountEl.textContent = `(+${secondaryCount})`;
+        }
+
+        // Re-apply filter
+        filterSecondaryCities();
+    }
+
+    // Update modal city list if open
+    const geoModal = document.getElementById('geo-modal');
+    if (geoModal && !geoModal.classList.contains('hidden')) {
+        const activeFilter = document.querySelector('.city-filter-btn.active');
+        const filter = activeFilter ? activeFilter.dataset.filter : 'all';
+        populateCityList(filter);
+    }
+}
 
 // Consolidate København K, V and Frederiksberg C postal codes into single entries
 function consolidateCopenhagenPostals(postalData) {
@@ -1808,18 +1839,14 @@ function getPostalDisplayName(nr) {
     return postal.displayName || postal.navn;
 }
 
-// Check if a city is created or missing
-function getCityStatus(postalCode) {
+// Check if a byside exists for a city
+function checkBysideExists(postalCode) {
     var city = allCities.find(c => c.postalCode === postalCode);
-    if (!city) return 'default';
-    if (!city.isSelected) return 'default';
-    return city.isCreated ? 'created' : 'missing';
+    return city && city.isCreated;
 }
 
-// Get polygon style based on status
+// Get polygon style based on selection and byside status
 function getPolygonStyle(postalCode, isHover) {
-    var status = getCityStatus(postalCode);
-
     if (isHover) {
         return {
             fillColor: GEO_COLORS.hover.fill,
@@ -1829,28 +1856,18 @@ function getPolygonStyle(postalCode, isHover) {
         };
     }
 
-    if (geoSelectedPostals[postalCode]) {
-        var source = geoSelectedPostals[postalCode].source || 'clicked';
-        return {
-            fillColor: GEO_COLORS[source].fill,
-            fillOpacity: 0.6,
-            color: GEO_COLORS[source].stroke,
-            weight: 2
-        };
-    }
+    // Check if this postal code is selected (either in geoSelectedPostals or isSelected in allCities)
+    var city = allCities.find(c => c.postalCode === postalCode);
+    var isSelected = geoSelectedPostals[postalCode] || (city && city.isSelected);
 
-    if (status === 'created') {
+    if (isSelected) {
+        // Determine color based on byside existence, not selection source
+        var hasByside = checkBysideExists(postalCode);
+        var colors = hasByside ? GEO_COLORS.existing : GEO_COLORS.selected;
         return {
-            fillColor: GEO_COLORS.created.fill,
+            fillColor: colors.fill,
             fillOpacity: 0.5,
-            color: GEO_COLORS.created.stroke,
-            weight: 2
-        };
-    } else if (status === 'missing') {
-        return {
-            fillColor: GEO_COLORS.missing.fill,
-            fillOpacity: 0.5,
-            color: GEO_COLORS.missing.stroke,
+            color: colors.stroke,
             weight: 2
         };
     }
@@ -1975,10 +1992,14 @@ function createGeoJsonLayer(postalData) {
 
 // Toggle postal selection
 function togglePostalSelection(postalCode) {
-    if (geoSelectedPostals[postalCode]) {
+    var isRemoving = !!geoSelectedPostals[postalCode];
+
+    if (isRemoving) {
         delete geoSelectedPostals[postalCode];
+        saveGeoSelection('remove', [postalCode]);
     } else {
         geoSelectedPostals[postalCode] = { source: 'clicked' };
+        saveGeoSelection('add', [postalCode]);
     }
 
     // Update polygon style
@@ -1990,18 +2011,9 @@ function togglePostalSelection(postalCode) {
     updateSelectionDisplay();
 }
 
-// Update selection display
+// Update selection display (no-op: textarea removed)
 function updateSelectionDisplay() {
-    var selectedCount = Object.keys(geoSelectedPostals).length;
-    var selectedCities = [];
-
-    for (var nr in geoSelectedPostals) {
-        var displayName = getPostalDisplayName(nr);
-        selectedCities.push(displayName + ' (' + nr + ')');
-    }
-
-    $('#geo-panel-city-count').text(selectedCount);
-    $('#geo-panel-selected-cities').val(selectedCities.join('\n'));
+    // Previously updated the "Valgte postnumre" textarea which has been removed
 }
 
 // Add postal codes from input
@@ -2013,10 +2025,14 @@ function addPostalCodesFromInput() {
         return c.match(/^\d{4}$/);
     });
 
+    var newCodes = [];
     codes.forEach(function(code) {
-        if (geoPostalData[code] && !geoSelectedPostals[code]) {
+        // Add code if not already selected (don't require geoPostalData to exist)
+        if (!geoSelectedPostals[code]) {
             geoSelectedPostals[code] = { source: 'clicked' };
+            newCodes.push(code);
 
+            // Update map polygon if geoPostalData is available
             var postal = geoPostalData[code];
             if (postal && postal.polygon) {
                 postal.polygon.setStyle(getPolygonStyle(code, false));
@@ -2027,8 +2043,8 @@ function addPostalCodesFromInput() {
     $('#geo-postal-input').val('');
     updateSelectionDisplay();
 
-    if (codes.length > 0) {
-        showToast(codes.length + ' postnumre tilføjet', 'success');
+    if (newCodes.length > 0) {
+        saveGeoSelection('add', newCodes);
     }
 }
 
@@ -2100,6 +2116,7 @@ function endCircleDrawing(e) {
 function selectPostalsInCircle(circle) {
     var center = circle.getLatLng();
     var radius = circle.getRadius();
+    var newlySelected = [];
 
     for (var nr in geoPostalData) {
         var postal = geoPostalData[nr];
@@ -2110,10 +2127,16 @@ function selectPostalsInCircle(circle) {
             if (distance <= radius) {
                 if (!geoSelectedPostals[nr]) {
                     geoSelectedPostals[nr] = { source: 'circle' };
+                    newlySelected.push(nr);
                     postal.polygon.setStyle(getPolygonStyle(nr, false));
                 }
             }
         }
+    }
+
+    // Save newly selected postal codes to server
+    if (newlySelected.length > 0) {
+        saveGeoSelection('add', newlySelected);
     }
 }
 
@@ -2135,7 +2158,7 @@ function clearAllGeoSelections() {
     geoCircles = [];
 
     updateSelectionDisplay();
-    showToast('Alle valg ryddet', 'info');
+    saveGeoSelection('set', []);  // Clear all on server
 }
 
 // =====================================================
@@ -3628,11 +3651,26 @@ function editClient() {
 
 function openGeoModal() {
     document.getElementById('geo-modal').classList.remove('hidden');
+
+    // Initialize geoSelectedPostals from saved data (only on first open)
+    if (Object.keys(geoSelectedPostals).length === 0 && savedPostalCodes.length > 0) {
+        savedPostalCodes.forEach(function(code) {
+            geoSelectedPostals[code] = { source: 'saved' };
+        });
+    }
+
     populateCityList('all');
     setTimeout(() => {
         initGeoModal().then(function() {
             if (geoMap) {
                 geoMap.invalidateSize();
+                // Update polygon styles for saved selections
+                savedPostalCodes.forEach(function(code) {
+                    var postal = geoPostalData[code];
+                    if (postal && postal.polygon) {
+                        postal.polygon.setStyle(getPolygonStyle(code, false));
+                    }
+                });
             }
         });
     }, 100);
@@ -3646,7 +3684,8 @@ function populateCityList(filter) {
     const container = document.getElementById('city-list');
     const searchQuery = document.getElementById('city-search').value.toLowerCase();
 
-    let cities = allCities.filter(c => c.isSelected);
+    // Include cities that are either from geographic_regions (isSelected) OR manually selected (geoSelectedPostals)
+    let cities = allCities.filter(c => c.isSelected || geoSelectedPostals[c.postalCode]);
 
     if (filter === 'created') {
         cities = cities.filter(c => c.isCreated);
@@ -3663,24 +3702,15 @@ function populateCityList(filter) {
     }
 
     container.innerHTML = cities.map(city => {
-        const count = city.bysideCount || 0;
-        const badgeText = city.isCreated
-            ? (count > 1 ? `${count} sider` : 'Oprettet')
-            : 'Mangler';
-
+        const showPostalCode = city.postalCode && city.postalCode !== 'MULTI';
         return `
         <div class="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer" onclick="focusCity('${city.postalCode}')">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <span class="w-2 h-2 rounded-full flex-shrink-0 ${city.isCreated ? 'bg-green-500' : 'bg-gray-300'}"></span>
-                    <div>
-                        <div class="font-medium text-gray-900">${city.name}</div>
-                        <div class="text-xs text-gray-500">${city.postalCode} · ${city.region}</div>
-                    </div>
+                    <div class="font-medium text-gray-900">${city.name}</div>
                 </div>
-                <span class="px-2 py-1 text-xs font-medium rounded-full ${city.isCreated ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}">
-                    ${badgeText}
-                </span>
+                ${showPostalCode ? `<span class="text-sm text-gray-500">${city.postalCode}</span>` : ''}
             </div>
         </div>
     `}).join('');
@@ -3743,11 +3773,6 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             addPostalCodesFromInput();
         }
-    });
-
-    // Circle mode toggle
-    $('#toggle-circle-mode-btn').click(function() {
-        toggleCircleMode();
     });
 
     // Clear selections
