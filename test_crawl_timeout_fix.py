@@ -57,7 +57,7 @@ async def test_crawl_hjarsoelteknik():
             except Exception as e:
                 print(f"   ! Roberto modal might not be visible: {e}")
 
-            print("7. Waiting for service detection to complete (max 3 minutes)...")
+            print("7. Waiting for service detection to complete (max 5 minutes)...")
             # Wait for completion - either Roberto hides or alert shows
             try:
                 await page.wait_for_function(
@@ -67,7 +67,7 @@ async def test_crawl_hjarsoelteknik():
                                         modal.classList.contains('hidden');
                         return isHidden;
                     }""",
-                    timeout=180000  # 3 minutes
+                    timeout=300000  # 5 minutes
                 )
                 print("   ✓ Service detection completed")
             except Exception as timeout_error:

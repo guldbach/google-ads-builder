@@ -9803,7 +9803,7 @@ async function scrapeAndDetectServices() {
         const response = await $.ajax({
             url: '/ajax/scrape-detect-services/',
             method: 'POST',
-            timeout: 180000,  // 3 minutter max (scraping + AI)
+            timeout: 300000,  // 5 minutter max (scraping + AI for store websites)
             headers: { 'X-CSRFToken': '{{ csrf_token }}' },
             contentType: 'application/json',
             data: JSON.stringify({

@@ -1458,7 +1458,7 @@ Svar KUN med valid JSON."""
                 ],
                 temperature=temperature,
                 max_tokens=max_tokens,
-                timeout=60.0  # 60 sekunder timeout
+                timeout=120.0  # 120 sekunder timeout for store websites
             )
 
             result_text = response.choices[0].message.content.strip()
@@ -3105,7 +3105,7 @@ class WebsiteScraper:
                 ],
                 temperature=temperature,
                 max_tokens=max_tokens,
-                timeout=60.0  # 60 sekunder timeout
+                timeout=120.0  # 120 sekunder timeout for store websites
             )
 
             result_text = response.choices[0].message.content.strip()
@@ -4108,7 +4108,7 @@ class USPAnalyzer:
                 print(f"[USPAnalyzer] Trying {provider} ({model})...")
                 response = client.chat.completions.create(
                     **build_completion_kwargs(model, [{"role": "user", "content": prompt}], temperature, max_tokens),
-                    timeout=60.0  # 60 sekunder timeout
+                    timeout=120.0  # 120 sekunder timeout for store websites
                 )
 
                 content = response.choices[0].message.content.strip()
@@ -4276,7 +4276,7 @@ class ServiceDetector:
                 print(f"[ServiceDetector] Trying {provider} ({model})...")
                 response = client.chat.completions.create(
                     **build_completion_kwargs(model, [{"role": "user", "content": prompt}], temperature, max_tokens),
-                    timeout=60.0  # 60 sekunder timeout for at undgå uendelig ventetid
+                    timeout=120.0  # 120 sekunder timeout for store websites
                 )
 
                 content = response.choices[0].message.content.strip()
@@ -4403,7 +4403,7 @@ class PerplexityResearcher:
         try:
             response = self.client.chat.completions.create(
                 **build_completion_kwargs(model, [{"role": "user", "content": prompt}], temperature, max_tokens),
-                timeout=60.0  # 60 sekunder timeout
+                timeout=120.0  # 120 sekunder timeout for store websites
             )
             return response.choices[0].message.content.strip()
         except Exception as e:
@@ -4464,7 +4464,7 @@ class DescriptionGenerator:
                 print(f"[{method_name}] Trying {provider} ({model})...")
                 response = client.chat.completions.create(
                     **build_completion_kwargs(model, [{"role": "user", "content": prompt}], temperature, max_tokens),
-                    timeout=60.0  # 60 sekunder timeout
+                    timeout=120.0  # 120 sekunder timeout for store websites
                 )
                 content = response.choices[0].message.content.strip()
                 print(f"[{method_name}] Success with {provider}")
@@ -5031,7 +5031,7 @@ Brug informationen fra online research til at supplere med eksterne anmeldelser 
             # Try OpenAI first
             response = self.client.chat.completions.create(
                 **build_completion_kwargs(model, [{"role": "user", "content": prompt}], temperature, max_tokens),
-                timeout=60.0  # 60 sekunder timeout
+                timeout=120.0  # 120 sekunder timeout for store websites
             )
             ai_response = response.choices[0].message.content.strip()
         except Exception as openai_error:
@@ -5044,7 +5044,7 @@ Brug informationen fra online research til at supplere med eksterne anmeldelser 
                         messages=[{"role": "user", "content": prompt}],
                         temperature=temperature,
                         max_tokens=max_tokens,
-                        timeout=60.0  # 60 sekunder timeout
+                        timeout=120.0  # 120 sekunder timeout for store websites
                     )
                     ai_response = response.choices[0].message.content.strip()
                 except Exception as perplexity_error:
