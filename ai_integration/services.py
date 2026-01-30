@@ -241,6 +241,346 @@ WIDGET_CATEGORY_MAP = {
 }
 
 
+class VisionLayoutAnalyzer:
+    """
+    AI Vision-baseret layout analyse via GPT-4o.
+    Tager screenshot af website og analyserer visuelt layout.
+    """
+
+    LAYOUT_ANALYSIS_PROMPT = """Analyser denne webside screenshot og identificer den visuelle layout-struktur.
+
+Du skal returnere en JSON-struktur der beskriver HVER synlig sektion på siden.
+
+For HVER sektion, angiv:
+1. type: hero, services, testimonials, reviews, contact, contact_form, about, cta, text, gallery, team, pricing, faq, footer
+2. header: Hovedoverskriften i sektionen (hvis synlig)
+3. subheader: Underoverskrift (hvis synlig)
+4. content: Kort beskrivelse af indholdet
+5. width: Sektionens bredde - "1/1" (fuld bredde), "1/2", "1/3", "1/4", "2/3", "3/4"
+6. columns: Hvis sektionen har flere kolonner, beskriv hver kolonne
+
+VIGTIGE REGLER:
+- Spring IKKE header/navigation over - men marker dem som type: "header"
+- Spring IKKE footer over - marker som type: "footer"
+- Identificer kontaktformularer (type: "contact_form") og beskriv felterne
+- Identificer anmeldelser/testimonials (type: "reviews" eller "testimonials")
+- Identificer CTA-sektioner med knapper (type: "cta")
+- Estimer kolonnebredder baseret på det visuelle layout
+
+Returner KUN valid JSON (ingen markdown code blocks):
+{
+    "page_type": "frontpage|service|contact|about|other",
+    "sections": [
+        {
+            "order": 1,
+            "type": "hero",
+            "header": "Velkommen til vores virksomhed",
+            "subheader": "Vi hjælper dig med...",
+            "content": "Hero sektion med stor overskrift og CTA knap",
+            "width": "1/1",
+            "has_cta": true,
+            "cta_text": "Kontakt os"
+        },
+        {
+            "order": 2,
+            "type": "services",
+            "header": "Vores ydelser",
+            "width": "1/1",
+            "columns": [
+                {"width": "1/3", "content": "Service 1 beskrivelse"},
+                {"width": "1/3", "content": "Service 2 beskrivelse"},
+                {"width": "1/3", "content": "Service 3 beskrivelse"}
+            ]
+        },
+        {
+            "order": 3,
+            "type": "contact_form",
+            "header": "Kontakt os",
+            "width": "1/2",
+            "fields": ["Navn", "Email", "Telefon", "Besked"],
+            "button_text": "Send"
+        }
+    ]
+}"""
+
+    def __init__(self, cache_dir: str = None):
+        """
+        Initialize Vision Layout Analyzer.
+
+        Args:
+            cache_dir: Directory for screenshot caching. Defaults to /tmp/vision_layout_cache
+        """
+        self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        self.cache_dir = cache_dir or '/tmp/vision_layout_cache'
+        self.cache_ttl_hours = 24  # Cache screenshots for 24 hours
+
+        # Ensure cache directory exists
+        import os
+        os.makedirs(self.cache_dir, exist_ok=True)
+
+    def _get_cache_path(self, url: str) -> str:
+        """Generate cache file path for URL."""
+        import hashlib
+        import os
+        url_hash = hashlib.md5(url.encode()).hexdigest()
+        return os.path.join(self.cache_dir, f"{url_hash}.png")
+
+    def _is_cache_valid(self, cache_path: str) -> bool:
+        """Check if cached screenshot is still valid."""
+        import os
+        from datetime import datetime, timedelta
+
+        if not os.path.exists(cache_path):
+            return False
+
+        file_time = datetime.fromtimestamp(os.path.getmtime(cache_path))
+        return datetime.now() - file_time < timedelta(hours=self.cache_ttl_hours)
+
+    async def capture_screenshot(self, url: str, use_cache: bool = True) -> bytes:
+        """
+        Capture full-page screenshot using Playwright.
+
+        Args:
+            url: URL to screenshot
+            use_cache: If True, use cached screenshot if available
+
+        Returns:
+            Screenshot bytes (PNG format)
+        """
+        from playwright.async_api import async_playwright
+        import os
+
+        cache_path = self._get_cache_path(url)
+
+        # Check cache
+        if use_cache and self._is_cache_valid(cache_path):
+            print(f"[VisionLayout] Using cached screenshot for {url}")
+            with open(cache_path, 'rb') as f:
+                return f.read()
+
+        print(f"[VisionLayout] Capturing screenshot for {url}...")
+
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            page = await browser.new_page(viewport={'width': 1280, 'height': 800})
+
+            try:
+                await page.goto(url, wait_until='networkidle', timeout=30000)
+                await page.wait_for_timeout(2000)  # Wait for dynamic content
+
+                screenshot_bytes = await page.screenshot(full_page=True)
+
+                # Cache screenshot
+                with open(cache_path, 'wb') as f:
+                    f.write(screenshot_bytes)
+                print(f"[VisionLayout] Screenshot cached at {cache_path}")
+
+                return screenshot_bytes
+
+            except Exception as e:
+                print(f"[VisionLayout] Screenshot failed for {url}: {e}")
+                raise
+            finally:
+                await browser.close()
+
+    def capture_screenshot_sync(self, url: str, use_cache: bool = True) -> bytes:
+        """Synchronous wrapper for capture_screenshot."""
+        import asyncio
+
+        try:
+            loop = asyncio.get_running_loop()
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(
+                    lambda: asyncio.run(self.capture_screenshot(url, use_cache))
+                )
+                return future.result(timeout=60)
+        except RuntimeError:
+            return asyncio.run(self.capture_screenshot(url, use_cache))
+
+    def analyze_layout(self, screenshot_bytes: bytes, max_retries: int = 3) -> dict:
+        """
+        Analyze screenshot using GPT-4o Vision.
+
+        Args:
+            screenshot_bytes: PNG screenshot bytes
+            max_retries: Number of retries on failure
+
+        Returns:
+            Dict with 'page_type' and 'sections' array
+        """
+        import base64
+        import time
+
+        image_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
+
+        for attempt in range(max_retries):
+            try:
+                print(f"[VisionLayout] Sending to GPT-4o Vision (attempt {attempt + 1}/{max_retries})...")
+
+                response = self.client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[{
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:image/png;base64,{image_base64}"}
+                            },
+                            {
+                                "type": "text",
+                                "text": self.LAYOUT_ANALYSIS_PROMPT
+                            }
+                        ]
+                    }],
+                    max_tokens=4096,
+                    timeout=120.0
+                )
+
+                response_text = response.choices[0].message.content
+
+                # Parse JSON response
+                if response_text.startswith('```'):
+                    response_text = response_text.split('```')[1]
+                    if response_text.startswith('json'):
+                        response_text = response_text[4:]
+
+                result = json.loads(response_text.strip())
+                print(f"[VisionLayout] Detected {len(result.get('sections', []))} sections")
+                return result
+
+            except json.JSONDecodeError as e:
+                print(f"[VisionLayout] JSON parse error (attempt {attempt + 1}): {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(2)
+                    continue
+                return {'page_type': 'unknown', 'sections': []}
+
+            except Exception as e:
+                print(f"[VisionLayout] API error (attempt {attempt + 1}): {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(2)
+                    continue
+                raise
+
+        return {'page_type': 'unknown', 'sections': []}
+
+    def convert_to_flat_sections(self, vision_result: dict, existing_content: dict = None) -> list:
+        """
+        Convert Vision API result to flat_sections format.
+
+        Args:
+            vision_result: Result from analyze_layout()
+            existing_content: Optional dict with scraped text content to enrich sections
+
+        Returns:
+            List of flat_sections ready for campaign_builder_wizard.html
+        """
+        import time
+        import random
+        import string
+
+        def generate_id(prefix: str) -> str:
+            timestamp = int(time.time() * 1000)
+            random_str = ''.join(random.choices(string.ascii_lowercase + string.digits, k=9))
+            return f"{prefix}_{timestamp}_{random_str}"
+
+        flat_sections = []
+
+        for section in vision_result.get('sections', []):
+            section_type = section.get('type', 'text')
+
+            # Skip header and footer for wireframe
+            if section_type in ['header', 'footer', 'navigation']:
+                continue
+
+            # Handle multi-column sections
+            columns = section.get('columns', [])
+            if columns:
+                for col in columns:
+                    flat_sections.append({
+                        'id': generate_id('section'),
+                        'type': section_type,
+                        'width': col.get('width', '1/1'),
+                        'header': section.get('header', ''),
+                        'subheader': section.get('subheader', ''),
+                        'content': col.get('content', ''),
+                        'position': len(flat_sections),
+                        'contents': [{
+                            'id': generate_id('content'),
+                            'type': section_type,
+                            'header': section.get('header', ''),
+                            'content': col.get('content', ''),
+                        }]
+                    })
+            else:
+                # Single column section
+                contents = [{
+                    'id': generate_id('content'),
+                    'type': section_type,
+                    'header': section.get('header', ''),
+                    'subheader': section.get('subheader', ''),
+                    'content': section.get('content', ''),
+                }]
+
+                # Add special fields for specific types
+                if section_type == 'contact_form':
+                    contents[0]['fields'] = section.get('fields', [])
+                    contents[0]['button_text'] = section.get('button_text', 'Send')
+
+                if section_type in ['reviews', 'testimonials']:
+                    contents[0]['reviews'] = section.get('reviews', [])
+
+                if section.get('has_cta'):
+                    contents[0]['has_cta'] = True
+                    contents[0]['cta_text'] = section.get('cta_text', '')
+
+                flat_sections.append({
+                    'id': generate_id('section'),
+                    'type': section_type,
+                    'width': section.get('width', '1/1'),
+                    'header': section.get('header', ''),
+                    'subheader': section.get('subheader', ''),
+                    'content': section.get('content', ''),
+                    'position': len(flat_sections),
+                    'contents': contents
+                })
+
+        return flat_sections
+
+    def analyze_url(self, url: str, use_cache: bool = True) -> dict:
+        """
+        Complete workflow: screenshot → vision analysis → flat_sections.
+
+        Args:
+            url: URL to analyze
+            use_cache: If True, use cached screenshot
+
+        Returns:
+            Dict with 'flat_sections', 'page_type', 'vision_raw'
+        """
+        try:
+            screenshot = self.capture_screenshot_sync(url, use_cache)
+            vision_result = self.analyze_layout(screenshot)
+            flat_sections = self.convert_to_flat_sections(vision_result)
+
+            return {
+                'flat_sections': flat_sections,
+                'page_type': vision_result.get('page_type', 'unknown'),
+                'vision_raw': vision_result,
+                'success': True
+            }
+        except Exception as e:
+            print(f"[VisionLayout] analyze_url failed for {url}: {e}")
+            return {
+                'flat_sections': [],
+                'page_type': 'unknown',
+                'vision_raw': None,
+                'success': False,
+                'error': str(e)
+            }
+
+
 class ElementorLayoutExtractor:
     """
     Extract layout structure from Elementor-built pages.
@@ -3827,7 +4167,7 @@ class WebsiteScraper:
 
         return block
 
-    def scrape_with_meta(self, url, timeout=10, extract_layout=False):
+    def scrape_with_meta(self, url, timeout=10, extract_layout=False, use_vision_layout=False):
         """
         Fetch and extract text content, meta tags, structured sections, AND reviews from a website.
 
@@ -3835,6 +4175,7 @@ class WebsiteScraper:
             url: Website URL to scrape
             timeout: Request timeout in seconds
             extract_layout: If True, also extract layout as flatSections wireframe
+            use_vision_layout: If True, use AI Vision for layout detection (recommended for non-Elementor sites)
 
         Returns:
             dict: {
@@ -3923,12 +4264,33 @@ class WebsiteScraper:
             elementor_json = None
             if extract_layout:
                 try:
-                    layout_result = self.extract_layout_to_flat_sections(soup, sections, html_reviews)
-                    flat_sections = layout_result.get('flat_sections', [])
-                    builder_detected = layout_result.get('builder_detected')
-                    elementor_json = layout_result.get('elementor_json')  # Elementor native JSON for export
-                    print(f"[WebsiteScraper] Layout extraction: {len(flat_sections)} flatSections from {builder_detected.get('builder', 'unknown') if builder_detected else 'unknown'}")
-                    print(f"[WebsiteScraper] elementor_json present: {elementor_json is not None}, content count: {len(elementor_json.get('content', [])) if elementor_json else 0}")
+                    if use_vision_layout:
+                        # Use AI Vision for layout detection (works on ALL websites)
+                        print(f"[WebsiteScraper] Using AI Vision for layout detection...")
+                        vision_analyzer = VisionLayoutAnalyzer()
+                        vision_result = vision_analyzer.analyze_url(url)
+
+                        if vision_result.get('success') and vision_result.get('flat_sections'):
+                            flat_sections = vision_result['flat_sections']
+                            builder_detected = {
+                                'builder': 'vision',
+                                'confidence': 0.95,
+                                'indicators_found': ['ai_vision_analysis']
+                            }
+                            print(f"[WebsiteScraper] Vision layout: {len(flat_sections)} sections")
+                        else:
+                            print(f"[WebsiteScraper] Vision failed, falling back to HTML extraction")
+                            use_vision_layout = False  # Fall back to HTML
+
+                    if not use_vision_layout or not flat_sections:
+                        # Original HTML-based extraction
+                        layout_result = self.extract_layout_to_flat_sections(soup, sections, html_reviews)
+                        flat_sections = layout_result.get('flat_sections', [])
+                        builder_detected = layout_result.get('builder_detected')
+                        elementor_json = layout_result.get('elementor_json')  # Elementor native JSON for export
+                        print(f"[WebsiteScraper] Layout extraction: {len(flat_sections)} flatSections from {builder_detected.get('builder', 'unknown') if builder_detected else 'unknown'}")
+                        print(f"[WebsiteScraper] elementor_json present: {elementor_json is not None}, content count: {len(elementor_json.get('content', [])) if elementor_json else 0}")
+
                 except Exception as layout_error:
                     print(f"[WebsiteScraper] Layout extraction failed: {layout_error}")
                     import traceback
@@ -5105,7 +5467,7 @@ class ComprehensiveWebsiteScraper:
         self.page_scraper = WebsiteScraper(max_content_length=8000)
         self.cache_days = cache_days
 
-    def scrape_website(self, url, max_pages=10, client_id=None, use_playwright=False, extract_layout=True):
+    def scrape_website(self, url, max_pages=10, client_id=None, use_playwright=False, extract_layout=True, use_vision_layout=True):
         """
         Scrape a website comprehensively.
 
@@ -5115,6 +5477,7 @@ class ComprehensiveWebsiteScraper:
             client_id: If set, save permanently to Client model
             use_playwright: DEPRECATED - no longer used, review iframes are detected automatically
             extract_layout: If True, extract page builder layout as flatSections wireframe
+            use_vision_layout: If True, use AI Vision for layout detection (default: True)
 
         Returns:
             Dict with scraped data structure including review_iframes and flat_sections
@@ -5174,8 +5537,12 @@ class ComprehensiveWebsiteScraper:
             try:
                 print(f"[ComprehensiveScraper] Scraping ({i+1}/{len(urls_to_scrape)}): {page_url}")
 
+                # Only use Vision layout for the FIRST page (front page) to avoid timeout
+                # Other pages use standard HTML extraction which is much faster
+                use_vision_for_this_page = use_vision_layout and i == 0
+
                 # Scrape page with meta info, sections, reviews, iframes, and layout
-                scraped = self.page_scraper.scrape_with_meta(page_url, extract_layout=extract_layout)
+                scraped = self.page_scraper.scrape_with_meta(page_url, extract_layout=extract_layout, use_vision_layout=use_vision_for_this_page)
 
                 # Extract reviews (Elementor testimonials, Trustpilot widgets etc.)
                 page_reviews = scraped.get('reviews', [])
