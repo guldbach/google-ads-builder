@@ -146,6 +146,32 @@
     opacity: 1;
     transform: scale(1);
 }
+
+/* Wizard Card Styling - matches Campaign Builder exactly */
+.wizard-card {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    border: 1px solid #f3f4f6;
+    transition: all 0.3s ease;
+}
+
+.selection-card {
+    transition: all 0.2s ease;
+    cursor: pointer;
+    border: 2px solid transparent;
+}
+
+.selection-card:hover {
+    border-color: #c084fc;
+    box-shadow: 0 4px 20px rgba(192, 132, 252, 0.2);
+    transform: translateY(-2px);
+}
+
+.selection-card.selected {
+    border-color: #a855f7;
+    background: linear-gradient(to bottom right, #faf5ff, #fdf4ff);
+}
 </style>
 
 {% csrf_token %}
@@ -628,9 +654,9 @@
                 <div class="space-y-6">
                     <!-- Crawled Pages from Campaign Builder -->
                     {% if scraped_pages %}
-                    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+                    <div class="wizard-card p-8 mb-8">
                         <!-- Header with gradient -->
-                        <div class="p-6" style="background: linear-gradient(135deg, #3B82F620, #3B82F610);">
+                        <div class="mb-6" style="background: linear-gradient(135deg, #3B82F620, #3B82F610); margin: -2rem -2rem 1.5rem -2rem; padding: 1.5rem 2rem; border-radius: 16px 16px 0 0;">
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center space-x-4">
                                     <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-2xl shadow-lg">
@@ -645,95 +671,160 @@
                             </div>
                         </div>
 
-                        <!-- Pages list -->
-                        <div class="p-6 space-y-4">
-                            {% for path, page in scraped_pages.items %}
-                            <div class="bg-gray-50 rounded-xl p-5 border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all duration-200">
-                                <!-- Page header -->
-                                <div class="flex items-center justify-between mb-4">
-                                    <div class="flex items-center space-x-3">
-                                        <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                                            <span class="text-blue-600 text-lg">📄</span>
-                                        </div>
-                                        <div>
-                                            <h5 class="font-semibold text-gray-900 text-lg">{{ path }}</h5>
-                                            {% if page.page_type %}
-                                            <span class="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">{{ page.page_type }}</span>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                    {% if page.url %}
-                                    <a href="{{ page.url }}" target="_blank" class="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-sm font-medium transition-colors flex items-center space-x-1">
-                                        <span>Åbn</span>
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                                    </a>
-                                    {% endif %}
-                                </div>
+                        <!-- Two-column layout like SEO step -->
+                        <div class="flex gap-6">
+                            <!-- Left sidebar - Page navigation -->
+                            <div class="w-[280px] flex-shrink-0">
+                                <div class="sticky top-4">
+                                    <h3 class="text-lg font-semibold text-gray-900 mb-3">📄 Undersider</h3>
 
-                                <!-- Meta info cards -->
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                    {% if page.meta_title %}
-                                    <div class="bg-white rounded-lg p-4 border border-gray-100">
-                                        <div class="flex items-center justify-between mb-2">
-                                            <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Meta Title</span>
-                                            <button onclick="copyText('{{ page.meta_title|escapejs }}')" class="px-2 py-1 text-xs text-purple-600 hover:bg-purple-50 rounded transition-colors">Kopier</button>
-                                        </div>
-                                        <p class="text-sm text-gray-800 font-medium">{{ page.meta_title }}</p>
+                                    <!-- Filter buttons -->
+                                    <div class="flex gap-2 mb-4">
+                                        <button type="button" onclick="filterCrawledPages('all')" id="filter-all" class="crawled-filter-btn flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-all bg-blue-500 text-white">
+                                            Alle <span class="ml-1 opacity-75">({{ scraped_pages|length }})</span>
+                                        </button>
+                                        <button type="button" onclick="filterCrawledPages('marked')" id="filter-marked" class="crawled-filter-btn flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-all bg-gray-100 text-gray-600 hover:bg-gray-200">
+                                            Mine <span id="marked-count" class="ml-1 opacity-75">(0)</span>
+                                        </button>
                                     </div>
-                                    {% endif %}
 
-                                    {% if page.meta_description %}
-                                    <div class="bg-white rounded-lg p-4 border border-gray-100">
-                                        <div class="flex items-center justify-between mb-2">
-                                            <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Meta Description</span>
-                                            <button onclick="copyText('{{ page.meta_description|escapejs }}')" class="px-2 py-1 text-xs text-purple-600 hover:bg-purple-50 rounded transition-colors">Kopier</button>
-                                        </div>
-                                        <p class="text-sm text-gray-600">{{ page.meta_description }}</p>
-                                    </div>
-                                    {% endif %}
-                                </div>
-
-                                {% if page.content %}
-                                <div class="bg-white rounded-lg p-4 border border-gray-100 mb-4">
-                                    <div class="flex items-center justify-between mb-2">
-                                        <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Indhold (uddrag)</span>
-                                        <button onclick="copyText('{{ page.content|escapejs }}')" class="px-2 py-1 text-xs text-purple-600 hover:bg-purple-50 rounded transition-colors">Kopier</button>
-                                    </div>
-                                    <p class="text-sm text-gray-600 max-h-32 overflow-y-auto">{{ page.content|truncatechars:500 }}</p>
-                                </div>
-                                {% endif %}
-
-                                {% if page.sections %}
-                                <div class="border-t border-gray-200 pt-4">
-                                    <div class="flex items-center justify-between mb-3">
-                                        <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Sektioner</span>
-                                        <span class="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full">{{ page.sections|length }}</span>
-                                    </div>
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                        {% for section in page.sections|slice:":6" %}
-                                        <div class="bg-white rounded-lg p-3 border border-gray-100 hover:border-gray-200 transition-colors">
-                                            {% if section.heading %}
-                                            <div class="font-medium text-sm text-gray-800 mb-1">{{ section.heading }}</div>
-                                            {% endif %}
-                                            {% if section.content %}
-                                            <p class="text-xs text-gray-500 line-clamp-2">{{ section.content|truncatechars:150 }}</p>
-                                            {% endif %}
+                                    <div id="crawled-pages-nav" class="space-y-2 max-h-[550px] overflow-y-auto">
+                                        {% for path, page in scraped_pages.items %}
+                                        <div class="crawled-page-nav-item selection-card cursor-pointer p-4 rounded-xl border-2 transition-all duration-200 relative {% if forloop.first %}border-blue-500 bg-blue-50{% else %}border-gray-200 hover:border-blue-300 hover:bg-gray-50{% endif %}" data-page-path="{{ path }}" data-marked="false">
+                                            <!-- Mark as mine button (star) -->
+                                            <button type="button" onclick="event.stopPropagation(); togglePageMarked('{{ path|escapejs }}')" class="mark-page-btn absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-sm transition-all hover:scale-110" title="Marker som min side">
+                                                <span class="mark-icon text-gray-300 hover:text-yellow-400">☆</span>
+                                            </button>
+                                            <div class="pr-8" onclick="showCrawledPage('{{ path|escapejs }}')">
+                                                <div class="font-medium text-gray-900 truncate">
+                                                    {% if page.meta_title %}{{ page.meta_title|truncatechars:30 }}{% else %}{{ path }}{% endif %}
+                                                </div>
+                                                <div class="text-xs text-gray-400 truncate" title="{{ path }}">{{ path }}</div>
+                                                {% if page.page_type %}
+                                                <div class="text-xs text-gray-500 truncate mt-0.5">
+                                                    <span class="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded">{{ page.page_type }}</span>
+                                                </div>
+                                                {% endif %}
+                                                {% if page.sections %}
+                                                <div class="text-xs text-gray-500 truncate mt-0.5">
+                                                    {{ page.sections|length }} sektioner
+                                                </div>
+                                                {% endif %}
+                                            </div>
                                         </div>
                                         {% endfor %}
                                     </div>
                                 </div>
-                                {% endif %}
                             </div>
-                            {% endfor %}
+
+                            <!-- Right content - Active page preview -->
+                            <div class="flex-1 min-w-0">
+                                <div id="crawled-page-content">
+                                    {% for path, page in scraped_pages.items %}
+                                    <div class="crawled-page-preview {% if not forloop.first %}hidden{% endif %}" data-page-path="{{ path }}">
+                                        <!-- Page Header Preview -->
+                                        <div class="mb-6 p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-100">
+                                            <div class="flex items-center justify-between mb-4">
+                                                <div class="flex items-center space-x-3">
+                                                    <div class="w-10 h-10 rounded-lg flex items-center justify-center text-white text-lg bg-blue-500">
+                                                        📄
+                                                    </div>
+                                                    <div>
+                                                        <h3 class="text-xl font-bold text-gray-900">{% if page.meta_title %}{{ page.meta_title|truncatechars:50 }}{% else %}{{ path }}{% endif %}</h3>
+                                                        <p class="text-sm text-gray-500">{{ path }}</p>
+                                                    </div>
+                                                </div>
+                                                <div class="flex items-center space-x-2">
+                                                    {% if page.url %}
+                                                    <a href="{{ page.url }}" target="_blank" class="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all flex items-center space-x-1">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                                                        </svg>
+                                                        <span>Åbn side</span>
+                                                    </a>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+
+                                            <!-- Google Preview -->
+                                            <div class="bg-white rounded-lg p-4 border border-gray-100">
+                                                <div class="text-sm text-gray-500 mb-1">Google Preview</div>
+                                                <div class="text-blue-600 text-lg font-medium hover:underline cursor-pointer">
+                                                    {{ page.meta_title|default:path }}
+                                                </div>
+                                                <div class="text-green-700 text-sm">{{ client.website|default:"example.com" }}{{ path }}</div>
+                                                {% if page.meta_description %}
+                                                <div class="text-gray-600 text-sm mt-1 line-clamp-2">
+                                                    {{ page.meta_description }}
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+
+                                        <!-- Large Text Preview -->
+                                        <div class="bg-white rounded-xl border border-gray-200 p-6">
+                                            <div class="relative">
+                                                <div class="flex items-center justify-between mb-3">
+                                                    <span class="text-sm font-medium text-gray-500">Samlet tekstindhold{% if page.sections %} ({{ page.sections|length }} sektioner){% endif %}</span>
+                                                    <button type="button" onclick="copyCrawledPageText('{{ path|escapejs }}')" class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-sm transition-all flex items-center space-x-1">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+                                                        </svg>
+                                                        <span>Kopier tekst</span>
+                                                    </button>
+                                                </div>
+                                                <div id="crawled-content-{{ forloop.counter }}" class="w-full p-6 bg-gray-50 border border-gray-200 rounded-xl text-sm max-h-[800px] overflow-y-auto" style="line-height: 1.6;">
+                                                    {% if page.meta_title %}
+                                                    <div class="mb-4">
+                                                        <span class="text-xs text-gray-400 uppercase">Meta titel</span>
+                                                        <h1 class="text-xl font-bold text-gray-900">{{ page.meta_title }}</h1>
+                                                    </div>
+                                                    {% endif %}
+                                                    {% if page.meta_description %}
+                                                    <div class="mb-6">
+                                                        <span class="text-xs text-gray-400 uppercase">Meta beskrivelse</span>
+                                                        <p class="text-gray-700">{{ page.meta_description }}</p>
+                                                    </div>
+                                                    <hr class="border-gray-200 my-6">
+                                                    {% endif %}
+                                                    {% if page.sections %}
+                                                        {% for section in page.sections %}
+                                                        {% if section.heading %}
+                                                        <h3 class="text-base font-semibold text-gray-800 mt-4 mb-1">{{ section.heading }}</h3>
+                                                        {% endif %}
+                                                        {% if section.content %}
+                                                        <p class="text-gray-600 mb-3">{{ section.content }}</p>
+                                                        {% endif %}
+                                                        {% endfor %}
+                                                    {% elif page.content %}
+                                                    <p class="text-gray-600">{{ page.content }}</p>
+                                                    {% else %}
+                                                    <p class="text-gray-400 italic">Ingen indhold tilgængeligt</p>
+                                                    {% endif %}
+                                                </div>
+                                                <!-- Hidden textarea for copying -->
+                                                <textarea id="crawled-text-{{ forloop.counter }}" class="hidden">{{ page.meta_title|default:"" }}
+{{ page.meta_description|default:"" }}
+
+{% for section in page.sections %}{% if section.heading %}{{ section.heading }}
+{% endif %}{% if section.content %}{{ section.content }}
+{% endif %}
+{% endfor %}{% if page.content %}{{ page.content }}{% endif %}</textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
                         </div>
                     </div>
                     {% endif %}
 
                     <!-- Extracted Reviews -->
                     {% if extracted_reviews %}
-                    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+                    <div class="wizard-card p-8 mb-8">
                         <!-- Header with gradient -->
-                        <div class="p-6" style="background: linear-gradient(135deg, #F59E0B20, #F59E0B10);">
+                        <div class="mb-6" style="background: linear-gradient(135deg, #F59E0B20, #F59E0B10); margin: -2rem -2rem 1.5rem -2rem; padding: 1.5rem 2rem; border-radius: 16px 16px 0 0;">
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center space-x-4">
                                     <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-2xl shadow-lg">
@@ -749,7 +840,7 @@
                         </div>
 
                         <!-- Reviews list -->
-                        <div class="p-6">
+                        <div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {% for review in extracted_reviews %}
                                 <div class="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-yellow-300 hover:shadow-md transition-all duration-200">
@@ -785,9 +876,9 @@
 
                     <!-- Crawled Meta Data from Client Model -->
                     {% if client.scraped_data %}
-                    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+                    <div class="wizard-card p-8 mb-8">
                         <!-- Header with gradient -->
-                        <div class="p-6" style="background: linear-gradient(135deg, #6366F120, #6366F110);">
+                        <div class="mb-6" style="background: linear-gradient(135deg, #6366F120, #6366F110); margin: -2rem -2rem 1.5rem -2rem; padding: 1.5rem 2rem; border-radius: 16px 16px 0 0;">
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center space-x-4">
                                     <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-2xl shadow-lg">
@@ -803,7 +894,7 @@
                             </div>
                         </div>
 
-                        <div class="p-6 space-y-4">
+                        <div class="space-y-4">
                             {% if client.scraped_data.meta_title %}
                             <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
                                 <div class="flex items-center justify-between mb-2">
@@ -846,9 +937,9 @@
 
                     <!-- AI Generated Headlines -->
                     {% if campaign_config.generated_headlines %}
-                    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+                    <div class="wizard-card p-8 mb-8">
                         <!-- Header with gradient -->
-                        <div class="p-6" style="background: linear-gradient(135deg, #A855F720, #A855F710);">
+                        <div class="mb-6" style="background: linear-gradient(135deg, #A855F720, #A855F710); margin: -2rem -2rem 1.5rem -2rem; padding: 1.5rem 2rem; border-radius: 16px 16px 0 0;">
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center space-x-4">
                                     <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center text-2xl shadow-lg">
@@ -863,7 +954,7 @@
                             </div>
                         </div>
 
-                        <div class="p-6">
+                        <div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 {% for headline in campaign_config.generated_headlines %}
                                 <div class="flex items-center justify-between bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-purple-300 hover:shadow-md transition-all duration-200">
@@ -878,9 +969,9 @@
 
                     <!-- AI Generated Descriptions -->
                     {% if campaign_config.generated_descriptions %}
-                    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+                    <div class="wizard-card p-8 mb-8">
                         <!-- Header with gradient -->
-                        <div class="p-6" style="background: linear-gradient(135deg, #10B98120, #10B98110);">
+                        <div class="mb-6" style="background: linear-gradient(135deg, #10B98120, #10B98110); margin: -2rem -2rem 1.5rem -2rem; padding: 1.5rem 2rem; border-radius: 16px 16px 0 0;">
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center space-x-4">
                                     <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-2xl shadow-lg">
@@ -895,7 +986,7 @@
                             </div>
                         </div>
 
-                        <div class="p-6 space-y-3">
+                        <div class="space-y-3">
                             {% for desc in campaign_config.generated_descriptions %}
                             <div class="flex items-start justify-between bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-green-300 hover:shadow-md transition-all duration-200">
                                 <span class="text-gray-800">{{ desc }}</span>
@@ -908,9 +999,9 @@
 
                     <!-- Campaign Texts from Ad Groups -->
                     {% if campaigns %}
-                    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+                    <div class="wizard-card p-8 mb-8">
                         <!-- Header with gradient -->
-                        <div class="p-6" style="background: linear-gradient(135deg, #F9731620, #F9731610);">
+                        <div class="mb-6" style="background: linear-gradient(135deg, #F9731620, #F9731610); margin: -2rem -2rem 1.5rem -2rem; padding: 1.5rem 2rem; border-radius: 16px 16px 0 0;">
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center space-x-4">
                                     <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center text-2xl shadow-lg">
@@ -925,7 +1016,7 @@
                             </div>
                         </div>
 
-                        <div class="p-6 space-y-4">
+                        <div class="space-y-4">
                             {% for campaign in campaigns %}
                             <div class="bg-gray-50 rounded-xl p-5 border border-gray-200 hover:border-orange-300 hover:shadow-md transition-all duration-200">
                                 <div class="flex items-center space-x-3 mb-4">
@@ -966,8 +1057,8 @@
 
                     <!-- Empty State -->
                     {% if not scraped_pages and not extracted_reviews and not client.scraped_data and not campaign_config.generated_headlines and not campaign_config.generated_descriptions and not campaigns %}
-                    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-                        <div class="text-center py-16 px-8">
+                    <div class="wizard-card p-8 mb-8">
+                        <div class="text-center py-8">
                             <div class="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
                                 <span class="text-4xl">📝</span>
                             </div>
@@ -1466,6 +1557,216 @@
 <script>
 const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 const clientId = {{ client.id }};
+
+// Crawled Pages Navigation Functions
+function showCrawledPage(pagePath) {
+    // Update nav items
+    document.querySelectorAll('.crawled-page-nav-item').forEach(item => {
+        if (item.dataset.pagePath === pagePath) {
+            item.classList.remove('border-gray-200', 'hover:border-blue-300', 'hover:bg-gray-50');
+            item.classList.add('border-blue-500', 'bg-blue-50');
+        } else {
+            item.classList.remove('border-blue-500', 'bg-blue-50');
+            item.classList.add('border-gray-200', 'hover:border-blue-300', 'hover:bg-gray-50');
+        }
+    });
+
+    // Update content previews
+    document.querySelectorAll('.crawled-page-preview').forEach(preview => {
+        if (preview.dataset.pagePath === pagePath) {
+            preview.classList.remove('hidden');
+        } else {
+            preview.classList.add('hidden');
+        }
+    });
+}
+
+function copyCrawledPageText(pagePath) {
+    // Find the visible preview and its textarea
+    const visiblePreview = document.querySelector(`.crawled-page-preview[data-page-path="${pagePath}"]:not(.hidden)`);
+    if (!visiblePreview) {
+        // Try to find by path
+        const allPreviews = document.querySelectorAll('.crawled-page-preview');
+        allPreviews.forEach((preview, index) => {
+            if (preview.dataset.pagePath === pagePath) {
+                const textarea = document.getElementById(`crawled-text-${index + 1}`);
+                if (textarea) {
+                    navigator.clipboard.writeText(textarea.value).then(() => {
+                        showCopyFeedback('Tekst kopieret!');
+                    });
+                }
+            }
+        });
+        return;
+    }
+
+    const textarea = visiblePreview.querySelector('textarea');
+    if (textarea) {
+        navigator.clipboard.writeText(textarea.value).then(() => {
+            showCopyFeedback('Tekst kopieret!');
+        });
+    }
+}
+
+function showCopyFeedback(message) {
+    // Create toast notification
+    const toast = document.createElement('div');
+    toast.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 transition-opacity duration-300';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+    }, 2000);
+}
+
+// Marked Pages System
+const MARKED_PAGES_KEY = `marked_pages_client_${clientId}`;
+let currentFilter = 'all';
+
+function getMarkedPages() {
+    const stored = localStorage.getItem(MARKED_PAGES_KEY);
+    return stored ? JSON.parse(stored) : [];
+}
+
+function saveMarkedPages(pages) {
+    localStorage.setItem(MARKED_PAGES_KEY, JSON.stringify(pages));
+    updateMarkedCount();
+}
+
+function togglePageMarked(pagePath) {
+    const markedPages = getMarkedPages();
+    const index = markedPages.indexOf(pagePath);
+
+    if (index > -1) {
+        // Remove from marked
+        markedPages.splice(index, 1);
+    } else {
+        // Add to marked
+        markedPages.push(pagePath);
+    }
+
+    saveMarkedPages(markedPages);
+    updatePageMarkedUI(pagePath, index === -1);
+
+    // Re-apply filter if we're in "marked" mode
+    if (currentFilter === 'marked') {
+        filterCrawledPages('marked');
+    }
+}
+
+function updatePageMarkedUI(pagePath, isMarked) {
+    const navItem = document.querySelector(`.crawled-page-nav-item[data-page-path="${pagePath}"]`);
+    if (!navItem) return;
+
+    navItem.dataset.marked = isMarked ? 'true' : 'false';
+    const icon = navItem.querySelector('.mark-icon');
+
+    if (isMarked) {
+        icon.textContent = '★';
+        icon.classList.remove('text-gray-300');
+        icon.classList.add('text-yellow-400');
+    } else {
+        icon.textContent = '☆';
+        icon.classList.remove('text-yellow-400');
+        icon.classList.add('text-gray-300');
+    }
+}
+
+function updateMarkedCount() {
+    const count = getMarkedPages().length;
+    const countEl = document.getElementById('marked-count');
+    if (countEl) {
+        countEl.textContent = `(${count})`;
+    }
+}
+
+function filterCrawledPages(filter) {
+    currentFilter = filter;
+    const markedPages = getMarkedPages();
+    const navItems = document.querySelectorAll('.crawled-page-nav-item');
+
+    // Update filter button styles
+    document.querySelectorAll('.crawled-filter-btn').forEach(btn => {
+        btn.classList.remove('bg-blue-500', 'text-white');
+        btn.classList.add('bg-gray-100', 'text-gray-600', 'hover:bg-gray-200');
+    });
+
+    const activeBtn = document.getElementById(`filter-${filter}`);
+    if (activeBtn) {
+        activeBtn.classList.remove('bg-gray-100', 'text-gray-600', 'hover:bg-gray-200');
+        activeBtn.classList.add('bg-blue-500', 'text-white');
+    }
+
+    // Filter nav items
+    let visibleCount = 0;
+    let firstVisible = null;
+
+    navItems.forEach(item => {
+        const pagePath = item.dataset.pagePath;
+        const isMarked = markedPages.includes(pagePath);
+
+        if (filter === 'all' || (filter === 'marked' && isMarked)) {
+            item.classList.remove('hidden');
+            visibleCount++;
+            if (!firstVisible) firstVisible = pagePath;
+        } else {
+            item.classList.add('hidden');
+        }
+    });
+
+    // If current active page is hidden, switch to first visible
+    if (firstVisible) {
+        const activePage = document.querySelector('.crawled-page-nav-item.border-blue-500:not(.hidden)');
+        if (!activePage) {
+            showCrawledPage(firstVisible);
+        }
+    }
+
+    // Show empty state if no marked pages
+    if (filter === 'marked' && visibleCount === 0) {
+        showNoMarkedPagesMessage();
+    } else {
+        hideNoMarkedPagesMessage();
+    }
+}
+
+function showNoMarkedPagesMessage() {
+    let msg = document.getElementById('no-marked-pages-msg');
+    if (!msg) {
+        msg = document.createElement('div');
+        msg.id = 'no-marked-pages-msg';
+        msg.className = 'text-center py-8 text-gray-500';
+        msg.innerHTML = `
+            <div class="text-3xl mb-2">☆</div>
+            <p class="text-sm">Ingen markerede sider</p>
+            <p class="text-xs mt-1">Klik på stjernen for at markere en side</p>
+        `;
+        document.getElementById('crawled-pages-nav').appendChild(msg);
+    }
+    msg.classList.remove('hidden');
+}
+
+function hideNoMarkedPagesMessage() {
+    const msg = document.getElementById('no-marked-pages-msg');
+    if (msg) msg.classList.add('hidden');
+}
+
+function initMarkedPages() {
+    const markedPages = getMarkedPages();
+
+    // Update UI for all marked pages
+    markedPages.forEach(pagePath => {
+        updatePageMarkedUI(pagePath, true);
+    });
+
+    // Update count
+    updateMarkedCount();
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', initMarkedPages);
 
 // City data from Django
 // Byside page counts per city (for clients with multiple services/branches)
