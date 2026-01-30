@@ -4419,6 +4419,12 @@ async function saveAsClient() {
         Gemmer...
     `);
 
+    // Include crawlState in campaignConfig for full backup (needed for scraped_pages, extracted_reviews)
+    const fullCampaignConfig = {
+        ...campaignConfig,
+        crawlState: crawlState  // Include crawl state with scraped_pages, extracted_reviews
+    };
+
     const data = {
         client_id: campaignConfig.client_id,
         name: clientName,
@@ -4431,7 +4437,7 @@ async function saveAsClient() {
         geographic_regions: campaignConfig.geographic_region_ids || [],
         selected_services: campaignConfig.service_ids || [],
         selected_usps: campaignConfig.usp_ids || [],
-        campaign_config: campaignConfig  // Full backup
+        campaign_config: fullCampaignConfig  // Full backup including crawlState
     };
 
     try {
