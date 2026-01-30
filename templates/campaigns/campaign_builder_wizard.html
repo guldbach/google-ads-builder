@@ -13,9 +13,190 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <!-- Turf.js for polygon merging (used for consolidated postal codes like København) -->
 <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+<!-- SortableJS for drag-and-drop row reordering -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 
 <!-- Custom CSS for Multi-Step Wizard -->
 <style>
+
+/* Resize Handle Styles */
+.resize-handle {
+    width: 24px;
+    cursor: col-resize;
+    position: relative;
+    flex-shrink: 0;
+    z-index: 10;
+    transition: all 0.2s ease;
+    background: #e5e7eb;
+    border-left: 1px solid #d1d5db;
+    border-right: 1px solid #d1d5db;
+    align-self: stretch;
+    min-height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.resize-handle::before {
+    content: '';
+    position: absolute;
+    width: 3px;
+    height: 10px;
+    background: #9ca3af;
+    border-radius: 1px;
+    left: calc(50% - 5px);
+}
+
+.resize-handle::after {
+    content: '';
+    position: absolute;
+    width: 3px;
+    height: 10px;
+    background: #9ca3af;
+    border-radius: 1px;
+    left: calc(50% + 2px);
+}
+
+.resize-handle:hover {
+    background: #ddd6fe;
+    border-color: #a78bfa;
+}
+
+.resize-handle:hover::before,
+.resize-handle:hover::after {
+    background: #7c3aed;
+}
+
+.resize-handle:active {
+    background: #c4b5fd;
+    border-color: #8b5cf6;
+}
+
+.resize-handle:active::before,
+.resize-handle:active::after {
+    background: #5b21b6;
+}
+
+.resize-handle-line {
+    display: none;
+}
+
+/* Last resize handle (at right edge of row) */
+.resize-handle-last {
+    border-right: none;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+/* Content drag-and-drop styles */
+.content-drag-handle {
+    cursor: grab;
+}
+
+.content-drag-handle:active {
+    cursor: grabbing;
+}
+
+.content-dragging {
+    opacity: 0.7;
+    transform: scale(1.02);
+    box-shadow: 0 8px 25px rgba(139, 92, 246, 0.3);
+    z-index: 100;
+}
+
+.content-drop-target {
+    outline: 3px dashed #8b5cf6;
+    outline-offset: -3px;
+    background-color: rgba(139, 92, 246, 0.1) !important;
+}
+
+.content-drop-target .flat-section {
+    pointer-events: none;
+}
+
+/* Content block drag-and-drop styles */
+.content-block-drag-handle {
+    cursor: grab;
+}
+
+.content-block-drag-handle:active {
+    cursor: grabbing;
+}
+
+.content-block-ghost {
+    opacity: 0.4;
+    background: #f3e8ff !important;
+    border: 2px dashed #8b5cf6 !important;
+    border-radius: 8px;
+}
+
+.content-block-dragging {
+    opacity: 0.9;
+    box-shadow: 0 8px 25px rgba(139, 92, 246, 0.3);
+    transform: rotate(1deg);
+}
+
+/* Section drag styles */
+.section-drag-handle:active {
+    cursor: grabbing;
+}
+
+.section-ghost {
+    opacity: 0.4;
+    background: #fef3c7 !important;
+    border: 2px dashed #f59e0b !important;
+    border-radius: 8px;
+}
+
+.section-dragging {
+    opacity: 0.95;
+    box-shadow: 0 8px 25px rgba(245, 158, 11, 0.3);
+    z-index: 1000;
+}
+
+/* Empty section drop area highlight */
+.section-content-area.sortable-drag-over {
+    background-color: rgba(139, 92, 246, 0.1);
+    border-radius: 8px;
+}
+
+/* Section drag-and-drop styles */
+.section-ghost {
+    opacity: 0.5;
+    background: #f3e8ff !important;
+    border: 2px dashed #8b5cf6 !important;
+}
+
+.section-dragging {
+    opacity: 0.9;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+}
+
+.section-drag-handle {
+    cursor: grab;
+}
+
+.section-drag-handle:active {
+    cursor: grabbing;
+}
+
+/* Auto-flow row styles */
+.auto-flow-row {
+    position: relative;
+}
+
+.section-wrapper {
+    transition: width 0.15s ease;
+}
+
+/* Flat section styles */
+.flat-section {
+    background: white;
+}
+
+.flat-section:last-child {
+    border-right: none;
+}
 
 .step-content {
     min-height: 500px;
@@ -962,6 +1143,93 @@
             <p class="text-gray-600">Konfigurer meta tags for hver service-underside</p>
         </div>
 
+        <!-- Preview/Edit Mode Toggle -->
+        <div id="seo-mode-toggle" class="bg-white rounded-xl shadow-sm border border-gray-200 p-3 mb-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <button type="button" id="seo-preview-mode-btn" onclick="setSeoViewMode('preview')"
+                            class="px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 bg-purple-600 text-white">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                        </svg>
+                        <span>Preview Mode</span>
+                    </button>
+                    <button type="button" id="seo-edit-mode-btn" onclick="setSeoViewMode('edit')"
+                            class="px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 bg-gray-100 text-gray-700 hover:bg-gray-200">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                        </svg>
+                        <span>Edit Mode</span>
+                    </button>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <div id="add-section-dropdown" class="relative">
+                        <button type="button" onclick="toggleAddSectionDropdown()"
+                                class="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium
+                                       hover:shadow-lg transition-all duration-200 flex items-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            <span>Tilføj sektion</span>
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        <div id="add-section-menu" class="hidden absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-200 p-4 z-50">
+                            <h4 class="font-semibold text-gray-900 mb-3">Vælg sektionstype:</h4>
+                            <p class="text-xs text-gray-500 mb-3">Sektioner flyder automatisk til samme række når de tilsammen fylder ≤ 100%</p>
+                            <div class="grid grid-cols-2 gap-2 mb-4">
+                                <button type="button" onclick="addNewSection('usp_header', '1/3')" class="section-type-btn p-3 border-2 border-gray-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all text-left">
+                                    <div class="flex items-center space-x-2 mb-1">
+                                        <span class="text-green-600 font-bold">✓</span>
+                                        <span class="font-medium text-gray-900">Hero/USP</span>
+                                    </div>
+                                    <span class="text-xs text-gray-500">Overskrift med USP-punkter</span>
+                                </button>
+                                <button type="button" onclick="addNewSection('text', '1/3')" class="section-type-btn p-3 border-2 border-gray-200 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-all text-left">
+                                    <div class="flex items-center space-x-2 mb-1">
+                                        <span>📝</span>
+                                        <span class="font-medium text-gray-900">Tekst</span>
+                                    </div>
+                                    <span class="text-xs text-gray-500">Overskrift og brødtekst</span>
+                                </button>
+                                <button type="button" onclick="addNewSection('reviews', '1/3')" class="section-type-btn p-3 border-2 border-gray-200 rounded-lg hover:border-pink-500 hover:bg-pink-50 transition-all text-left">
+                                    <div class="flex items-center space-x-2 mb-1">
+                                        <span>⭐</span>
+                                        <span class="font-medium text-gray-900">Anmeldelser</span>
+                                    </div>
+                                    <span class="text-xs text-gray-500">Kundeanmeldelser</span>
+                                </button>
+                                <button type="button" onclick="addNewSection('contact_form', '1/3')" class="section-type-btn p-3 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all text-left">
+                                    <div class="flex items-center space-x-2 mb-1">
+                                        <span>✉️</span>
+                                        <span class="font-medium text-gray-900">Kontaktform</span>
+                                    </div>
+                                    <span class="text-xs text-gray-500">Formular med felter</span>
+                                </button>
+                                <button type="button" onclick="addNewSection('cta', '1/1')" class="section-type-btn p-3 border-2 border-gray-200 rounded-lg hover:border-orange-500 hover:bg-orange-50 transition-all text-left">
+                                    <div class="flex items-center space-x-2 mb-1">
+                                        <span>🎯</span>
+                                        <span class="font-medium text-gray-900">Call-to-Action</span>
+                                    </div>
+                                    <span class="text-xs text-gray-500">CTA-sektion med knap</span>
+                                </button>
+                                <button type="button" onclick="addNewSection('image', '1/3')" class="section-type-btn p-3 border-2 border-gray-200 rounded-lg hover:border-gray-500 hover:bg-gray-50 transition-all text-left">
+                                    <div class="flex items-center space-x-2 mb-1">
+                                        <span>🖼️</span>
+                                        <span class="font-medium text-gray-900">Billede</span>
+                                    </div>
+                                    <span class="text-xs text-gray-500">Billede-placeholder</span>
+                                </button>
+                            </div>
+                            <p class="text-xs text-gray-400 border-t border-gray-100 pt-3">Tip: Træk i kanten mellem sektioner for at ændre bredde</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- SEO Builder Container with Sidebar -->
         <div id="seo-builder-container" class="flex gap-6 max-w-[2000px]">
             <!-- Sidebar Navigation -->
@@ -1366,6 +1634,108 @@
     </div>
 </div>
 
+<!-- Template Selector Modal -->
+<div id="template-selector-modal" class="fixed inset-0 flex items-center justify-center hidden" style="z-index: 2147483645;">
+    <!-- Backdrop -->
+    <div class="absolute inset-0 bg-black bg-opacity-50 backdrop-blur-sm" onclick="closeTemplateSelector()"></div>
+    <!-- Modal content -->
+    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 max-h-[85vh] flex flex-col">
+        <!-- Header -->
+        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <div>
+                <h3 class="text-xl font-bold text-gray-900">Vælg Template</h3>
+                <p class="text-sm text-gray-500">Vælg en standard opbygning til siden</p>
+            </div>
+            <button type="button" onclick="closeTemplateSelector()" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Filter bar -->
+        <div class="px-6 py-3 border-b border-gray-100 bg-gray-50">
+            <div class="flex items-center space-x-3">
+                <span class="text-sm text-gray-500">Filter:</span>
+                <button type="button" onclick="filterTemplatesByType('')" class="px-3 py-1 text-sm rounded-full bg-purple-100 text-purple-700 hover:bg-purple-200">Alle</button>
+                <button type="button" onclick="filterTemplatesByType('forside')" class="px-3 py-1 text-sm rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200">Forside</button>
+                <button type="button" onclick="filterTemplatesByType('service')" class="px-3 py-1 text-sm rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200">Service</button>
+                <button type="button" onclick="filterTemplatesByType('om_os')" class="px-3 py-1 text-sm rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200">Om Os</button>
+                <button type="button" onclick="filterTemplatesByType('kontakt')" class="px-3 py-1 text-sm rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200">Kontakt</button>
+                <button type="button" onclick="filterTemplatesByType('geo')" class="px-3 py-1 text-sm rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200">Geo/By</button>
+            </div>
+        </div>
+
+        <!-- Template list -->
+        <div id="template-list-container" class="flex-1 overflow-y-auto p-6">
+            <!-- Templates loaded here via JavaScript -->
+        </div>
+
+        <!-- Footer -->
+        <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end">
+            <button type="button" onclick="closeTemplateSelector()" class="px-4 py-2 text-gray-600 hover:text-gray-800">
+                Annuller
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Save as Template Modal -->
+<div id="save-template-modal" class="fixed inset-0 flex items-center justify-center hidden" style="z-index: 2147483645;">
+    <!-- Backdrop -->
+    <div class="absolute inset-0 bg-black bg-opacity-50 backdrop-blur-sm" onclick="closeSaveTemplateModal()"></div>
+    <!-- Modal content -->
+    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4">
+        <!-- Header -->
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-xl font-bold text-gray-900">Gem som Template</h3>
+            <p class="text-sm text-gray-500">Gem dette layout til senere genbrug</p>
+        </div>
+
+        <!-- Form -->
+        <div class="p-6 space-y-4">
+            <input type="hidden" id="save-template-path" value="">
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Navn *</label>
+                <input type="text" id="save-template-name" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="Fx. 'Elektriker Service Side'">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Side type</label>
+                <select id="save-template-type" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    <option value="forside">Forside</option>
+                    <option value="service">Service Side</option>
+                    <option value="om_os">Om Os Side</option>
+                    <option value="kontakt">Kontakt Side</option>
+                    <option value="priser">Priser Side</option>
+                    <option value="faq">FAQ Side</option>
+                    <option value="team">Team Side</option>
+                    <option value="galleri">Galleri Side</option>
+                    <option value="geo">Geo/By Side</option>
+                    <option value="landing">Landing Page</option>
+                    <option value="custom" selected>Brugerdefineret</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Beskrivelse (valgfri)</label>
+                <textarea id="save-template-description" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" rows="2" placeholder="Beskriv hvornår denne template bruges..."></textarea>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end space-x-3 rounded-b-2xl">
+            <button type="button" onclick="closeSaveTemplateModal()" class="px-4 py-2 text-gray-600 hover:text-gray-800">
+                Annuller
+            </button>
+            <button type="button" onclick="submitSaveTemplate()" class="px-4 py-2 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg hover:shadow-lg transition-all">
+                Gem Template
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Roberto Loading Modal - Typing Robot Animation -->
 <div id="roberto-loading-modal" class="fixed inset-0 flex items-center justify-center" style="z-index: 2147483648; display: none;">
     <!-- Backdrop -->
@@ -1729,6 +2099,9 @@ let serverData = {
     google_keywords: {},  // Gem keywords per industry
     services_by_id: {}  // Lookup map: serviceId -> {id, name, description, color, industry_name, ...}
 };
+
+// SEO Preview Mode state - 'preview' or 'edit'
+let seoViewMode = 'preview';
 
 // ========================================
 // localStorage Persistence (7-day expiry)
@@ -9430,6 +9803,7 @@ async function scrapeAndDetectServices() {
         const response = await $.ajax({
             url: '/ajax/scrape-detect-services/',
             method: 'POST',
+            timeout: 180000,  // 3 minutter max (scraping + AI)
             headers: { 'X-CSRFToken': '{{ csrf_token }}' },
             contentType: 'application/json',
             data: JSON.stringify({
@@ -9481,8 +9855,16 @@ async function scrapeAndDetectServices() {
     } catch (error) {
         console.error('[Service Detection] Error:', error);
         campaignConfig.service_detection.status = 'error';
+        campaignConfig.service_detection.error_message = error.statusText || error.message || 'Ukendt fejl';
         debouncedSaveState();
         hideRobertoLoading();
+
+        // Vis brugervenlig fejlbesked
+        if (error.statusText === 'timeout') {
+            alert('Timeout: Website analyse tog for lang tid. Prøv igen eller reducer antal sider.');
+        } else {
+            alert('Fejl ved analyse af website: ' + (error.responseJSON?.error || error.statusText || 'Ukendt fejl'));
+        }
     }
 }
 
@@ -9508,6 +9890,325 @@ function getScrapedPageData(path) {
     return crawlState.scraped_pages[pathWithSlash] ||
            crawlState.scraped_pages[pathWithoutSlash] ||
            null;
+}
+
+// Check if a page has Elementor JSON data available
+function hasElementorJson(path) {
+    const scrapedData = getScrapedPageData(path);
+    return scrapedData && scrapedData.elementor_json && scrapedData.elementor_json.content?.length > 0;
+}
+
+// Export Elementor JSON to file
+function exportElementorJson(path) {
+    const scrapedData = getScrapedPageData(path);
+    if (!scrapedData || !scrapedData.elementor_json) {
+        alert('Ingen Elementor data tilgængelig for denne side.');
+        return;
+    }
+
+    const elementorJson = scrapedData.elementor_json;
+
+    // Clean the JSON for Elementor import (remove 'content' fields from widgets)
+    function cleanElement(el) {
+        const cleaned = {
+            id: el.id,
+            elType: el.elType,
+            isInner: el.isInner || false,
+            settings: el.settings || {},
+            elements: (el.elements || []).map(cleanElement)
+        };
+        if (el.widgetType) {
+            cleaned.widgetType = el.widgetType;
+        }
+        return cleaned;
+    }
+
+    const exportData = {
+        title: elementorJson.title || 'Exported Template',
+        type: elementorJson.type || 'page',
+        version: elementorJson.version || '0.4',
+        content: (elementorJson.content || []).map(cleanElement)
+    };
+
+    // Create and download file
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+
+    // Generate filename from title or path
+    const filename = (elementorJson.title || path.replace(/[^a-zA-Z0-9]/g, '_') || 'elementor-template') + '.json';
+    a.download = filename.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
+
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    // Show success message
+    alert(`Elementor template eksporteret!\n\nFilen kan importeres i Elementor via:\nTemplates > Import Templates`);
+}
+
+// ============================================
+// Page Template Functions - Standard opbygninger
+// ============================================
+
+// State for template selector
+let templateSelectorPagePath = null;
+let loadedTemplates = [];
+
+/**
+ * Open the template selector modal
+ */
+function openTemplateSelector(pagePath) {
+    templateSelectorPagePath = pagePath;
+
+    // Show loading state
+    $('#template-selector-modal').removeClass('hidden');
+    $('#template-list-container').html(`
+        <div class="text-center py-8">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-purple-600 border-t-transparent"></div>
+            <p class="mt-2 text-gray-500">Henter templates...</p>
+        </div>
+    `);
+
+    // Detect page type from path
+    let suggestedPageType = 'custom';
+    if (pagePath === '/') suggestedPageType = 'forside';
+    else if (pagePath.includes('om-os') || pagePath.includes('about')) suggestedPageType = 'om_os';
+    else if (pagePath.includes('kontakt') || pagePath.includes('contact')) suggestedPageType = 'kontakt';
+    else if (pagePath.includes('service') || pagePath.includes('ydelse')) suggestedPageType = 'service';
+    else if (pagePath.includes('pris') || pagePath.includes('price')) suggestedPageType = 'priser';
+
+    // Fetch templates from API
+    $.ajax({
+        url: '/ai/ajax/templates/',
+        method: 'GET',
+        data: { page_type: '' },  // Get all templates
+        success: function(response) {
+            if (response.success) {
+                loadedTemplates = response.templates;
+                renderTemplateList(loadedTemplates, suggestedPageType);
+            } else {
+                $('#template-list-container').html(`
+                    <div class="text-center py-8 text-red-500">
+                        <p>Kunne ikke hente templates: ${response.error}</p>
+                    </div>
+                `);
+            }
+        },
+        error: function() {
+            $('#template-list-container').html(`
+                <div class="text-center py-8 text-red-500">
+                    <p>Netværksfejl - kunne ikke hente templates</p>
+                </div>
+            `);
+        }
+    });
+}
+
+/**
+ * Render the template list in the modal
+ */
+function renderTemplateList(templates, highlightType = null) {
+    if (templates.length === 0) {
+        $('#template-list-container').html(`
+            <div class="text-center py-8 text-gray-400">
+                <svg class="w-12 h-12 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"></path>
+                </svg>
+                <p class="text-lg font-medium">Ingen templates endnu</p>
+                <p class="text-sm mt-2">Gem et layout som template for at genbruge det senere</p>
+            </div>
+        `);
+        return;
+    }
+
+    // Group templates by page type
+    const grouped = {};
+    templates.forEach(t => {
+        const type = t.page_type_display || 'Andet';
+        if (!grouped[type]) grouped[type] = [];
+        grouped[type].push(t);
+    });
+
+    let html = '';
+    Object.keys(grouped).forEach(type => {
+        const isHighlighted = grouped[type].some(t => t.page_type === highlightType);
+        html += `
+            <div class="mb-6">
+                <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                    ${type}
+                    ${isHighlighted ? '<span class="ml-2 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">Anbefalet</span>' : ''}
+                </h4>
+                <div class="grid grid-cols-2 gap-3">
+                    ${grouped[type].map(t => `
+                        <div class="template-card border rounded-xl p-4 hover:border-purple-400 hover:shadow-lg transition-all cursor-pointer ${t.is_default ? 'border-purple-300 bg-purple-50' : 'border-gray-200'}"
+                             onclick="applyTemplate(${t.id})">
+                            <div class="flex items-start justify-between mb-2">
+                                <h5 class="font-medium text-gray-900">${escapeHtml(t.name)}</h5>
+                                ${t.is_default ? '<span class="text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full">Standard</span>' : ''}
+                            </div>
+                            ${t.description ? `<p class="text-sm text-gray-500 mb-2 line-clamp-2">${escapeHtml(t.description)}</p>` : ''}
+                            <div class="flex items-center text-xs text-gray-400 space-x-3">
+                                <span>${t.section_count} sektioner</span>
+                                <span>Brugt ${t.usage_count} gange</span>
+                            </div>
+                            ${t.section_types && t.section_types.length > 0 ? `
+                                <div class="flex flex-wrap gap-1 mt-2">
+                                    ${t.section_types.slice(0, 4).map(st => `
+                                        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">${st}</span>
+                                    `).join('')}
+                                    ${t.section_types.length > 4 ? `<span class="text-xs text-gray-400">+${t.section_types.length - 4}</span>` : ''}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    });
+
+    $('#template-list-container').html(html);
+}
+
+/**
+ * Filter templates by page type
+ */
+function filterTemplatesByType(pageType) {
+    const filtered = pageType ? loadedTemplates.filter(t => t.page_type === pageType) : loadedTemplates;
+    renderTemplateList(filtered);
+}
+
+/**
+ * Apply a template to the current page
+ */
+function applyTemplate(templateId) {
+    if (!templateSelectorPagePath) return;
+
+    $.ajax({
+        url: `/ai/ajax/templates/${templateId}/apply/`,
+        method: 'POST',
+        contentType: 'application/json',
+        headers: { 'X-CSRFToken': getCsrfToken() },
+        success: function(response) {
+            if (response.success) {
+                // Apply flatSections to current page
+                if (!campaignConfig.seo_pages[templateSelectorPagePath]) {
+                    campaignConfig.seo_pages[templateSelectorPagePath] = {
+                        page_title: '',
+                        meta_title: '',
+                        meta_description: '',
+                        flatSections: []
+                    };
+                }
+                campaignConfig.seo_pages[templateSelectorPagePath].flatSections = response.flat_sections;
+
+                // Close modal and refresh display
+                closeTemplateSelector();
+                renderSeoPageContent(templateSelectorPagePath);
+
+                showToast(`Template "${response.template_name}" anvendt`, 'success');
+            } else {
+                showToast('Kunne ikke anvende template: ' + response.error, 'error');
+            }
+        },
+        error: function() {
+            showToast('Netværksfejl ved anvendelse af template', 'error');
+        }
+    });
+}
+
+/**
+ * Close the template selector modal
+ */
+function closeTemplateSelector() {
+    $('#template-selector-modal').addClass('hidden');
+    templateSelectorPagePath = null;
+}
+
+/**
+ * Open the "Save as Template" dialog
+ */
+function saveAsTemplate(pagePath) {
+    const pageData = campaignConfig.seo_pages[pagePath];
+    if (!pageData || !pageData.flatSections || pageData.flatSections.length === 0) {
+        showToast('Ingen sektioner at gemme som template', 'warning');
+        return;
+    }
+
+    // Detect page type for suggestion
+    let suggestedPageType = 'custom';
+    let suggestedName = pageData.page_title || 'Ny template';
+    if (pagePath === '/') suggestedPageType = 'forside';
+    else if (pagePath.includes('om-os') || pagePath.includes('about')) suggestedPageType = 'om_os';
+    else if (pagePath.includes('kontakt') || pagePath.includes('contact')) suggestedPageType = 'kontakt';
+    else if (pagePath.includes('service') || pagePath.includes('ydelse')) suggestedPageType = 'service';
+
+    // Pre-fill form
+    $('#save-template-name').val(suggestedName);
+    $('#save-template-type').val(suggestedPageType);
+    $('#save-template-description').val('');
+    $('#save-template-path').val(pagePath);
+
+    // Show modal
+    $('#save-template-modal').removeClass('hidden');
+}
+
+/**
+ * Submit the save template form
+ */
+function submitSaveTemplate() {
+    const pagePath = $('#save-template-path').val();
+    const name = $('#save-template-name').val().trim();
+    const pageType = $('#save-template-type').val();
+    const description = $('#save-template-description').val().trim();
+
+    if (!name) {
+        showToast('Angiv et navn til templaten', 'warning');
+        return;
+    }
+
+    const pageData = campaignConfig.seo_pages[pagePath];
+    if (!pageData || !pageData.flatSections) {
+        showToast('Ingen data at gemme', 'error');
+        return;
+    }
+
+    const data = {
+        name: name,
+        page_type: pageType,
+        description: description,
+        flat_sections: pageData.flatSections,
+        source_url: crawlState.website_url ? crawlState.website_url.replace(/\/$/, '') + pagePath : '',
+        source_client_id: campaignConfig.client_id || null
+    };
+
+    $.ajax({
+        url: '/ai/ajax/templates/create/',
+        method: 'POST',
+        contentType: 'application/json',
+        headers: { 'X-CSRFToken': getCsrfToken() },
+        data: JSON.stringify(data),
+        success: function(response) {
+            if (response.success) {
+                closeSaveTemplateModal();
+                showToast(`Template "${name}" gemt!`, 'success');
+            } else {
+                showToast('Kunne ikke gemme template: ' + response.error, 'error');
+            }
+        },
+        error: function() {
+            showToast('Netværksfejl ved gemning af template', 'error');
+        }
+    });
+}
+
+/**
+ * Close the save template modal
+ */
+function closeSaveTemplateModal() {
+    $('#save-template-modal').addClass('hidden');
 }
 
 // Track which source paths are already assigned to services (to prevent duplicates)
@@ -12411,13 +13112,71 @@ async function renderSeoBuilder() {
     const hasExistingPages = existingSeoPages.length > 0;
     console.log('Existing SEO pages:', existingSeoPages.length);
 
-    if (seoServiceIds.length === 0 && customServices.length === 0 && !hasExistingPages) {
+    // Check if we have scraped pages with flat_sections for wireframe preview
+    const scrapedPagesWithWireframe = Object.entries(crawlState?.scraped_pages || {})
+        .filter(([path, page]) => page.flat_sections && page.flat_sections.length > 0)
+        .map(([path, page]) => ({
+            path: path,
+            page_title: page.meta_title || (path === '/' ? 'Forside' : path.replace(/\//g, ' ').trim()),
+            flat_sections: page.flat_sections
+        }));
+    const hasScrapedWireframes = scrapedPagesWithWireframe.length > 0;
+
+    if (seoServiceIds.length === 0 && customServices.length === 0 && !hasExistingPages && !hasScrapedWireframes) {
         $('#seo-builder-container').html(`
             <div class="text-center py-12 text-gray-500">
                 <p class="text-lg mb-2">Ingen services valgt til SEO</p>
                 <p class="text-sm">Gå tilbage til Step 2 og vælg services med SEO formål</p>
             </div>
         `);
+        return;
+    }
+
+    // If we have scraped wireframes but no services or existing pages, build from scraped pages
+    if (seoServiceIds.length === 0 && customServices.length === 0 && !hasExistingPages && hasScrapedWireframes) {
+        console.log('Building SEO sidebar from scraped wireframe pages');
+
+        allSeoPageKeys = [];
+
+        // Sort: homepage first, then alphabetically
+        scrapedPagesWithWireframe.sort((a, b) => {
+            if (a.path === '/') return -1;
+            if (b.path === '/') return 1;
+            return a.path.localeCompare(b.path);
+        }).forEach(page => {
+            allSeoPageKeys.push({
+                path: page.path,
+                page_title: page.page_title,
+                services: [],  // No services for wireframe-only pages
+                color: '#8B5CF6'
+            });
+
+            // Also initialize seo_pages entry
+            if (!campaignConfig.seo_pages[page.path]) {
+                campaignConfig.seo_pages[page.path] = {
+                    page_title: page.page_title,
+                    services: [],
+                    meta_title: page.page_title,
+                    meta_description: '',
+                    seo_keywords: [],
+                    keywords_loaded: false,
+                    sections: null
+                };
+            }
+        });
+
+        console.log('[SEO Builder] Created', allSeoPageKeys.length, 'wireframe-only pages');
+
+        // Render sidebar
+        renderSeoSidebar();
+
+        // Set first page as active
+        if (allSeoPageKeys.length > 0) {
+            setActiveSeoPage(allSeoPageKeys[0].path);
+        }
+
+        // Setup event handlers
+        setupSeoEventHandlers();
         return;
     }
 
@@ -12680,28 +13439,20 @@ function renderSeoSidebar() {
             : '';
 
         const html = `
-            <div class="seo-nav-item selection-card cursor-pointer p-4 rounded-xl border-2 transition-all duration-200
+            <div class="seo-nav-item selection-card cursor-pointer p-4 rounded-xl border-2 transition-all duration-200 relative
                         ${isActive ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-purple-300 hover:bg-gray-50'}"
                  data-page-path="${escapeHtml(page.path)}">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-10 h-10 rounded-lg flex items-center justify-center text-white text-lg"
-                             style="background-color: ${page.color}">
-                            ${pageIcon}
-                        </div>
-                        <div class="flex-1 min-w-0">
-                            <div class="font-medium text-gray-900 truncate">${escapeHtml(page.page_title)}${aiBadge}</div>
-                            <div class="text-xs text-gray-400 truncate" title="${escapeHtml(page.path)}">${escapeHtml(page.path)}</div>
-                            <div class="text-xs text-gray-500 truncate mt-0.5" title="${escapeHtml(serviceNames.join(', '))}">
-                                ${page.services.length} service${page.services.length !== 1 ? 's' : ''}: ${escapeHtml(servicesDisplay)}
-                            </div>
-                        </div>
-                    </div>
-                    <div class="flex items-center ml-2">
-                        ${isComplete ?
-                            '<span class="w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-sm">✓</span>' :
-                            '<span class="w-6 h-6 rounded-full bg-gray-200 text-gray-400 flex items-center justify-center text-sm">○</span>'
-                        }
+                <div class="absolute top-2 right-2">
+                    ${isComplete ?
+                        '<span class="w-5 h-5 rounded-full bg-green-500 text-white flex items-center justify-center text-xs">✓</span>' :
+                        '<span class="w-5 h-5 rounded-full bg-gray-200 text-gray-400 flex items-center justify-center text-xs">○</span>'
+                    }
+                </div>
+                <div class="pr-7">
+                    <div class="font-medium text-gray-900 truncate">${escapeHtml(page.page_title)}${aiBadge}</div>
+                    <div class="text-xs text-gray-400 truncate" title="${escapeHtml(page.path)}">${escapeHtml(page.path)}</div>
+                    <div class="text-xs text-gray-500 truncate mt-0.5" title="${escapeHtml(serviceNames.join(', '))}">
+                        ${page.services.length} service${page.services.length !== 1 ? 's' : ''}: ${escapeHtml(servicesDisplay)}
                     </div>
                 </div>
             </div>
@@ -13303,6 +14054,24 @@ async function renderActiveSeoContent(pagePath) {
         campaignConfig.seo_pages[pagePath] = seoPageData;
     }
 
+    // Check for preview mode - render wireframe layout
+    if (seoViewMode === 'preview') {
+        const previewHtml = renderSeoPreviewMode(pagePath, seoPageData, page);
+        container.html(previewHtml);
+
+        // Initialize drag-and-drop for sections
+        setTimeout(() => {
+            initSectionSortable();
+        }, 100);
+
+        // Load SEO keywords if not already loaded
+        if (!seoPageData.keywords_loaded) {
+            await loadSeoKeywordsForPage(pagePath);
+        }
+        return;
+    }
+
+    // Edit mode - render full form interface
     // Calculate character counts
     const titleLength = (seoPageData.meta_title || '').length;
     const descLength = (seoPageData.meta_description || '').length;
@@ -13360,6 +14129,10 @@ async function renderActiveSeoContent(pagePath) {
     const sectionsHtml = seoPageData.sections.map((section, index) => {
         if (section.type === 'reviews') {
             return renderReviewSectionForPage(pagePath, section, index);
+        }
+
+        if (section.type === 'usp_header') {
+            return renderUspHeaderSectionForPage(pagePath, section, index);
         }
 
         return `
@@ -13489,6 +14262,10 @@ async function renderActiveSeoContent(pagePath) {
                 <div class="flex items-center justify-between mb-4">
                     <label class="font-semibold text-gray-900">📄 Sideindhold <span class="text-gray-400 font-normal text-sm">(${seoPageData.sections.length} afsnit, <span id="seo-total-words-${safeId}">${seoPageData.sections.reduce((sum, s) => sum + countWords(s.content || ''), 0)}</span> ord)</span></label>
                     <div class="flex items-center space-x-2">
+                        <button type="button" onclick="addUspHeaderSectionToPage('${escapeHtml(pagePath)}')"
+                                class="text-sm px-3 py-1.5 bg-green-100 text-green-700 rounded-lg font-medium hover:bg-green-200 transition-all">
+                            ✓ Tilføj Hero/USP
+                        </button>
                         <button type="button" onclick="addSeoSectionToPage('${escapeHtml(pagePath)}')"
                                 class="text-sm px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg font-medium hover:bg-purple-200 transition-all">
                             + Tilføj afsnit
@@ -13567,6 +14344,106 @@ function renderReviewSectionForPage(pagePath, section, index) {
                 `).join('')}
             </div>
             ${reviews.length > 6 ? `<p class="text-xs text-gray-500 mt-2">+${reviews.length - 6} flere anmeldelser</p>` : ''}
+        </div>
+    `;
+}
+
+function renderUspHeaderSectionForPage(pagePath, section, index) {
+    const usps = section.usps || [''];
+    const safeId = pagePath.replace(/[^a-zA-Z0-9]/g, '_');
+
+    const uspsHtml = usps.map((usp, uspIndex) => `
+        <div class="flex items-center space-x-2 mb-2" data-usp-index="${uspIndex}">
+            <span class="text-green-600 font-bold">✓</span>
+            <input type="text"
+                   class="usp-header-usp-input flex-1 px-3 py-2 border border-gray-300 rounded-lg
+                          focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900"
+                   data-page-path="${escapeHtml(pagePath)}"
+                   data-section-index="${index}"
+                   data-usp-index="${uspIndex}"
+                   placeholder="USP punkt..."
+                   value="${escapeHtml(usp || '')}">
+            ${usps.length > 1 ? `
+                <button type="button" onclick="removeUspFromUspHeader('${escapeHtml(pagePath)}', ${index}, ${uspIndex})"
+                        class="text-red-400 hover:text-red-600 p-1" title="Fjern USP">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            ` : ''}
+        </div>
+    `).join('');
+
+    const previewUspsHtml = usps.filter(u => u && u.trim()).map(usp => `
+        <div class="flex items-center text-sm text-gray-700">
+            <span class="text-green-600 mr-2">✓</span>
+            <span>${escapeHtml(usp)}</span>
+        </div>
+    `).join('');
+
+    return `
+        <div class="seo-section bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200"
+             data-section-index="${index}" data-section-type="usp_header">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-medium text-green-700 uppercase flex items-center">
+                    <span class="mr-2">✓</span> Hero Sektion med USP'er
+                </span>
+                <button type="button" onclick="removeSeoSectionFromPage('${escapeHtml(pagePath)}', ${index})"
+                        class="text-red-400 hover:text-red-600 p-1" title="Fjern hero sektion">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- H1 Overskrift -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">H1 Overskrift</label>
+                <input type="text"
+                       class="usp-header-headline w-full px-3 py-2 border border-gray-300 rounded-lg
+                              focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900 font-medium"
+                       data-page-path="${escapeHtml(pagePath)}"
+                       data-section-index="${index}"
+                       placeholder="F.eks. Din lokale elektriker og el-installatør"
+                       value="${escapeHtml(section.headline || '')}">
+            </div>
+
+            <!-- Intro tekst -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Intro tekst</label>
+                <textarea class="usp-header-intro w-full px-3 py-2 border border-gray-300 rounded-lg
+                                focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900 resize-none"
+                          data-page-path="${escapeHtml(pagePath)}"
+                          data-section-index="${index}"
+                          rows="3"
+                          placeholder="Introduktionstekst der beskriver jeres service...">${escapeHtml(section.intro || '')}</textarea>
+            </div>
+
+            <!-- USP punkter -->
+            <div class="mb-4">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="block text-sm font-medium text-gray-700">USP punkter</label>
+                    <button type="button" onclick="addUspToUspHeader('${escapeHtml(pagePath)}', ${index})"
+                            class="text-sm px-2 py-1 bg-green-100 text-green-700 rounded-lg font-medium hover:bg-green-200 transition-all">
+                        + Tilføj USP
+                    </button>
+                </div>
+                <div class="usp-header-usps-container" data-page-path="${escapeHtml(pagePath)}" data-section-index="${index}">
+                    ${uspsHtml}
+                </div>
+            </div>
+
+            <!-- Preview -->
+            <div class="mt-4 p-4 bg-white rounded-lg border border-green-100">
+                <label class="block text-xs font-medium text-gray-500 uppercase mb-2">Preview</label>
+                <div class="usp-header-preview" data-page-path="${escapeHtml(pagePath)}" data-section-index="${index}">
+                    <h2 class="text-xl font-bold text-gray-900 mb-2">${escapeHtml(section.headline || 'Overskrift...')}</h2>
+                    <p class="text-gray-600 mb-3 text-sm">${escapeHtml(section.intro || 'Intro tekst...')}</p>
+                    <div class="space-y-1">
+                        ${previewUspsHtml || '<div class="text-sm text-gray-400">Ingen USP punkter endnu</div>'}
+                    </div>
+                </div>
+            </div>
         </div>
     `;
 }
@@ -13653,6 +14530,3033 @@ function addReviewSectionToPage(pagePath) {
 
     renderActiveSeoContent(pagePath);
     debouncedSaveState();
+}
+
+function addUspHeaderSectionToPage(pagePath) {
+    if (!campaignConfig.seo_pages[pagePath]) return;
+    if (!campaignConfig.seo_pages[pagePath].sections) {
+        campaignConfig.seo_pages[pagePath].sections = [];
+    }
+
+    // Pre-fill med kampagnens aktive USPs (de første 4)
+    const activeUsps = getActiveUsps();
+    const uspsToUse = activeUsps.length > 0 ? activeUsps.slice(0, 4) : [''];
+
+    campaignConfig.seo_pages[pagePath].sections.push({
+        type: 'usp_header',
+        headline: '',
+        intro: '',
+        usps: uspsToUse
+    });
+
+    renderActiveSeoContent(pagePath);
+    debouncedSaveState();
+}
+
+function addUspToUspHeader(pagePath, sectionIndex) {
+    if (!campaignConfig.seo_pages[pagePath]?.sections?.[sectionIndex]) return;
+
+    const section = campaignConfig.seo_pages[pagePath].sections[sectionIndex];
+    if (section.type !== 'usp_header') return;
+
+    if (!section.usps) {
+        section.usps = [];
+    }
+    section.usps.push('');
+
+    renderActiveSeoContent(pagePath);
+    debouncedSaveState();
+}
+
+function removeUspFromUspHeader(pagePath, sectionIndex, uspIndex) {
+    if (!campaignConfig.seo_pages[pagePath]?.sections?.[sectionIndex]) return;
+
+    const section = campaignConfig.seo_pages[pagePath].sections[sectionIndex];
+    if (section.type !== 'usp_header') return;
+    if (!section.usps || section.usps.length <= 1) return;
+
+    section.usps.splice(uspIndex, 1);
+
+    renderActiveSeoContent(pagePath);
+    debouncedSaveState();
+}
+
+// ========================================
+// SEO Wireframe Preview System (Flat Sections with Auto-Flow)
+// ========================================
+
+// Resize state
+let resizingSection = null;
+
+// Set SEO view mode (preview or edit)
+function setSeoViewMode(mode) {
+    seoViewMode = mode;
+
+    // Update toggle buttons
+    const previewBtn = document.getElementById('seo-preview-mode-btn');
+    const editBtn = document.getElementById('seo-edit-mode-btn');
+
+    if (mode === 'preview') {
+        previewBtn.className = 'px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 bg-purple-600 text-white';
+        editBtn.className = 'px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 bg-gray-100 text-gray-700 hover:bg-gray-200';
+    } else {
+        previewBtn.className = 'px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 bg-gray-100 text-gray-700 hover:bg-gray-200';
+        editBtn.className = 'px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 bg-purple-600 text-white';
+    }
+
+    // Re-render current page content
+    if (activeSeoPagePath) {
+        renderActiveSeoContent(activeSeoPagePath);
+    }
+}
+
+// Toggle add section dropdown
+function toggleAddSectionDropdown() {
+    const menu = document.getElementById('add-section-menu');
+    menu.classList.toggle('hidden');
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(e) {
+    const dropdown = document.getElementById('add-section-dropdown');
+    if (dropdown && !dropdown.contains(e.target)) {
+        document.getElementById('add-section-menu')?.classList.add('hidden');
+    }
+});
+
+// ========================================
+// Width Conversion Utilities (12-column grid)
+// ========================================
+
+// Convert width string to decimal number
+function widthToNumber(widthStr) {
+    const widthMap = {
+        '1/12': 1/12,
+        '1/6': 1/6,
+        '1/4': 1/4,
+        '1/3': 1/3,
+        '5/12': 5/12,
+        '1/2': 1/2,
+        '7/12': 7/12,
+        '2/3': 2/3,
+        '3/4': 3/4,
+        '5/6': 5/6,
+        '11/12': 11/12,
+        '1/1': 1
+    };
+    return widthMap[widthStr] || 1/3;
+}
+
+// Convert decimal number to width string
+function numberToWidth(num) {
+    // Snap to nearest 12-grid width
+    const gridSize = 1/12;
+    const snapped = Math.round(num / gridSize) * gridSize;
+
+    // Find closest named width
+    const widths = [
+        { name: '1/12', value: 1/12 },
+        { name: '1/6', value: 1/6 },
+        { name: '1/4', value: 1/4 },
+        { name: '1/3', value: 1/3 },
+        { name: '5/12', value: 5/12 },
+        { name: '1/2', value: 1/2 },
+        { name: '7/12', value: 7/12 },
+        { name: '2/3', value: 2/3 },
+        { name: '3/4', value: 3/4 },
+        { name: '5/6', value: 5/6 },
+        { name: '11/12', value: 11/12 },
+        { name: '1/1', value: 1 }
+    ];
+
+    let closest = widths[0];
+    let minDiff = Math.abs(snapped - widths[0].value);
+
+    for (const w of widths) {
+        const diff = Math.abs(snapped - w.value);
+        if (diff < minDiff) {
+            minDiff = diff;
+            closest = w;
+        }
+    }
+
+    return closest.name;
+}
+
+// Convert width string to CSS percentage
+function widthToPercent(widthStr) {
+    const num = widthToNumber(widthStr);
+    return `${(num * 100).toFixed(2)}%`;
+}
+
+// Snap width to 12-grid
+function snapToGrid(width) {
+    const gridSize = 1/12;
+    const snapped = Math.round(width / gridSize) * gridSize;
+    return Math.max(gridSize, Math.min(1, snapped));  // Min 1/12, max 1/1
+}
+
+// ========================================
+// Data Structure Migration (rows → flatSections)
+// ========================================
+
+// Migrate from old row-based to new flat sections structure
+function migrateToFlatSections(pagePath) {
+    const page = campaignConfig.seo_pages[pagePath];
+    if (!page) return;
+
+    // Check if already using new format (sections with contents array)
+    if (page.flatSections && page.flatSections.length > 0 && page.flatSections[0].contents) {
+        return; // Already in new format
+    }
+
+    // Migrate from old flatSections format (content directly in section) to new format (contents array)
+    if (page.flatSections && page.flatSections.length > 0 && !page.flatSections[0].contents) {
+        page.flatSections = page.flatSections.map(section => {
+            // Extract content data (everything except id and width)
+            const contentData = {};
+            Object.keys(section).forEach(key => {
+                if (key !== 'id' && key !== 'width') {
+                    contentData[key] = section[key];
+                }
+            });
+
+            return {
+                id: section.id,
+                width: section.width,
+                contents: [{
+                    id: `block_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                    ...contentData
+                }]
+            };
+        });
+        debouncedSaveState();
+        return;
+    }
+
+    // Initialize empty flatSections if not present
+    if (!page.flatSections) {
+        page.flatSections = [];
+    }
+
+    // PRIORITY: Check for scraped flat_sections with proper column widths from page builder detection
+    const scrapedData = getScrapedPageData(pagePath);
+    if (scrapedData && scrapedData.flat_sections && scrapedData.flat_sections.length > 0) {
+        console.log(`[migrateToFlatSections] Using scraped layout from ${scrapedData.builder_detected?.builder || 'generic'} for ${pagePath} (${scrapedData.flat_sections.length} sections)`);
+
+        // Use the layout-extracted flatSections directly
+        page.flatSections = scrapedData.flat_sections.map(section => ({
+            id: section.id || `sec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            width: section.width || '1/1',
+            contents: (section.contents || []).map(block => ({
+                id: block.id || `block_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                ...block
+            }))
+        }));
+
+        // Store builder info for reference
+        if (scrapedData.builder_detected) {
+            page.builder_detected = scrapedData.builder_detected;
+        }
+
+        debouncedSaveState();
+        return;
+    }
+
+    // Migrate from rows structure
+    if (page.rows && page.rows.length > 0) {
+        page.rows.forEach(row => {
+            row.columns.forEach(col => {
+                if (col.section) {
+                    page.flatSections.push({
+                        id: `sec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                        width: col.width || '1/3',
+                        contents: [{
+                            id: `block_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                            ...col.section
+                        }]
+                    });
+                }
+            });
+        });
+    }
+    // Migrate from old sections array
+    else if (page.sections && page.sections.length > 0) {
+        page.sections.forEach((section, index) => {
+            page.flatSections.push({
+                id: `sec_${Date.now()}_${index}`,
+                width: '1/1',
+                contents: [{
+                    id: `block_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                    ...section
+                }]
+            });
+        });
+    }
+
+    debouncedSaveState();
+}
+
+// ========================================
+// Section Management
+// ========================================
+
+// Add a new section with specified type and width
+// Add a new section (container) with optional initial content
+function addNewSection(sectionType, width = '1/3') {
+    if (!activeSeoPagePath) {
+        alert('Vælg venligst en side i sidebar\'en først.');
+        document.getElementById('add-section-menu')?.classList.add('hidden');
+        return;
+    }
+
+    // Ensure flatSections structure exists
+    migrateToFlatSections(activeSeoPagePath);
+
+    const newSection = {
+        id: `sec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        width: width,
+        contents: sectionType ? [{
+            id: `block_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            ...createNewSection(sectionType)
+        }] : []
+    };
+
+    campaignConfig.seo_pages[activeSeoPagePath].flatSections.push(newSection);
+
+    // Close dropdown
+    document.getElementById('add-section-menu')?.classList.add('hidden');
+
+    renderActiveSeoContent(activeSeoPagePath);
+    debouncedSaveState();
+}
+
+// Add an empty section (just a container with width)
+function addEmptySection(width = '1/3') {
+    if (!activeSeoPagePath) {
+        alert('Vælg venligst en side i sidebar\'en først.');
+        return;
+    }
+
+    migrateToFlatSections(activeSeoPagePath);
+
+    const newSection = {
+        id: `sec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        width: width,
+        contents: []
+    };
+
+    campaignConfig.seo_pages[activeSeoPagePath].flatSections.push(newSection);
+    renderActiveSeoContent(activeSeoPagePath);
+    debouncedSaveState();
+}
+
+// Add content block to a specific section
+function addContentToSection(sectionId, contentType) {
+    if (!activeSeoPagePath) return;
+
+    const sections = campaignConfig.seo_pages[activeSeoPagePath]?.flatSections;
+    if (!sections) return;
+
+    const section = sections.find(s => s.id === sectionId);
+    if (!section) return;
+
+    // Ensure contents array exists
+    if (!section.contents) {
+        section.contents = [];
+    }
+
+    const newContent = {
+        id: `block_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        ...createNewSection(contentType)
+    };
+
+    section.contents.push(newContent);
+
+    // Close any open menu
+    document.querySelectorAll('.add-content-menu').forEach(m => m.classList.add('hidden'));
+
+    renderActiveSeoContent(activeSeoPagePath);
+    debouncedSaveState();
+}
+
+// Remove content block from a section
+function removeContentBlock(sectionId, blockId) {
+    if (!activeSeoPagePath) return;
+
+    const sections = campaignConfig.seo_pages[activeSeoPagePath]?.flatSections;
+    if (!sections) return;
+
+    const section = sections.find(s => s.id === sectionId);
+    if (!section || !section.contents) return;
+
+    const index = section.contents.findIndex(c => c.id === blockId);
+    if (index !== -1) {
+        section.contents.splice(index, 1);
+        renderActiveSeoContent(activeSeoPagePath);
+        debouncedSaveState();
+    }
+}
+
+// Remove a section
+function removeSection(pagePath, sectionId) {
+    const sections = campaignConfig.seo_pages[pagePath]?.flatSections;
+    if (!sections) return;
+
+    const index = sections.findIndex(s => s.id === sectionId);
+    if (index > -1) {
+        sections.splice(index, 1);
+        renderActiveSeoContent(pagePath);
+        debouncedSaveState();
+    }
+}
+
+// Update section width
+function updateSectionWidth(sectionId, newWidth) {
+    if (!activeSeoPagePath) return;
+
+    const sections = campaignConfig.seo_pages[activeSeoPagePath]?.flatSections;
+    if (!sections) return;
+
+    const section = sections.find(s => s.id === sectionId);
+    if (section) {
+        section.width = numberToWidth(newWidth);
+    }
+}
+
+// Create a new section by type
+function createNewSection(type) {
+    switch (type) {
+        case 'usp_header':
+            const activeUsps = getActiveUsps();
+            return {
+                type: 'usp_header',
+                headline: '',
+                intro: '',
+                usps: activeUsps.length > 0 ? activeUsps.slice(0, 4) : ['']
+            };
+        case 'text':
+            return {
+                type: 'text',
+                header: '',
+                content: ''
+            };
+        case 'reviews':
+            let reviewsToUse = [];
+            if (crawlState.extracted_reviews && crawlState.extracted_reviews.length > 0) {
+                reviewsToUse = crawlState.extracted_reviews.map(r => ({
+                    author: r.author || '',
+                    rating: r.rating || 5,
+                    text: r.text || '',
+                    platform: r.platform || 'Trustpilot'
+                }));
+            } else {
+                reviewsToUse = [{ author: '', rating: 5, text: '', platform: 'Trustpilot' }];
+            }
+            return {
+                type: 'reviews',
+                header: 'Hvad siger vores kunder',
+                reviews: reviewsToUse
+            };
+        case 'contact_form':
+            return {
+                type: 'contact_form',
+                header: 'Kontakt os',
+                subheader: 'Udfyld formularen og vi vender tilbage inden for 24 timer',
+                fields: ['name', 'email', 'phone', 'message'],
+                button_text: 'Send besked'
+            };
+        case 'cta':
+            return {
+                type: 'cta',
+                headline: 'Klar til at komme i gang?',
+                subheadline: 'Få et uforpligtende tilbud i dag',
+                button_text: 'Få gratis tilbud',
+                button_style: 'primary'
+            };
+        case 'image':
+            return {
+                type: 'image',
+                layout: 'landscape',
+                placeholder_text: 'Billede placeholder',
+                alt_text: '',
+                caption: ''
+            };
+        default:
+            return { type: 'text', header: '', content: '' };
+    }
+}
+
+// Add new section types to page (for backward compatibility)
+function addContactFormSectionToPage(pagePath) {
+    if (!campaignConfig.seo_pages[pagePath]) return;
+    if (!campaignConfig.seo_pages[pagePath].sections) {
+        campaignConfig.seo_pages[pagePath].sections = [];
+    }
+
+    campaignConfig.seo_pages[pagePath].sections.push(createNewSection('contact_form'));
+    renderActiveSeoContent(pagePath);
+    debouncedSaveState();
+}
+
+function addCtaSectionToPage(pagePath) {
+    if (!campaignConfig.seo_pages[pagePath]) return;
+    if (!campaignConfig.seo_pages[pagePath].sections) {
+        campaignConfig.seo_pages[pagePath].sections = [];
+    }
+
+    campaignConfig.seo_pages[pagePath].sections.push(createNewSection('cta'));
+    renderActiveSeoContent(pagePath);
+    debouncedSaveState();
+}
+
+function addImageSectionToPage(pagePath) {
+    if (!campaignConfig.seo_pages[pagePath]) return;
+    if (!campaignConfig.seo_pages[pagePath].sections) {
+        campaignConfig.seo_pages[pagePath].sections = [];
+    }
+
+    campaignConfig.seo_pages[pagePath].sections.push(createNewSection('image'));
+    renderActiveSeoContent(pagePath);
+    debouncedSaveState();
+}
+
+// ========================================
+// Preview Render Functions (Auto-Flow Wireframe mode)
+// ========================================
+
+// Main preview renderer - renders sections with auto-flow
+function renderSeoPreviewMode(pagePath, seoPageData, page) {
+    migrateToFlatSections(pagePath);
+
+    const sections = seoPageData.flatSections || [];
+    const safeId = pagePath.replace(/[^a-zA-Z0-9]/g, '_');
+
+    // Build auto-flow rows HTML
+    let contentHtml = '';
+    if (sections.length === 0) {
+        contentHtml = `
+            <div class="text-center py-12 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl">
+                <p class="mb-4">Ingen indhold endnu</p>
+                <p class="text-sm mb-4">Vælg en standard template eller byg selv fra bunden</p>
+                <div class="flex justify-center space-x-3">
+                    <button type="button" onclick="openTemplateSelector('${escapeHtml(pagePath)}')"
+                            class="px-4 py-2 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg hover:shadow-lg transition-all flex items-center space-x-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"></path>
+                        </svg>
+                        <span>Vælg template</span>
+                    </button>
+                    <button type="button" onclick="addNewSection('usp_header', '1/1')"
+                            class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all">
+                        + Tilføj tom sektion
+                    </button>
+                </div>
+            </div>
+        `;
+    } else {
+        contentHtml = renderAutoFlowSections(pagePath, sections);
+    }
+
+    return `
+        <div class="seo-page-preview" data-page-path="${escapeHtml(pagePath)}">
+            <!-- Page Header Preview -->
+            <div class="mb-6 p-6 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-100">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-lg flex items-center justify-center text-white text-lg"
+                             style="background-color: ${page.color}">
+                            ${pagePath === '/' ? '🏠' : '📄'}
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-900">${escapeHtml(page.page_title)}</h3>
+                            <p class="text-sm text-gray-500">${pagePath}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button type="button" onclick="openTemplateSelector('${escapeHtml(pagePath)}')"
+                                class="px-3 py-1.5 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all flex items-center space-x-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"></path>
+                            </svg>
+                            <span>Vælg template</span>
+                        </button>
+                        <button type="button" onclick="saveAsTemplate('${escapeHtml(pagePath)}')"
+                                class="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-green-300 hover:text-green-600 transition-all flex items-center space-x-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path>
+                            </svg>
+                            <span>Gem som template</span>
+                        </button>
+                        ${hasElementorJson(pagePath) ? `
+                            <button type="button" onclick="exportElementorJson('${escapeHtml(pagePath)}')"
+                                    class="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all flex items-center space-x-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                                </svg>
+                                <span>Export til Elementor</span>
+                            </button>
+                        ` : ''}
+                        <button type="button" onclick="openSeoMetaEditPanel('${escapeHtml(pagePath)}')"
+                                class="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-purple-300 hover:text-purple-600 transition-all flex items-center space-x-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                            </svg>
+                            <span>Rediger meta</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Meta Preview -->
+                <div class="bg-white rounded-lg p-4 border border-gray-100">
+                    <div class="text-sm text-gray-500 mb-1">Google Preview</div>
+                    <div class="text-blue-600 text-lg font-medium hover:underline cursor-pointer">
+                        ${escapeHtml(seoPageData.meta_title || 'Meta titel mangler...')}
+                    </div>
+                    <div class="text-green-700 text-sm">${escapeHtml((crawlState.website_url || 'example.com').replace(/\/$/, '') + pagePath)}</div>
+                    <div class="text-gray-600 text-sm mt-1 line-clamp-2">
+                        ${escapeHtml(seoPageData.meta_description || 'Meta beskrivelse mangler...')}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Auto-Flow Sections Container -->
+            <div id="seo-sections-container-${safeId}" class="seo-sections-sortable">
+                ${contentHtml}
+            </div>
+        </div>
+    `;
+}
+
+// Render sections with auto-flow (sections on same row if combined width <= 1/1)
+function renderAutoFlowSections(pagePath, sections) {
+    // Group sections into rows based on width
+    let rows = [];
+    let currentRow = [];
+    let currentRowWidth = 0;
+
+    sections.forEach((section, index) => {
+        const sectionWidth = widthToNumber(section.width);
+
+        // Check if this section fits on current row
+        if (currentRowWidth + sectionWidth > 1.001) {
+            // Save current row and start new one
+            if (currentRow.length > 0) {
+                rows.push({ sections: currentRow, totalWidth: currentRowWidth });
+            }
+            currentRow = [];
+            currentRowWidth = 0;
+        }
+
+        currentRow.push({ section, index });
+        currentRowWidth += sectionWidth;
+    });
+
+    // Don't forget the last row
+    if (currentRow.length > 0) {
+        rows.push({ sections: currentRow, totalWidth: currentRowWidth });
+    }
+
+    // Render all sections with "fill gap" buttons where needed
+    let sectionsHtml = '';
+    let globalIndex = 0;
+
+    rows.forEach((row, rowIndex) => {
+        // Render sections in this row
+        row.sections.forEach((item) => {
+            const section = item.section;
+            sectionsHtml += `
+                <div class="section-wrapper relative flex"
+                     style="width: ${widthToPercent(section.width)}; flex-shrink: 0;"
+                     data-section-id="${section.id}"
+                     data-section-index="${globalIndex}">
+                    <div class="flex-1 min-w-0">
+                        ${renderFlatSection(pagePath, section)}
+                    </div>
+                    <div class="resize-handle"
+                         data-section-id="${section.id}"
+                         onmousedown="startResize(event, '${section.id}')">
+                    </div>
+                </div>
+            `;
+            globalIndex++;
+        });
+
+        // Add "fill gap" button if row is not full
+        const remainingWidth = 1 - row.totalWidth;
+        if (remainingWidth >= 0.08) { // At least 1/12 remaining
+            const fillWidth = numberToWidth(remainingWidth);
+            // Get the index after the last section in this row
+            const lastSectionInRow = row.sections[row.sections.length - 1];
+            const insertAfterIndex = lastSectionInRow.index;
+            sectionsHtml += `
+                <div class="fill-gap-wrapper flex items-stretch"
+                     style="width: ${(remainingWidth * 100).toFixed(2)}%; flex-shrink: 0;">
+                    <div class="flex-1 flex items-center justify-center p-4 bg-gray-50 border-r border-gray-100">
+                        <button type="button" onclick="addSectionToFillGap('${fillWidth}', ${insertAfterIndex})"
+                                class="w-full h-full min-h-[100px] py-4 border-2 border-dashed border-gray-300 rounded-lg text-gray-400 hover:border-purple-400 hover:text-purple-500 transition-all text-sm flex flex-col items-center justify-center space-y-2">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            <span>Tilføj sektion</span>
+                            <span class="text-xs text-gray-300">(${fillWidth})</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+    });
+
+    return `
+        <div class="sections-sortable-container flex flex-wrap bg-white rounded-xl border border-gray-200 overflow-hidden"
+             data-page-path="${escapeHtml(pagePath)}">
+            ${sectionsHtml}
+        </div>
+    `;
+}
+
+// Add a section to fill the remaining gap in a row
+function addSectionToFillGap(width, insertAfterIndex) {
+    if (!activeSeoPagePath) {
+        alert('Vælg venligst en side først.');
+        return;
+    }
+
+    // Ensure seo_pages exists
+    if (!campaignConfig.seo_pages) {
+        campaignConfig.seo_pages = {};
+    }
+
+    // Ensure page exists
+    if (!campaignConfig.seo_pages[activeSeoPagePath]) {
+        campaignConfig.seo_pages[activeSeoPagePath] = {
+            page_title: '',
+            meta_title: '',
+            meta_description: '',
+            flatSections: []
+        };
+    }
+
+    // Ensure flatSections structure exists
+    migrateToFlatSections(activeSeoPagePath);
+
+    const newSection = {
+        id: `sec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        width: width,
+        contents: []
+    };
+
+    // Insert after the specified index (right after the last section in the row)
+    const insertAt = insertAfterIndex + 1;
+    campaignConfig.seo_pages[activeSeoPagePath].flatSections.splice(insertAt, 0, newSection);
+
+    // Re-render
+    renderSeoBuilder();
+    debouncedSaveState();
+}
+
+// Render a single auto-flow row
+function renderAutoFlowRow(pagePath, rowSections) {
+    const sectionsHtml = rowSections.map((item, rowIndex) => {
+        const section = item.section;
+        const isLast = rowIndex === rowSections.length - 1;
+
+        return `
+            <div class="section-wrapper relative flex"
+                 style="width: ${widthToPercent(section.width)}; flex-shrink: 0;"
+                 data-section-id="${section.id}"
+                 data-section-index="${item.index}">
+                <div class="flex-1 min-w-0">
+                    ${renderFlatSection(pagePath, section)}
+                </div>
+                <div class="resize-handle ${isLast ? 'resize-handle-last' : ''}"
+                     data-section-id="${section.id}"
+                     data-is-last="${isLast}"
+                     onmousedown="startResize(event, '${section.id}')">
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <div class="auto-flow-row flex flex-wrap bg-white rounded-xl border border-gray-200 overflow-hidden mb-4">
+            ${sectionsHtml}
+        </div>
+    `;
+}
+
+// Render a flat section with edit/delete controls
+function renderFlatSection(pagePath, section) {
+    const typeLabels = {
+        usp_header: '✓ Hero/USP',
+        text: '📝 Tekst',
+        reviews: '⭐ Anmeldelser',
+        contact_form: '✉️ Kontakt',
+        cta: '🎯 CTA',
+        image: '🖼️ Billede'
+    };
+
+    // Section header (container controls)
+    const headerHtml = `
+        <div class="flex items-center justify-between px-3 py-2 bg-gray-100 border-b border-gray-200">
+            <div class="flex items-center space-x-2">
+                <span class="section-drag-handle cursor-grab text-gray-400 hover:text-gray-600" title="Træk sektion">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
+                    </svg>
+                </span>
+                <span class="text-xs font-medium text-gray-600">Sektion</span>
+                <span class="text-xs text-gray-400">(${section.width})</span>
+            </div>
+            <div class="flex items-center space-x-1">
+                <button type="button" onclick="openSectionWidthPanel('${escapeHtml(pagePath)}', '${section.id}')"
+                        class="text-gray-400 hover:text-purple-600 p-1 transition-colors" title="Bredde">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path>
+                    </svg>
+                </button>
+                <button type="button" onclick="removeSection('${escapeHtml(pagePath)}', '${section.id}')"
+                        class="text-gray-400 hover:text-red-600 p-1 transition-colors" title="Slet sektion">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    `;
+
+    // Render content blocks
+    const contents = section.contents || [];
+    let contentBlocksHtml = '';
+
+    if (contents.length === 0) {
+        // Empty section - show placeholder
+        contentBlocksHtml = `
+            <div class="p-4 text-center text-gray-400 border-2 border-dashed border-gray-200 rounded-lg m-2 min-h-[80px] flex items-center justify-center">
+                <span class="text-sm">Træk indhold hertil eller klik + for at tilføje</span>
+            </div>
+        `;
+    } else {
+        // Render each content block
+        contentBlocksHtml = contents.map(block => renderContentBlock(pagePath, section.id, block)).join('');
+    }
+
+    // Add content button
+    const addContentBtnHtml = `
+        <div class="px-2 pb-2">
+            <button type="button" onclick="openAddContentPanel('${section.id}')"
+                    class="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-400 hover:border-purple-400 hover:text-purple-500 transition-all text-sm flex items-center justify-center space-x-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                <span>Tilføj indhold</span>
+            </button>
+        </div>
+    `;
+
+    return `
+        <div class="flat-section h-full border-r border-gray-100 flex flex-col">
+            ${headerHtml}
+            <div class="flex-1 section-content-area p-1 space-y-1" data-section-id="${section.id}">
+                ${contentBlocksHtml}
+            </div>
+            ${addContentBtnHtml}
+        </div>
+    `;
+}
+
+// Render a single content block (draggable)
+function renderContentBlock(pagePath, sectionId, block) {
+    // Extended type labels for Elementor widget types
+    const typeLabels = {
+        // Original types
+        usp_header: '✓ Hero/USP',
+        hero: '🏠 Hero Sektion',
+        text: '📝 Tekst',
+        reviews: '⭐ Anmeldelser',
+        contact_form: '✉️ Kontakt',
+        cta: '🎯 CTA',
+        image: '🖼️ Billede',
+        // New Elementor widget types
+        header: '📌 Overskrift',
+        list: '✓ Liste',
+        carousel: '🎠 Karrusel',
+        form: '✉️ Formular',
+        button: '🔘 Knap',
+        accordion: '📋 Accordion',
+        tabs: '📑 Tabs',
+        gallery: '🖼️ Galleri',
+        logo_slider: '🏢 Logo Slider',
+        video: '🎬 Video',
+        testimonial: '💬 Testimonial',
+        card: '📦 Kort',
+        flip_card: '🔄 Flip Kort',
+        social: '📱 Social',
+        divider: '➖ Divider',
+        spacer: '⬜ Spacer',
+        generic: '📦 Widget',
+    };
+
+    // Get display label - use widgetType if available for more specific label
+    const typeLabel = typeLabels[block.type] || (block.widgetType ? `🔧 ${block.widgetType}` : 'Blok');
+
+    // Block header with drag handle
+    const blockHeaderHtml = `
+        <div class="flex items-center justify-between px-2 py-1 bg-gray-50 rounded-t border-b border-gray-100">
+            <div class="flex items-center space-x-1">
+                <span class="content-block-drag-handle cursor-grab text-gray-400 hover:text-gray-600" title="Træk for at flytte">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
+                    </svg>
+                </span>
+                <span class="text-xs text-gray-500">${typeLabel}</span>
+            </div>
+            <div class="flex items-center space-x-1">
+                <button type="button" onclick="openContentBlockEditPanel('${escapeHtml(pagePath)}', '${sectionId}', '${block.id}')"
+                        class="text-gray-400 hover:text-purple-600 p-0.5 transition-colors" title="Rediger">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                    </svg>
+                </button>
+                <button type="button" onclick="removeContentBlock('${sectionId}', '${block.id}')"
+                        class="text-gray-400 hover:text-red-600 p-0.5 transition-colors" title="Slet">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    `;
+
+    // Render content preview based on type
+    let contentPreviewHtml = '';
+    switch (block.type) {
+        case 'usp_header':
+        case 'hero':
+            contentPreviewHtml = renderFlatHero(block);
+            break;
+        case 'text':
+            contentPreviewHtml = renderFlatText(block);
+            break;
+        case 'reviews':
+            contentPreviewHtml = renderFlatReviews(block);
+            break;
+        case 'contact_form':
+        case 'form':
+            contentPreviewHtml = renderFlatContactForm(block);
+            break;
+        case 'cta':
+            contentPreviewHtml = renderFlatCta(block);
+            break;
+        case 'image':
+        case 'gallery':
+            contentPreviewHtml = renderFlatImage(block);
+            break;
+        case 'header':
+            contentPreviewHtml = renderFlatHeader(block);
+            break;
+        case 'list':
+            contentPreviewHtml = renderFlatList(block);
+            break;
+        case 'carousel':
+            contentPreviewHtml = renderFlatCarousel(block);
+            break;
+        case 'logo_slider':
+            contentPreviewHtml = renderFlatLogoSlider(block);
+            break;
+        case 'button':
+            contentPreviewHtml = renderFlatButton(block);
+            break;
+        case 'accordion':
+            contentPreviewHtml = renderFlatAccordion(block);
+            break;
+        case 'tabs':
+            contentPreviewHtml = renderFlatTabs(block);
+            break;
+        case 'video':
+            contentPreviewHtml = renderFlatVideo(block);
+            break;
+        case 'testimonial':
+            contentPreviewHtml = renderFlatTestimonial(block);
+            break;
+        case 'card':
+        case 'flip_card':
+            contentPreviewHtml = renderFlatCard(block);
+            break;
+        case 'divider':
+        case 'spacer':
+            contentPreviewHtml = renderFlatDivider(block);
+            break;
+        default:
+            contentPreviewHtml = renderFlatGeneric(block);
+    }
+
+    return `
+        <div class="content-block bg-white rounded-lg border border-gray-200 overflow-hidden hover:border-purple-300 transition-colors"
+             data-block-id="${block.id}"
+             data-section-id="${sectionId}">
+            ${blockHeaderHtml}
+            <div class="p-2">
+                ${contentPreviewHtml}
+            </div>
+        </div>
+    `;
+}
+
+// Open slide-in panel to add content to a section
+function openAddContentPanel(sectionId) {
+    const contentTypes = [
+        {
+            type: 'usp_header',
+            icon: '✓',
+            iconBg: 'bg-green-100',
+            iconColor: 'text-green-600',
+            title: 'Hero / USP',
+            description: 'Overskrift med intro-tekst og USP-punkter. Perfekt til at fremhæve virksomhedens styrker.',
+            preview: 'aspect-video bg-gradient-to-br from-green-50 to-emerald-50'
+        },
+        {
+            type: 'text',
+            icon: '📝',
+            iconBg: 'bg-purple-100',
+            iconColor: 'text-purple-600',
+            title: 'Tekstafsnit',
+            description: 'Overskrift og brødtekst. Bruges til beskrivelser, forklaringer og længere indhold.',
+            preview: 'aspect-video bg-gradient-to-br from-purple-50 to-pink-50'
+        },
+        {
+            type: 'reviews',
+            icon: '⭐',
+            iconBg: 'bg-yellow-100',
+            iconColor: 'text-yellow-600',
+            title: 'Anmeldelser',
+            description: 'Vis kundeanmeldelser med stjerner og citater. Skaber troværdighed.',
+            preview: 'aspect-video bg-gradient-to-br from-yellow-50 to-orange-50'
+        },
+        {
+            type: 'contact_form',
+            icon: '✉️',
+            iconBg: 'bg-blue-100',
+            iconColor: 'text-blue-600',
+            title: 'Kontaktformular',
+            description: 'Formular til leads med navn, email, telefon og besked.',
+            preview: 'aspect-video bg-gradient-to-br from-blue-50 to-cyan-50'
+        },
+        {
+            type: 'cta',
+            icon: '🎯',
+            iconBg: 'bg-orange-100',
+            iconColor: 'text-orange-600',
+            title: 'Call-to-Action',
+            description: 'Fremhævet sektion med overskrift og handlingsknap.',
+            preview: 'aspect-video bg-gradient-to-br from-orange-50 to-red-50'
+        },
+        {
+            type: 'image',
+            icon: '🖼️',
+            iconBg: 'bg-slate-100',
+            iconColor: 'text-slate-600',
+            title: 'Billede',
+            description: 'Placeholder til billeder i forskellige formater (landskab, portræt, kvadrat).',
+            preview: 'aspect-video bg-gradient-to-br from-slate-100 to-slate-200'
+        }
+    ];
+
+    const panelHtml = `
+        <div class="space-y-4">
+            <p class="text-sm text-gray-600 mb-4">Vælg hvilken type indhold du vil tilføje til sektionen:</p>
+
+            <div class="grid grid-cols-1 gap-3">
+                ${contentTypes.map(ct => `
+                    <button type="button"
+                            onclick="addContentToSection('${sectionId}', '${ct.type}'); closeSeoEditSlidePanel();"
+                            class="group flex items-start space-x-4 p-4 border-2 border-gray-200 rounded-xl hover:border-purple-400 hover:bg-purple-50 transition-all text-left">
+                        <div class="flex-shrink-0 w-12 h-12 ${ct.iconBg} rounded-xl flex items-center justify-center text-2xl">
+                            ${ct.icon}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h4 class="font-semibold text-gray-900 group-hover:text-purple-700">${ct.title}</h4>
+                            <p class="text-sm text-gray-500 mt-1">${ct.description}</p>
+                        </div>
+                        <div class="flex-shrink-0 w-20">
+                            <div class="${ct.preview} rounded border border-gray-200 flex items-center justify-center">
+                                <span class="text-xs text-gray-400">${ct.icon}</span>
+                            </div>
+                        </div>
+                    </button>
+                `).join('')}
+            </div>
+        </div>
+    `;
+
+    openSeoEditSlidePanel('Tilføj indhold', activeSeoPagePath, panelHtml, () => {
+        closeSeoEditSlidePanel();
+    });
+}
+
+// Open section width panel
+function openSectionWidthPanel(pagePath, sectionId) {
+    const sections = campaignConfig.seo_pages[pagePath]?.flatSections;
+    if (!sections) return;
+
+    const section = sections.find(s => s.id === sectionId);
+    if (!section) return;
+
+    const panelHtml = `
+        <div class="space-y-4">
+            <p class="text-sm text-gray-600">Vælg bredde for sektionen:</p>
+            <div class="grid grid-cols-3 gap-2">
+                ${['1/4', '1/3', '1/2', '2/3', '3/4', '1/1'].map(w => `
+                    <button type="button" onclick="setSectionWidth('${pagePath}', '${sectionId}', '${w}')"
+                            class="px-3 py-3 border-2 rounded-lg text-sm font-medium transition-all
+                                   ${section.width === w ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-gray-200 text-gray-600 hover:border-purple-300'}">
+                        ${w}
+                    </button>
+                `).join('')}
+            </div>
+        </div>
+    `;
+
+    openSeoEditSlidePanel('Sektion bredde', pagePath, panelHtml, () => {
+        closeSeoEditSlidePanel();
+    });
+}
+
+// Set section width
+function setSectionWidth(pagePath, sectionId, width) {
+    const sections = campaignConfig.seo_pages[pagePath]?.flatSections;
+    if (!sections) return;
+
+    const section = sections.find(s => s.id === sectionId);
+    if (!section) return;
+
+    section.width = width;
+    closeSeoEditSlidePanel();
+    renderActiveSeoContent(pagePath);
+    debouncedSaveState();
+}
+
+// Open content block edit panel
+function openContentBlockEditPanel(pagePath, sectionId, blockId) {
+    const sections = campaignConfig.seo_pages[pagePath]?.flatSections;
+    if (!sections) return;
+
+    const section = sections.find(s => s.id === sectionId);
+    if (!section || !section.contents) return;
+
+    const block = section.contents.find(b => b.id === blockId);
+    if (!block) return;
+
+    let panelHtml = '';
+    switch (block.type) {
+        case 'usp_header':
+            panelHtml = renderUspHeaderEditForm(block);
+            break;
+        case 'text':
+            panelHtml = renderTextEditForm(block);
+            break;
+        case 'reviews':
+            panelHtml = renderReviewsEditForm(block);
+            break;
+        case 'contact_form':
+            panelHtml = renderContactFormEditForm(block);
+            break;
+        case 'cta':
+            panelHtml = renderCtaEditForm(block);
+            break;
+        case 'image':
+            panelHtml = renderImageEditForm(block);
+            break;
+        default:
+            panelHtml = renderTextEditForm(block);
+    }
+
+    const typeLabels = {
+        usp_header: '✓ Hero/USP',
+        text: '📝 Tekst',
+        reviews: '⭐ Anmeldelser',
+        contact_form: '✉️ Kontakt',
+        cta: '🎯 CTA',
+        image: '🖼️ Billede'
+    };
+
+    openSeoEditSlidePanel(typeLabels[block.type] || 'Rediger indhold', pagePath, panelHtml, () => {
+        saveContentBlock(pagePath, sectionId, blockId, block.type);
+    });
+
+    // Store current edit context
+    window.currentEditSectionId = sectionId;
+    window.currentEditBlockId = blockId;
+}
+
+// Save content block
+function saveContentBlock(pagePath, sectionId, blockId, blockType) {
+    const sections = campaignConfig.seo_pages[pagePath]?.flatSections;
+    if (!sections) return;
+
+    const section = sections.find(s => s.id === sectionId);
+    if (!section || !section.contents) return;
+
+    const block = section.contents.find(b => b.id === blockId);
+    if (!block) return;
+
+    // Update block data based on type
+    switch (blockType) {
+        case 'usp_header':
+            block.headline = document.getElementById('edit-usp-headline')?.value || '';
+            block.intro = document.getElementById('edit-usp-intro')?.value || '';
+            block.usps = Array.from(document.querySelectorAll('.edit-usp-input')).map(input => input.value);
+            break;
+        case 'text':
+            block.header = document.getElementById('edit-text-header')?.value || '';
+            block.content = document.getElementById('edit-text-content')?.value || '';
+            break;
+        case 'reviews':
+            block.header = document.getElementById('edit-reviews-header')?.value || '';
+            block.reviews = Array.from(document.querySelectorAll('#edit-reviews-container > div')).map(div => ({
+                author: div.querySelector('.edit-review-author')?.value || '',
+                rating: parseInt(div.querySelector('.edit-review-rating')?.value) || 5,
+                text: div.querySelector('.edit-review-text')?.value || '',
+                platform: 'Trustpilot'
+            }));
+            break;
+        case 'contact_form':
+            block.header = document.getElementById('edit-contact-header')?.value || '';
+            block.subheader = document.getElementById('edit-contact-subheader')?.value || '';
+            block.button_text = document.getElementById('edit-contact-button')?.value || 'Send besked';
+            break;
+        case 'cta':
+            block.headline = document.getElementById('edit-cta-headline')?.value || '';
+            block.subheadline = document.getElementById('edit-cta-subheadline')?.value || '';
+            block.button_text = document.getElementById('edit-cta-button')?.value || '';
+            break;
+        case 'image':
+            block.layout = document.querySelector('input[name="edit-image-layout"]:checked')?.value || 'landscape';
+            block.placeholder_text = document.getElementById('edit-image-placeholder')?.value || '';
+            block.alt_text = document.getElementById('edit-image-alt')?.value || '';
+            block.caption = document.getElementById('edit-image-caption')?.value || '';
+            break;
+    }
+
+    closeSeoEditSlidePanel();
+    renderActiveSeoContent(pagePath);
+    debouncedSaveState();
+}
+
+// Flat section renderers (simplified versions without edit button overlay)
+
+// Hero section - combines headline, intro text, USPs, buttons, and optionally form
+function renderFlatHero(section) {
+    // USPs / Icon list items
+    const uspsHtml = (section.usps || section.list_items || []).filter(u => u && u.trim()).slice(0, 5).map(usp => `
+        <div class="flex items-center text-xs">
+            <span class="text-green-600 mr-1 font-bold">✓</span>
+            <span class="text-gray-700">${escapeHtml(usp)}</span>
+        </div>
+    `).join('');
+
+    // Widget summary
+    const widgets = section.widgets || [];
+    const widgetSummary = widgets.length > 0 ? `
+        <div class="mt-2 pt-2 border-t border-green-200">
+            <div class="flex flex-wrap gap-1">
+                ${widgets.slice(0, 6).map(w => `
+                    <span class="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">${escapeHtml(w.type)}</span>
+                `).join('')}
+                ${widgets.length > 6 ? `<span class="text-xs text-green-600">+${widgets.length - 6} flere</span>` : ''}
+            </div>
+        </div>
+    ` : '';
+
+    return `
+        <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200">
+            <div class="flex items-center space-x-2 mb-2">
+                <span class="text-lg">🏠</span>
+                <span class="text-xs font-semibold text-green-700 uppercase">Hero Sektion</span>
+            </div>
+            <h2 class="text-base font-bold text-gray-900 mb-1">${escapeHtml(section.headline || section.header || 'Overskrift...')}</h2>
+            ${section.intro ? `<p class="text-xs text-gray-600 mb-2">${escapeHtml(section.intro.substring(0, 150))}${section.intro.length > 150 ? '...' : ''}</p>` : ''}
+            ${uspsHtml ? `<div class="space-y-1 mb-2">${uspsHtml}</div>` : ''}
+            ${section.button_text ? `
+                <div class="inline-block px-2 py-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded text-xs font-medium">
+                    ${escapeHtml(section.button_text)}
+                </div>
+            ` : ''}
+            ${widgetSummary}
+        </div>
+    `;
+}
+
+function renderFlatUspHeader(section) {
+    const uspsHtml = (section.usps || []).filter(u => u && u.trim()).slice(0, 4).map(usp => `
+        <div class="flex items-center text-xs">
+            <span class="text-green-600 mr-1 font-bold">✓</span>
+            <span class="text-gray-700 truncate">${escapeHtml(usp)}</span>
+        </div>
+    `).join('') || '<div class="text-gray-400 text-xs italic">Ingen USP punkter</div>';
+
+    return `
+        <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-3">
+            <h3 class="text-sm font-bold text-gray-900 mb-1">${escapeHtml(section.headline || 'Overskrift...')}</h3>
+            <p class="text-xs text-gray-600 mb-2 whitespace-pre-line">${escapeHtml(section.intro || 'Intro tekst...')}</p>
+            <div class="space-y-1">
+                ${uspsHtml}
+            </div>
+        </div>
+    `;
+}
+
+function renderFlatText(section) {
+    // Check if section has image widgets
+    const hasImage = section.widgets && section.widgets.some(w => w.type === 'image');
+
+    if (hasImage) {
+        // Render text with image placeholder side by side
+        return `
+            <div class="bg-gray-50 rounded-lg p-3">
+                <div class="flex gap-3">
+                    <div class="flex-1">
+                        <h3 class="text-sm font-semibold text-gray-900 mb-1">${escapeHtml(section.header || 'Overskrift...')}</h3>
+                        <p class="text-xs text-gray-600 whitespace-pre-line line-clamp-4">${escapeHtml(section.content || 'Indhold...')}</p>
+                    </div>
+                    <div class="w-24 h-20 flex-shrink-0 bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 rounded border-2 border-dashed border-slate-300 flex items-center justify-center">
+                        <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" stroke-width="1.5"/>
+                            <circle cx="8.5" cy="8.5" r="1.5" stroke-width="1.5"/>
+                            <path d="M21 15l-5-5L5 21" stroke-width="1.5"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    return `
+        <div class="bg-gray-50 rounded-lg p-3">
+            <h3 class="text-sm font-semibold text-gray-900 mb-1">${escapeHtml(section.header || 'Overskrift...')}</h3>
+            <p class="text-xs text-gray-600 whitespace-pre-line">${escapeHtml(section.content || 'Indhold...')}</p>
+        </div>
+    `;
+}
+
+function renderFlatReviews(section) {
+    const reviews = section.reviews || [];
+    const reviewsHtml = reviews.map(r => `
+        <div class="bg-white rounded p-2 border border-gray-100">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-xs font-medium text-gray-700">${escapeHtml(r.author || 'Anonym')}</span>
+                <span class="text-yellow-500 text-xs">${'★'.repeat(Math.min(r.rating || 5, 5))}</span>
+            </div>
+            <p class="text-xs text-gray-600 whitespace-pre-line">${escapeHtml(r.text || '')}</p>
+        </div>
+    `).join('');
+
+    return `
+        <div class="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-3">
+            <h3 class="text-sm font-semibold text-gray-900 mb-2">${escapeHtml(section.header || 'Anmeldelser')}</h3>
+            <div class="space-y-2">
+                ${reviewsHtml || '<p class="text-xs text-gray-400">Ingen anmeldelser</p>'}
+            </div>
+        </div>
+    `;
+}
+
+function renderFlatContactForm(section) {
+    const fields = section.fields || ['name', 'email', 'phone', 'message'];
+
+    const fieldPlaceholders = {
+        name: 'Dit fulde navn',
+        email: 'din@email.dk',
+        phone: '+45 12 34 56 78',
+        message: 'Skriv din besked her...'
+    };
+
+    return `
+        <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-5 min-h-[320px]">
+            <h3 class="text-base font-semibold text-gray-900 mb-1">${escapeHtml(section.header || 'Kontakt os')}</h3>
+            ${section.subheader ? `<p class="text-sm text-gray-600 mb-4">${escapeHtml(section.subheader)}</p>` : '<div class="mb-4"></div>'}
+
+            <div class="space-y-2">
+                ${fields.slice(0, 4).map(f => f === 'message' ? `
+                    <div class="h-20 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-400 shadow-sm">
+                        ${fieldPlaceholders[f] || ''}
+                    </div>
+                ` : `
+                    <div class="h-10 bg-white border border-gray-300 rounded-lg px-3 flex items-center text-sm text-gray-400 shadow-sm">
+                        ${fieldPlaceholders[f] || ''}
+                    </div>
+                `).join('')}
+            </div>
+
+            <button class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white text-center py-3 rounded-lg text-sm font-semibold transition-colors shadow-sm">
+                ${escapeHtml(section.button_text || 'Send besked')}
+            </button>
+        </div>
+    `;
+}
+
+function renderFlatCta(section) {
+    return `
+        <div class="bg-gradient-to-br from-orange-50 to-amber-50 rounded-lg p-3 min-h-[100px] text-center">
+            <h3 class="text-sm font-bold text-gray-900 mb-1">${escapeHtml(section.headline || 'Klar til at komme i gang?')}</h3>
+            <p class="text-xs text-gray-600 mb-2">${escapeHtml(section.subheadline || '')}</p>
+            <div class="inline-block px-3 py-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded text-xs">
+                ${escapeHtml(section.button_text || 'Få tilbud')} →
+            </div>
+        </div>
+    `;
+}
+
+function renderFlatImage(section) {
+    const layout = section.layout || 'landscape';
+    const aspectClass = {
+        'landscape': 'aspect-video',      // 16:9
+        'portrait': 'aspect-[3/4]',       // 3:4
+        'square': 'aspect-square',        // 1:1
+        'wide': 'aspect-[21/9]',          // 21:9 ultra-wide
+        'banner': 'aspect-[4/1]'          // 4:1 banner
+    }[layout] || 'aspect-video';
+
+    const layoutLabel = {
+        'landscape': 'Landskab (16:9)',
+        'portrait': 'Portræt (3:4)',
+        'square': 'Kvadrat (1:1)',
+        'wide': 'Panorama (21:9)',
+        'banner': 'Banner (4:1)'
+    }[layout] || 'Landskab';
+
+    return `
+        <div class="rounded-lg overflow-hidden">
+            <div class="${aspectClass} bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 relative flex items-center justify-center border-2 border-dashed border-slate-300">
+                <!-- Diagonal lines pattern -->
+                <div class="absolute inset-0 opacity-30">
+                    <svg class="w-full h-full" preserveAspectRatio="none">
+                        <defs>
+                            <pattern id="diagonalLines-${section.id || 'default'}" patternUnits="userSpaceOnUse" width="20" height="20" patternTransform="rotate(45)">
+                                <line x1="0" y1="0" x2="0" y2="20" stroke="#94a3b8" stroke-width="1"/>
+                            </pattern>
+                        </defs>
+                        <rect width="100%" height="100%" fill="url(#diagonalLines-${section.id || 'default'})"/>
+                    </svg>
+                </div>
+
+                <!-- Image placeholder icon and text -->
+                <div class="relative z-10 text-center p-4">
+                    <div class="inline-flex items-center justify-center w-16 h-16 bg-white/80 rounded-2xl shadow-sm mb-3">
+                        <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <p class="text-sm font-medium text-slate-500">${escapeHtml(section.placeholder_text || 'Billede placeholder')}</p>
+                    <p class="text-xs text-slate-400 mt-1">${layoutLabel}</p>
+                </div>
+
+                <!-- Corner markers -->
+                <div class="absolute top-2 left-2 w-4 h-4 border-t-2 border-l-2 border-slate-400 rounded-tl"></div>
+                <div class="absolute top-2 right-2 w-4 h-4 border-t-2 border-r-2 border-slate-400 rounded-tr"></div>
+                <div class="absolute bottom-2 left-2 w-4 h-4 border-b-2 border-l-2 border-slate-400 rounded-bl"></div>
+                <div class="absolute bottom-2 right-2 w-4 h-4 border-b-2 border-r-2 border-slate-400 rounded-br"></div>
+            </div>
+            ${section.caption ? `<p class="text-xs text-gray-500 mt-2 text-center italic">${escapeHtml(section.caption)}</p>` : ''}
+        </div>
+    `;
+}
+
+// New Elementor-style render functions
+
+function renderFlatHeader(block) {
+    const title = block.headline || block.header || block.title || 'Overskrift...';
+    const tag = block.tag || 'h2';
+    const tagStyles = {
+        h1: 'text-xl font-bold',
+        h2: 'text-lg font-bold',
+        h3: 'text-base font-semibold',
+        h4: 'text-sm font-semibold',
+        h5: 'text-sm font-medium',
+        h6: 'text-xs font-medium',
+    };
+    return `
+        <div class="bg-gradient-to-br from-gray-50 to-slate-50 rounded-lg p-3">
+            <${tag} class="${tagStyles[tag] || tagStyles.h2} text-gray-900">${escapeHtml(title)}</${tag}>
+        </div>
+    `;
+}
+
+function renderFlatList(block) {
+    const items = block.items || block.usps || block.list_items || [];
+    const itemsHtml = items.slice(0, 6).map(item => `
+        <div class="flex items-center text-xs">
+            <span class="text-green-600 mr-2 font-bold">✓</span>
+            <span class="text-gray-700">${escapeHtml(item)}</span>
+        </div>
+    `).join('') || '<div class="text-gray-400 text-xs italic">Ingen punkter</div>';
+
+    return `
+        <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-3">
+            ${block.header ? `<h4 class="text-sm font-semibold text-gray-900 mb-2">${escapeHtml(block.header)}</h4>` : ''}
+            <div class="space-y-1">
+                ${itemsHtml}
+            </div>
+        </div>
+    `;
+}
+
+function renderFlatCarousel(block) {
+    const items = block.carousel_items || block.items || [];
+    const totalItems = items.length || block.total_slides || 0;
+
+    return `
+        <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-3">
+            <div class="flex items-center justify-between mb-2">
+                <h4 class="text-sm font-semibold text-gray-900">${escapeHtml(block.header || 'Karrusel')}</h4>
+                <span class="text-xs text-blue-600 font-medium">${totalItems} slides</span>
+            </div>
+            <div class="flex space-x-2 overflow-hidden">
+                ${items.slice(0, 3).map((item, i) => `
+                    <div class="flex-shrink-0 w-1/3 bg-white rounded p-2 border border-blue-100">
+                        <p class="text-xs text-gray-700 truncate">${escapeHtml(item.title || item.text || `Slide ${i+1}`)}</p>
+                    </div>
+                `).join('') || '<div class="text-xs text-gray-400">Indlæser slides...</div>'}
+            </div>
+        </div>
+    `;
+}
+
+function renderFlatLogoSlider(block) {
+    const logoCount = block.logo_count || block.total_slides || 0;
+
+    return `
+        <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg p-3">
+            <div class="flex items-center justify-between mb-2">
+                <h4 class="text-sm font-semibold text-gray-900">🏢 Logo Slider</h4>
+                <span class="text-xs text-indigo-600 font-medium">${logoCount} logoer</span>
+            </div>
+            <div class="flex space-x-2 overflow-hidden">
+                ${Array(Math.min(logoCount, 5)).fill(0).map((_, i) => `
+                    <div class="flex-shrink-0 w-12 h-8 bg-white rounded border border-indigo-100 flex items-center justify-center">
+                        <svg class="w-6 h-4 text-indigo-300" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                        </svg>
+                    </div>
+                `).join('')}
+                ${logoCount > 5 ? `<div class="flex-shrink-0 w-12 h-8 bg-indigo-100 rounded flex items-center justify-center text-xs text-indigo-600 font-medium">+${logoCount - 5}</div>` : ''}
+            </div>
+            <p class="text-xs text-gray-500 mt-2">Kunder & partnere logoer</p>
+        </div>
+    `;
+}
+
+function renderFlatButton(block) {
+    const text = block.text || block.button_text || 'Klik her';
+    const href = block.href || '#';
+
+    return `
+        <div class="bg-gradient-to-br from-pink-50 to-rose-50 rounded-lg p-3 text-center">
+            <div class="inline-block px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg text-sm font-medium shadow-sm">
+                ${escapeHtml(text)}
+            </div>
+            ${href && href !== '#' ? `<p class="text-xs text-gray-400 mt-1">→ ${escapeHtml(href)}</p>` : ''}
+        </div>
+    `;
+}
+
+function renderFlatAccordion(block) {
+    const items = block.items || block.accordion_items || [];
+    const itemsHtml = items.slice(0, 3).map(item => `
+        <div class="border border-purple-100 rounded bg-white">
+            <div class="flex items-center justify-between p-2 cursor-pointer">
+                <span class="text-xs font-medium text-gray-700">${escapeHtml(item.title || 'Titel')}</span>
+                <span class="text-purple-500">▼</span>
+            </div>
+        </div>
+    `).join('');
+
+    return `
+        <div class="bg-gradient-to-br from-purple-50 to-violet-50 rounded-lg p-3">
+            <h4 class="text-sm font-semibold text-gray-900 mb-2">${escapeHtml(block.header || 'Accordion')}</h4>
+            <div class="space-y-1">
+                ${itemsHtml || '<div class="text-xs text-gray-400">Ingen elementer</div>'}
+            </div>
+            ${items.length > 3 ? `<p class="text-xs text-purple-500 mt-1">+${items.length - 3} flere</p>` : ''}
+        </div>
+    `;
+}
+
+function renderFlatTabs(block) {
+    const tabs = block.tabs || [];
+    const tabsHtml = tabs.slice(0, 4).map((tab, i) => `
+        <div class="px-3 py-1 ${i === 0 ? 'bg-amber-200 text-amber-800' : 'bg-amber-100 text-amber-600'} rounded text-xs font-medium">
+            ${escapeHtml(tab.title || `Tab ${i+1}`)}
+        </div>
+    `).join('');
+
+    return `
+        <div class="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-lg p-3">
+            <h4 class="text-sm font-semibold text-gray-900 mb-2">${escapeHtml(block.header || 'Tabs')}</h4>
+            <div class="flex space-x-1">
+                ${tabsHtml || '<div class="text-xs text-gray-400">Ingen tabs</div>'}
+            </div>
+        </div>
+    `;
+}
+
+function renderFlatVideo(block) {
+    const src = block.src || '';
+
+    return `
+        <div class="bg-gradient-to-br from-red-50 to-rose-50 rounded-lg p-3">
+            <div class="aspect-video bg-gray-900 rounded flex items-center justify-center">
+                <div class="text-center">
+                    <div class="w-12 h-12 mx-auto rounded-full bg-red-600 flex items-center justify-center">
+                        <span class="text-white text-2xl ml-1">▶</span>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-2">Video</p>
+                </div>
+            </div>
+            ${src ? `<p class="text-xs text-gray-400 mt-1 truncate">Kilde: ${escapeHtml(src)}</p>` : ''}
+        </div>
+    `;
+}
+
+function renderFlatTestimonial(block) {
+    const text = block.text || 'Kundeudtalelse...';
+    const author = block.author || 'Kunde';
+
+    return `
+        <div class="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-lg p-3">
+            <div class="text-yellow-500 text-sm mb-1">★★★★★</div>
+            <p class="text-xs text-gray-600 italic mb-2">"${escapeHtml(text.substring(0, 100))}${text.length > 100 ? '...' : ''}"</p>
+            <p class="text-xs font-medium text-gray-700">— ${escapeHtml(author)}</p>
+        </div>
+    `;
+}
+
+function renderFlatCard(block) {
+    const title = block.title || block.front_title || 'Titel';
+    const text = block.text || block.front_text || '';
+
+    return `
+        <div class="bg-gradient-to-br from-teal-50 to-cyan-50 rounded-lg p-3">
+            <div class="w-8 h-8 rounded-full bg-teal-200 flex items-center justify-center mb-2">
+                <span class="text-teal-700 text-sm">📦</span>
+            </div>
+            <h4 class="text-sm font-semibold text-gray-900 mb-1">${escapeHtml(title)}</h4>
+            <p class="text-xs text-gray-600">${escapeHtml(text.substring(0, 80))}${text.length > 80 ? '...' : ''}</p>
+        </div>
+    `;
+}
+
+function renderFlatDivider(block) {
+    return `
+        <div class="py-2">
+            <div class="border-t border-gray-300"></div>
+        </div>
+    `;
+}
+
+// Map inferred types to display info
+const INFERRED_DISPLAY_MAP = {
+    'form': { color: 'purple', icon: '✉️', label: 'Formular' },
+    'accordion': { color: 'purple', icon: '📋', label: 'Accordion' },
+    'gallery': { color: 'blue', icon: '🖼️', label: 'Galleri' },
+    'image': { color: 'gray', icon: '🖼️', label: 'Billede' },
+    'list': { color: 'green', icon: '✓', label: 'Liste' },
+    'link_list': { color: 'cyan', icon: '🔗', label: 'Link-liste' },
+    'text_with_title': { color: 'gray', icon: '📝', label: 'Tekst' },
+    'text_long': { color: 'gray', icon: '📝', label: 'Tekst' },
+    'text_short': { color: 'gray', icon: '📝', label: 'Tekst' },
+    'mixed': { color: 'orange', icon: '📦', label: 'Blandet' },
+    'empty': { color: 'gray', icon: '⬜', label: 'Tom' },
+};
+
+function renderFlatGeneric(block) {
+    const widgetType = block.widgetType || 'Unknown';
+    // Look for widget content in _widget_content (new) or content (fallback)
+    const content = block._widget_content || (typeof block.content === 'object' ? block.content : {});
+    const inferredType = content._inferred_type || block._inferred_type || 'empty';
+    const displayInfo = INFERRED_DISPLAY_MAP[inferredType] || INFERRED_DISPLAY_MAP['empty'];
+
+    // Get gradient colors based on inferred type
+    const colorMap = {
+        'purple': 'from-purple-50 to-pink-50',
+        'blue': 'from-blue-50 to-cyan-50',
+        'green': 'from-green-50 to-emerald-50',
+        'cyan': 'from-cyan-50 to-blue-50',
+        'orange': 'from-orange-50 to-amber-50',
+        'gray': 'from-gray-50 to-slate-50',
+    };
+    const bgGradient = colorMap[displayInfo.color] || 'from-gray-50 to-slate-50';
+
+    // Build HTML based on what content we have
+    let contentHtml = '';
+
+    // Title - fallback til block.header/headline
+    const titleText = content.title || block.header || block.headline || '';
+    if (titleText) {
+        contentHtml += `<h4 class="text-sm font-semibold text-gray-900 mb-1">${escapeHtml(titleText)}</h4>`;
+    }
+
+    // Text - fallback til block.content/intro (men kun hvis det er en string)
+    const textContent = content.text || (typeof block.content === 'string' ? block.content : '') || block.intro || '';
+    if (textContent) {
+        const textPreview = textContent.substring(0, 200);
+        contentHtml += `<p class="text-xs text-gray-600 whitespace-pre-line mb-2">${escapeHtml(textPreview)}${textContent.length > 200 ? '...' : ''}</p>`;
+    }
+
+    // List items
+    if (content.items && content.items.length > 0) {
+        contentHtml += '<ul class="text-xs text-gray-600 space-y-1 mb-2">';
+        content.items.slice(0, 5).forEach(item => {
+            contentHtml += `<li class="flex items-start"><span class="mr-2 text-green-500">✓</span><span>${escapeHtml(typeof item === 'string' ? item : item.text || '')}</span></li>`;
+        });
+        if (content.items.length > 5) {
+            contentHtml += `<li class="text-gray-400 italic">... og ${content.items.length - 5} mere</li>`;
+        }
+        contentHtml += '</ul>';
+    }
+
+    // Accordion items
+    if (content.accordion_items && content.accordion_items.length > 0) {
+        contentHtml += '<div class="space-y-1 mb-2">';
+        content.accordion_items.slice(0, 3).forEach(item => {
+            contentHtml += `
+                <div class="bg-white/50 rounded p-2 border border-gray-200">
+                    <div class="text-xs font-medium text-gray-700 flex items-center">
+                        <span class="mr-1">▸</span>
+                        ${escapeHtml(item.title || '')}
+                    </div>
+                    ${item.content ? `<div class="text-xs text-gray-500 mt-1 ml-3">${escapeHtml(item.content.substring(0, 80))}${item.content.length > 80 ? '...' : ''}</div>` : ''}
+                </div>
+            `;
+        });
+        if (content.accordion_items.length > 3) {
+            contentHtml += `<div class="text-xs text-gray-400 italic">... og ${content.accordion_items.length - 3} mere</div>`;
+        }
+        contentHtml += '</div>';
+    }
+
+    // Links
+    if (content.links && content.links.length > 0) {
+        contentHtml += '<div class="flex flex-wrap gap-1 mb-2">';
+        content.links.slice(0, 5).forEach(link => {
+            contentHtml += `<span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">${escapeHtml(link.text || '')}</span>`;
+        });
+        if (content.links.length > 5) {
+            contentHtml += `<span class="text-xs text-gray-400">+${content.links.length - 5}</span>`;
+        }
+        contentHtml += '</div>';
+    }
+
+    // Images
+    if (content.images && content.images.length > 0) {
+        contentHtml += `<div class="text-xs text-gray-500 mb-2">🖼️ ${content.images.length} billede${content.images.length > 1 ? 'r' : ''}</div>`;
+    }
+
+    // Form fields
+    if (content.form_fields && content.form_fields.length > 0) {
+        contentHtml += '<div class="space-y-1 mb-2">';
+        content.form_fields.slice(0, 4).forEach(field => {
+            const label = field.placeholder || field.name || field.type;
+            contentHtml += `<div class="bg-white/50 border border-gray-200 rounded px-2 py-1 text-xs text-gray-500">${escapeHtml(label)}</div>`;
+        });
+        if (content.form_fields.length > 4) {
+            contentHtml += `<div class="text-xs text-gray-400 italic">... og ${content.form_fields.length - 4} flere felter</div>`;
+        }
+        contentHtml += '</div>';
+    }
+
+    // Fallback for completely empty content
+    if (!contentHtml) {
+        const fallbackContent = block.header || block.content || block.text || block.title || '';
+        if (fallbackContent) {
+            contentHtml = `<p class="text-xs text-gray-600">${escapeHtml(fallbackContent.toString().substring(0, 100))}${fallbackContent.length > 100 ? '...' : ''}</p>`;
+        }
+    }
+
+    return `
+        <div class="bg-gradient-to-br ${bgGradient} rounded-lg p-3">
+            <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center space-x-2">
+                    <span class="text-sm">${displayInfo.icon}</span>
+                    <span class="text-xs font-medium text-gray-700">${displayInfo.label}</span>
+                </div>
+                <span class="text-xs font-mono text-gray-400 bg-gray-200 px-1 rounded">${escapeHtml(widgetType)}</span>
+            </div>
+            ${contentHtml}
+        </div>
+    `;
+}
+
+// ========================================
+// Resize Handling (Mouse Drag)
+// ========================================
+
+function startResize(event, sectionId) {
+    console.log('startResize called:', sectionId, event.target);
+    event.preventDefault();
+    event.stopPropagation();
+
+    // Find nærmeste container (sections-sortable-container)
+    const handle = event.target.closest('.resize-handle');
+    const container = handle?.closest('.sections-sortable-container') || document.querySelector('.sections-sortable-container');
+
+    if (!container) {
+        console.error('Resize: Container not found!');
+        return;
+    }
+    console.log('Resize container found:', container, 'width:', container.offsetWidth);
+
+    resizingSection = {
+        sectionId: sectionId,
+        startX: event.clientX,
+        containerWidth: container.offsetWidth,
+        startWidth: getSectionWidth(sectionId)
+    };
+    console.log('Resize state:', resizingSection);
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    document.addEventListener('mousemove', doResize);
+    document.addEventListener('mouseup', stopResize);
+}
+
+function doResize(event) {
+    if (!resizingSection) return;
+
+    const deltaX = event.clientX - resizingSection.startX;
+    const deltaPercent = deltaX / resizingSection.containerWidth;
+
+    // Calculate new width with snapping
+    const newWidth = snapToGrid(resizingSection.startWidth + deltaPercent);
+
+    // Update section width visually (immediate feedback)
+    const wrapper = document.querySelector(`[data-section-id="${resizingSection.sectionId}"]`);
+    if (wrapper) {
+        wrapper.style.width = `${(newWidth * 100).toFixed(2)}%`;
+
+        // Update width indicator
+        const widthIndicator = wrapper.querySelector('.text-gray-400');
+        if (widthIndicator) {
+            widthIndicator.textContent = `(${numberToWidth(newWidth)})`;
+        }
+    }
+}
+
+function stopResize() {
+    console.log('stopResize called');
+    if (!resizingSection) return;
+
+    // Get final width from the element
+    const wrapper = document.querySelector(`[data-section-id="${resizingSection.sectionId}"]`);
+    if (wrapper) {
+        const computedWidth = parseFloat(wrapper.style.width) / 100;
+        const snappedWidth = snapToGrid(computedWidth);
+        console.log('Final width:', numberToWidth(snappedWidth));
+
+        // Update data
+        updateSectionWidth(resizingSection.sectionId, snappedWidth);
+    }
+
+    // Clean up
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    document.removeEventListener('mousemove', doResize);
+    document.removeEventListener('mouseup', stopResize);
+
+    resizingSection = null;
+
+    // Re-render to apply auto-flow
+    if (activeSeoPagePath) {
+        renderActiveSeoContent(activeSeoPagePath);
+        debouncedSaveState();
+    }
+}
+
+function getSectionWidth(sectionId) {
+    if (!activeSeoPagePath) return 1/3;
+
+    const sections = campaignConfig.seo_pages[activeSeoPagePath]?.flatSections;
+    if (!sections) return 1/3;
+
+    const section = sections.find(s => s.id === sectionId);
+    return section ? widthToNumber(section.width) : 1/3;
+}
+
+// ========================================
+// Flat Section Edit Panel
+// ========================================
+
+function openFlatSectionEditPanel(pagePath, sectionId) {
+    const sections = campaignConfig.seo_pages[pagePath]?.flatSections;
+    if (!sections) return;
+
+    const section = sections.find(s => s.id === sectionId);
+    if (!section) return;
+
+    let panelHtml = '';
+
+    switch (section.type) {
+        case 'usp_header':
+            panelHtml = renderUspHeaderEditForm(section);
+            break;
+        case 'text':
+            panelHtml = renderTextEditForm(section);
+            break;
+        case 'reviews':
+            panelHtml = renderReviewsEditForm(section);
+            break;
+        case 'contact_form':
+            panelHtml = renderContactFormEditForm(section);
+            break;
+        case 'cta':
+            panelHtml = renderCtaEditForm(section);
+            break;
+        case 'image':
+            panelHtml = renderImageEditForm(section);
+            break;
+        default:
+            panelHtml = renderTextEditForm(section);
+    }
+
+    // Add width selector at top of panel
+    const widthSelectorHtml = `
+        <div class="mb-6 pb-6 border-b border-gray-200">
+            <label class="block text-sm font-medium text-gray-700 mb-3">📐 Bredde</label>
+            <div class="grid grid-cols-4 gap-2">
+                ${['1/4', '1/3', '1/2', '2/3', '3/4', '1/1'].map(w => `
+                    <button type="button" onclick="setEditSectionWidth('${w}')"
+                            class="edit-width-btn px-3 py-2 border-2 rounded-lg text-sm font-medium transition-all
+                                   ${section.width === w ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-gray-200 text-gray-600 hover:border-purple-300'}">
+                        ${w}
+                    </button>
+                `).join('')}
+            </div>
+        </div>
+    `;
+
+    const typeLabels = {
+        usp_header: '✓ Hero/USP Sektion',
+        text: '📝 Tekstafsnit',
+        reviews: '⭐ Anmeldelser',
+        contact_form: '✉️ Kontaktformular',
+        cta: '🎯 Call-to-Action',
+        image: '🖼️ Billede'
+    };
+
+    openSeoEditSlidePanel(typeLabels[section.type] || 'Rediger sektion', pagePath, widthSelectorHtml + panelHtml, () => {
+        saveFlatSection(pagePath, sectionId, section.type);
+    });
+
+    // Store current section ID for width updates
+    window.currentEditSectionId = sectionId;
+}
+
+function setEditSectionWidth(width) {
+    // Update visual selection
+    document.querySelectorAll('.edit-width-btn').forEach(btn => {
+        if (btn.textContent.trim() === width) {
+            btn.className = btn.className.replace('border-gray-200 text-gray-600 hover:border-purple-300', 'border-purple-500 bg-purple-50 text-purple-700');
+        } else {
+            btn.className = btn.className.replace('border-purple-500 bg-purple-50 text-purple-700', 'border-gray-200 text-gray-600 hover:border-purple-300');
+        }
+    });
+
+    // Store selected width
+    window.editSectionNewWidth = width;
+}
+
+function saveFlatSection(pagePath, sectionId, sectionType) {
+    const sections = campaignConfig.seo_pages[pagePath]?.flatSections;
+    if (!sections) return;
+
+    const section = sections.find(s => s.id === sectionId);
+    if (!section) return;
+
+    // Update width if changed
+    if (window.editSectionNewWidth) {
+        section.width = window.editSectionNewWidth;
+        window.editSectionNewWidth = null;
+    }
+
+    // Update section data based on type
+    switch (sectionType) {
+        case 'usp_header':
+            section.headline = document.getElementById('edit-usp-headline')?.value || '';
+            section.intro = document.getElementById('edit-usp-intro')?.value || '';
+            section.usps = Array.from(document.querySelectorAll('.edit-usp-input')).map(input => input.value);
+            break;
+        case 'text':
+            section.header = document.getElementById('edit-text-header')?.value || '';
+            section.content = document.getElementById('edit-text-content')?.value || '';
+            break;
+        case 'reviews':
+            section.header = document.getElementById('edit-reviews-header')?.value || '';
+            section.reviews = Array.from(document.querySelectorAll('#edit-reviews-container > div')).map(div => ({
+                author: div.querySelector('.edit-review-author')?.value || '',
+                rating: parseInt(div.querySelector('.edit-review-rating')?.value) || 5,
+                text: div.querySelector('.edit-review-text')?.value || '',
+                platform: 'Trustpilot'
+            }));
+            break;
+        case 'contact_form':
+            section.header = document.getElementById('edit-form-header')?.value || '';
+            section.subheader = document.getElementById('edit-form-subheader')?.value || '';
+            section.fields = Array.from(document.querySelectorAll('.edit-form-field:checked')).map(cb => cb.value);
+            section.button_text = document.getElementById('edit-form-button')?.value || '';
+            break;
+        case 'cta':
+            section.headline = document.getElementById('edit-cta-headline')?.value || '';
+            section.subheadline = document.getElementById('edit-cta-subheadline')?.value || '';
+            section.button_text = document.getElementById('edit-cta-button')?.value || '';
+            section.button_style = document.querySelector('input[name="edit-cta-style"]:checked')?.value || 'primary';
+            break;
+        case 'image':
+            section.layout = document.querySelector('input[name="edit-image-layout"]:checked')?.value || 'hero';
+            section.placeholder_text = document.getElementById('edit-image-placeholder')?.value || '';
+            section.alt_text = document.getElementById('edit-image-alt')?.value || '';
+            section.caption = document.getElementById('edit-image-caption')?.value || '';
+            break;
+    }
+
+    closeSeoEditSlidePanel();
+    renderActiveSeoContent(pagePath);
+    debouncedSaveState();
+}
+
+// ========================================
+// Section Drag-and-Drop (SortableJS)
+// ========================================
+
+// Initialize section drag-and-drop (reorder sections only, no nesting)
+function initSectionSortable() {
+    document.querySelectorAll('.sections-sortable-container').forEach(container => {
+        const pagePath = container.dataset.pagePath;
+        if (!pagePath) return;
+
+        // Destroy existing instance
+        if (container.sortableInstance) {
+            container.sortableInstance.destroy();
+        }
+
+        container.sortableInstance = new Sortable(container, {
+            animation: 150,
+            handle: '.section-drag-handle',
+            ghostClass: 'section-ghost',
+            dragClass: 'section-dragging',
+            draggable: '.section-wrapper',
+            filter: '.fill-gap-wrapper',
+            onEnd: function(evt) {
+                if (!activeSeoPagePath) return;
+
+                const sections = campaignConfig.seo_pages[activeSeoPagePath]?.flatSections;
+                if (!sections) return;
+
+                const oldIndex = evt.oldIndex;
+                const newIndex = evt.newIndex;
+
+                if (oldIndex === newIndex) return;
+
+                // Move section in the array
+                const [movedSection] = sections.splice(oldIndex, 1);
+                sections.splice(newIndex, 0, movedSection);
+
+                // Re-render to update row groupings
+                renderSeoBuilder();
+
+                debouncedSaveState();
+            }
+        });
+    });
+}
+
+// Initialize content block drag-and-drop between sections using SortableJS
+function initContentBlockSortable() {
+    // Find all section content areas
+    document.querySelectorAll('.section-content-area').forEach(contentArea => {
+        const sectionId = contentArea.dataset.sectionId;
+        if (!sectionId) return;
+
+        // Destroy existing instance
+        if (contentArea.sortableInstance) {
+            contentArea.sortableInstance.destroy();
+        }
+
+        // Initialize Sortable for content blocks within each section
+        contentArea.sortableInstance = new Sortable(contentArea, {
+            animation: 150,
+            handle: '.content-block-drag-handle',
+            ghostClass: 'content-block-ghost',
+            dragClass: 'content-block-dragging',
+            group: 'content-blocks', // Allow dragging between sections
+            onEnd: function(evt) {
+                if (!activeSeoPagePath) return;
+
+                const sections = campaignConfig.seo_pages[activeSeoPagePath]?.flatSections;
+                if (!sections) return;
+
+                const movedBlock = evt.item;
+                const blockId = movedBlock.dataset.blockId;
+                const fromSectionId = movedBlock.dataset.sectionId;
+                const toSectionEl = evt.to;
+                const toSectionId = toSectionEl.dataset.sectionId;
+
+                if (!blockId || !fromSectionId || !toSectionId) return;
+
+                const fromSection = sections.find(s => s.id === fromSectionId);
+                const toSection = sections.find(s => s.id === toSectionId);
+
+                if (!fromSection || !toSection) return;
+
+                // Find and remove block from source section
+                const blockIndex = fromSection.contents?.findIndex(b => b.id === blockId);
+                if (blockIndex === undefined || blockIndex === -1) return;
+
+                const block = fromSection.contents.splice(blockIndex, 1)[0];
+
+                // Update block's section reference
+                block.sectionId = toSectionId;
+
+                // Calculate new index in target section
+                const newIndex = evt.newIndex;
+
+                // Ensure target section has contents array
+                if (!toSection.contents) {
+                    toSection.contents = [];
+                }
+
+                // Insert at new position
+                toSection.contents.splice(newIndex, 0, block);
+
+                console.log(`Moved block ${blockId} from section ${fromSectionId} to ${toSectionId} at index ${newIndex}`);
+
+                // Re-render
+                renderActiveSeoContent(activeSeoPagePath);
+                debouncedSaveState();
+            }
+        });
+    });
+}
+
+// Legacy render functions (kept for backward compatibility with old data)
+// Render preview section based on type
+function renderPreviewSection(pagePath, rowId, colIndex, section) {
+    const editBtnHtml = `
+        <button type="button" onclick="openSectionEditPanel('${escapeHtml(pagePath)}', '${rowId}', ${colIndex})"
+                class="absolute top-2 right-2 px-2 py-1 bg-white/90 border border-gray-200 rounded text-xs text-gray-600 hover:border-purple-300 hover:text-purple-600 transition-all flex items-center space-x-1 opacity-0 group-hover:opacity-100">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+            </svg>
+            <span>Rediger</span>
+        </button>
+    `;
+
+    switch (section.type) {
+        case 'usp_header':
+            return renderPreviewUspHeader(section, editBtnHtml);
+        case 'text':
+            return renderPreviewText(section, editBtnHtml);
+        case 'reviews':
+            return renderPreviewReviews(section, editBtnHtml);
+        case 'contact_form':
+            return renderPreviewContactForm(section, editBtnHtml);
+        case 'cta':
+            return renderPreviewCta(section, editBtnHtml);
+        case 'image':
+            return renderPreviewImage(section, editBtnHtml);
+        case 'carousel':
+            return renderPreviewCarousel(section, editBtnHtml);
+        case 'accordion':
+            return renderPreviewAccordion(section, editBtnHtml);
+        case 'tabs':
+            return renderPreviewTabs(section, editBtnHtml);
+        case 'flip_cards':
+            return renderPreviewFlipCards(section, editBtnHtml);
+        default:
+            return renderPreviewText(section, editBtnHtml);
+    }
+}
+
+// Preview render for USP Header section
+function renderPreviewUspHeader(section, editBtnHtml) {
+    const uspsHtml = (section.usps || []).filter(u => u && u.trim()).map(usp => `
+        <div class="flex items-center text-sm">
+            <span class="text-green-600 mr-2 font-bold">✓</span>
+            <span class="text-gray-700">${escapeHtml(usp)}</span>
+        </div>
+    `).join('') || '<div class="text-gray-400 text-sm italic">Ingen USP punkter</div>';
+
+    return `
+        <div class="group relative h-full min-h-[200px] bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg border border-green-200 p-4">
+            ${editBtnHtml}
+            <div class="text-xs font-medium text-green-700 uppercase mb-3 flex items-center">
+                <span class="mr-1">✓</span> Hero Sektion
+            </div>
+            <div class="border-b-2 border-green-300 mb-3"></div>
+            <h2 class="text-xl font-bold text-gray-900 mb-2">${escapeHtml(section.headline || 'Overskrift...')}</h2>
+            <p class="text-gray-600 text-sm mb-4">${escapeHtml(section.intro || 'Intro tekst...')}</p>
+            <div class="space-y-2">
+                ${uspsHtml}
+            </div>
+        </div>
+    `;
+}
+
+// Preview render for Text section
+function renderPreviewText(section, editBtnHtml) {
+    const contentPreview = (section.content || 'Indhold...').substring(0, 200);
+    return `
+        <div class="group relative h-full min-h-[150px] bg-gray-50 rounded-lg border border-gray-200 p-4">
+            ${editBtnHtml}
+            <div class="text-xs font-medium text-gray-500 uppercase mb-3">📝 Tekstafsnit</div>
+            <div class="border-b border-gray-300 mb-3"></div>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">${escapeHtml(section.header || 'Overskrift...')}</h3>
+            <p class="text-gray-600 text-sm">${escapeHtml(contentPreview)}${section.content && section.content.length > 200 ? '...' : ''}</p>
+        </div>
+    `;
+}
+
+// Preview render for Reviews section
+function renderPreviewReviews(section, editBtnHtml) {
+    const reviews = section.reviews || [];
+    const reviewsPreviewHtml = reviews.slice(0, 3).map(r => `
+        <div class="bg-white rounded p-2 border border-gray-100">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-xs font-medium text-gray-700">${escapeHtml(r.author || 'Anonym')}</span>
+                <span class="text-yellow-500 text-xs">${'★'.repeat(r.rating || 5)}</span>
+            </div>
+            <p class="text-xs text-gray-600 line-clamp-2">${escapeHtml((r.text || '').substring(0, 80))}...</p>
+        </div>
+    `).join('');
+
+    return `
+        <div class="group relative h-full min-h-[150px] bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg border border-purple-200 p-4">
+            ${editBtnHtml}
+            <div class="text-xs font-medium text-purple-700 uppercase mb-3 flex items-center">
+                <span class="mr-1">⭐</span> Anmeldelser (${reviews.length})
+            </div>
+            <h3 class="text-lg font-semibold text-gray-900 mb-3">${escapeHtml(section.header || 'Hvad siger vores kunder')}</h3>
+            <div class="grid grid-cols-1 gap-2">
+                ${reviewsPreviewHtml || '<p class="text-gray-400 text-sm italic">Ingen anmeldelser</p>'}
+            </div>
+            ${reviews.length > 3 ? `<p class="text-xs text-gray-500 mt-2">+${reviews.length - 3} flere</p>` : ''}
+        </div>
+    `;
+}
+
+// Preview render for Contact Form section
+function renderPreviewContactForm(section, editBtnHtml) {
+    const fields = section.fields || ['name', 'email', 'phone', 'message'];
+    const fieldLabels = {
+        name: 'Navn',
+        email: 'Email',
+        phone: 'Telefon',
+        message: 'Besked'
+    };
+
+    const fieldsHtml = fields.map(field => {
+        if (field === 'message') {
+            return `
+                <div class="col-span-2">
+                    <div class="h-16 bg-white border border-gray-200 rounded flex items-start p-2">
+                        <span class="text-xs text-gray-400">${fieldLabels[field] || field}</span>
+                    </div>
+                </div>
+            `;
+        }
+        return `
+            <div class="h-8 bg-white border border-gray-200 rounded flex items-center px-2">
+                <span class="text-xs text-gray-400">${fieldLabels[field] || field}</span>
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <div class="group relative h-full min-h-[200px] bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-4">
+            ${editBtnHtml}
+            <div class="text-xs font-medium text-blue-700 uppercase mb-3 flex items-center">
+                <span class="mr-1">✉️</span> Kontaktformular
+            </div>
+            <h3 class="text-lg font-semibold text-gray-900 mb-1">${escapeHtml(section.header || 'Kontakt os')}</h3>
+            <p class="text-sm text-gray-600 mb-4">${escapeHtml(section.subheader || '')}</p>
+            <div class="grid grid-cols-2 gap-2 mb-3">
+                ${fieldsHtml}
+            </div>
+            <div class="bg-blue-600 text-white text-center py-2 rounded text-sm font-medium">
+                ${escapeHtml(section.button_text || 'Send besked')}
+            </div>
+        </div>
+    `;
+}
+
+// Preview render for CTA section
+function renderPreviewCta(section, editBtnHtml) {
+    const buttonStyles = {
+        primary: 'bg-gradient-to-r from-purple-600 to-pink-600 text-white',
+        secondary: 'bg-gradient-to-r from-blue-600 to-purple-600 text-white',
+        outline: 'bg-white border-2 border-purple-600 text-purple-600'
+    };
+    const btnClass = buttonStyles[section.button_style] || buttonStyles.primary;
+
+    return `
+        <div class="group relative h-full min-h-[150px] bg-gradient-to-br from-orange-50 to-amber-50 rounded-lg border border-orange-200 p-6 text-center">
+            ${editBtnHtml}
+            <div class="text-xs font-medium text-orange-700 uppercase mb-3 flex items-center justify-center">
+                <span class="mr-1">🎯</span> Call-to-Action
+            </div>
+            <div class="border-b-2 border-orange-300 mb-4 mx-auto w-1/2"></div>
+            <h3 class="text-2xl font-bold text-gray-900 mb-2">${escapeHtml(section.headline || 'Klar til at komme i gang?')}</h3>
+            <p class="text-gray-600 mb-4">${escapeHtml(section.subheadline || '')}</p>
+            <div class="inline-block px-6 py-3 rounded-lg font-medium ${btnClass}">
+                ${escapeHtml(section.button_text || 'Få gratis tilbud')} →
+            </div>
+        </div>
+    `;
+}
+
+// Preview render for Image section
+function renderPreviewImage(section, editBtnHtml) {
+    const layoutClasses = {
+        hero: 'aspect-video',
+        gallery: 'aspect-square',
+        'side-by-side': 'aspect-[4/3]'
+    };
+    const aspectClass = layoutClasses[section.layout] || layoutClasses.hero;
+
+    return `
+        <div class="group relative h-full min-h-[150px] bg-gray-100 rounded-lg border border-gray-200 p-4">
+            ${editBtnHtml}
+            <div class="text-xs font-medium text-gray-500 uppercase mb-3 flex items-center">
+                <span class="mr-1">🖼️</span> Billede (${section.layout || 'hero'})
+            </div>
+            <div class="${aspectClass} bg-gray-200 rounded-lg flex items-center justify-center">
+                <div class="text-center">
+                    <svg class="w-12 h-12 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    <span class="text-sm text-gray-500">${escapeHtml(section.placeholder_text || 'Billede')}</span>
+                </div>
+            </div>
+            ${section.caption ? `<p class="text-xs text-gray-500 mt-2 text-center">${escapeHtml(section.caption)}</p>` : ''}
+        </div>
+    `;
+}
+
+// Preview render for Carousel section
+function renderPreviewCarousel(section, editBtnHtml) {
+    const items = section.carousel_items || [];
+    const itemsHtml = items.slice(0, 3).map((item, i) => `
+        <div class="flex-shrink-0 w-28 p-2 bg-white rounded-lg border border-blue-100 shadow-sm">
+            <div class="text-xs font-medium text-gray-900 truncate">${escapeHtml(item.title || `Slide ${i + 1}`)}</div>
+            ${item.text ? `<div class="text-xs text-gray-500 truncate mt-1">${escapeHtml(item.text.substring(0, 30))}</div>` : ''}
+        </div>
+    `).join('');
+
+    const moreCount = items.length > 3 ? `<div class="flex-shrink-0 w-8 flex items-center justify-center text-gray-400 text-sm">+${items.length - 3}</div>` : '';
+
+    return `
+        <div class="group relative h-full min-h-[150px] bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-4">
+            ${editBtnHtml}
+            <div class="text-xs font-medium text-blue-700 uppercase mb-2 flex items-center">
+                <span class="mr-1">🎠</span> Karrusel (${items.length} elementer)
+            </div>
+            <div class="border-b border-blue-200 mb-3"></div>
+            <h3 class="text-sm font-bold text-gray-900 mb-3">${escapeHtml(section.header || 'Karrusel')}</h3>
+            <div class="flex space-x-2 overflow-hidden">
+                ${itemsHtml}
+                ${moreCount}
+            </div>
+        </div>
+    `;
+}
+
+// Preview render for Accordion section
+function renderPreviewAccordion(section, editBtnHtml) {
+    const items = section.accordion_items || [];
+    const itemsHtml = items.slice(0, 4).map(item => `
+        <div class="bg-white rounded px-3 py-2 border border-purple-100 flex items-center">
+            <span class="text-purple-500 mr-2">▸</span>
+            <span class="text-sm text-gray-700 truncate">${escapeHtml(item.title || 'Accordion item')}</span>
+        </div>
+    `).join('');
+
+    return `
+        <div class="group relative h-full min-h-[150px] bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg border border-purple-200 p-4">
+            ${editBtnHtml}
+            <div class="text-xs font-medium text-purple-700 uppercase mb-2 flex items-center">
+                <span class="mr-1">📋</span> Accordion (${items.length} items)
+            </div>
+            <div class="border-b border-purple-200 mb-3"></div>
+            <h3 class="text-sm font-bold text-gray-900 mb-3">${escapeHtml(section.header || 'FAQ / Accordion')}</h3>
+            <div class="space-y-2">
+                ${itemsHtml}
+                ${items.length > 4 ? `<div class="text-xs text-gray-400">+${items.length - 4} flere...</div>` : ''}
+            </div>
+        </div>
+    `;
+}
+
+// Preview render for Tabs section
+function renderPreviewTabs(section, editBtnHtml) {
+    const items = section.tab_items || [];
+    const tabsHtml = items.slice(0, 4).map((item, i) => `
+        <div class="px-3 py-1 ${i === 0 ? 'bg-amber-200 text-amber-800' : 'bg-white text-gray-600'} rounded-full text-xs font-medium">
+            ${escapeHtml(item.title || `Tab ${i + 1}`)}
+        </div>
+    `).join('');
+
+    return `
+        <div class="group relative h-full min-h-[150px] bg-gradient-to-br from-amber-50 to-yellow-50 rounded-lg border border-amber-200 p-4">
+            ${editBtnHtml}
+            <div class="text-xs font-medium text-amber-700 uppercase mb-2 flex items-center">
+                <span class="mr-1">📑</span> Tabs (${items.length} faner)
+            </div>
+            <div class="border-b border-amber-200 mb-3"></div>
+            <h3 class="text-sm font-bold text-gray-900 mb-3">${escapeHtml(section.header || 'Faner')}</h3>
+            <div class="flex flex-wrap gap-2">
+                ${tabsHtml}
+            </div>
+        </div>
+    `;
+}
+
+// Preview render for Flip Cards section
+function renderPreviewFlipCards(section, editBtnHtml) {
+    const cards = section.flip_cards || [];
+    const cardsHtml = cards.slice(0, 3).map(card => `
+        <div class="w-24 bg-white rounded-lg border border-teal-100 p-2 shadow-sm">
+            <div class="text-xs font-medium text-gray-900 truncate">${escapeHtml(card.front_title || 'Flip')}</div>
+            <div class="text-[10px] text-teal-600 mt-1">↻ Vendbar</div>
+        </div>
+    `).join('');
+
+    return `
+        <div class="group relative h-full min-h-[150px] bg-gradient-to-br from-teal-50 to-cyan-50 rounded-lg border border-teal-200 p-4">
+            ${editBtnHtml}
+            <div class="text-xs font-medium text-teal-700 uppercase mb-2 flex items-center">
+                <span class="mr-1">🔄</span> Flip Cards (${cards.length} kort)
+            </div>
+            <div class="border-b border-teal-200 mb-3"></div>
+            <h3 class="text-sm font-bold text-gray-900 mb-3">${escapeHtml(section.header || 'Flip Cards')}</h3>
+            <div class="flex space-x-2 overflow-hidden">
+                ${cardsHtml}
+                ${cards.length > 3 ? `<div class="flex items-center text-gray-400 text-sm">+${cards.length - 3}</div>` : ''}
+            </div>
+        </div>
+    `;
+}
+
+// ========================================
+// Slide-in Edit Panel Functions
+// ========================================
+
+// Open meta edit panel
+function openSeoMetaEditPanel(pagePath) {
+    const seoPage = campaignConfig.seo_pages[pagePath];
+    if (!seoPage) return;
+
+    const panelHtml = `
+        <div class="space-y-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">🏷️ Meta Titel</label>
+                <input type="text" id="edit-meta-title"
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                       value="${escapeHtml(seoPage.meta_title || '')}"
+                       maxlength="100"
+                       placeholder="Indtast meta titel (50-60 tegn anbefales)">
+                <div class="flex justify-between mt-1">
+                    <p class="text-xs text-gray-500">Vises som titlen i Google søgeresultater</p>
+                    <span class="text-xs" id="meta-title-chars">${(seoPage.meta_title || '').length}/60</span>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">📝 Meta Beskrivelse</label>
+                <textarea id="edit-meta-description"
+                          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                          rows="4"
+                          maxlength="250"
+                          placeholder="Indtast meta beskrivelse (150-160 tegn)">${escapeHtml(seoPage.meta_description || '')}</textarea>
+                <div class="flex justify-between mt-1">
+                    <p class="text-xs text-gray-500">Vises under titlen i Google søgeresultater</p>
+                    <span class="text-xs" id="meta-desc-chars">${(seoPage.meta_description || '').length}/160</span>
+                </div>
+            </div>
+        </div>
+    `;
+
+    openSeoEditSlidePanel('Rediger meta tags', pagePath, panelHtml, () => {
+        const newTitle = document.getElementById('edit-meta-title').value;
+        const newDesc = document.getElementById('edit-meta-description').value;
+
+        campaignConfig.seo_pages[pagePath].meta_title = newTitle;
+        campaignConfig.seo_pages[pagePath].meta_description = newDesc;
+
+        closeSeoEditSlidePanel();
+        renderActiveSeoContent(pagePath);
+        debouncedSaveState();
+    });
+
+    // Add character count listeners
+    setTimeout(() => {
+        document.getElementById('edit-meta-title')?.addEventListener('input', function() {
+            document.getElementById('meta-title-chars').textContent = `${this.value.length}/60`;
+        });
+        document.getElementById('edit-meta-description')?.addEventListener('input', function() {
+            document.getElementById('meta-desc-chars').textContent = `${this.value.length}/160`;
+        });
+    }, 100);
+}
+
+// Open section edit panel
+function openSectionEditPanel(pagePath, rowId, colIndex) {
+    const rows = campaignConfig.seo_pages[pagePath]?.rows;
+    if (!rows) return;
+
+    const row = rows.find(r => r.id === rowId);
+    if (!row || !row.columns[colIndex]) return;
+
+    const section = row.columns[colIndex].section;
+    if (!section) return;
+
+    let panelHtml = '';
+
+    switch (section.type) {
+        case 'usp_header':
+            panelHtml = renderUspHeaderEditForm(section);
+            break;
+        case 'text':
+            panelHtml = renderTextEditForm(section);
+            break;
+        case 'reviews':
+            panelHtml = renderReviewsEditForm(section);
+            break;
+        case 'contact_form':
+            panelHtml = renderContactFormEditForm(section);
+            break;
+        case 'cta':
+            panelHtml = renderCtaEditForm(section);
+            break;
+        case 'image':
+            panelHtml = renderImageEditForm(section);
+            break;
+        default:
+            panelHtml = renderTextEditForm(section);
+    }
+
+    const typeLabels = {
+        usp_header: '✓ Hero/USP Sektion',
+        text: '📝 Tekstafsnit',
+        reviews: '⭐ Anmeldelser',
+        contact_form: '✉️ Kontaktformular',
+        cta: '🎯 Call-to-Action',
+        image: '🖼️ Billede'
+    };
+
+    openSeoEditSlidePanel(typeLabels[section.type] || 'Rediger sektion', pagePath, panelHtml, () => {
+        saveEditedSection(pagePath, rowId, colIndex, section.type);
+    });
+}
+
+// Render edit forms for each section type
+function renderUspHeaderEditForm(section) {
+    const uspsHtml = (section.usps || ['']).map((usp, i) => `
+        <div class="flex items-center space-x-2 mb-2">
+            <span class="text-green-600 font-bold">✓</span>
+            <input type="text" class="edit-usp-input flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                   data-usp-index="${i}" value="${escapeHtml(usp)}" placeholder="USP punkt...">
+            <button type="button" onclick="removeEditUsp(${i})" class="text-red-400 hover:text-red-600 p-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+    `).join('');
+
+    return `
+        <div class="space-y-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">H1 Overskrift</label>
+                <input type="text" id="edit-usp-headline"
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                       value="${escapeHtml(section.headline || '')}"
+                       placeholder="F.eks. Din lokale elektriker og el-installatør">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Intro tekst</label>
+                <textarea id="edit-usp-intro"
+                          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 resize-none"
+                          rows="4"
+                          placeholder="Introduktionstekst der beskriver jeres service...">${escapeHtml(section.intro || '')}</textarea>
+            </div>
+
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <label class="block text-sm font-medium text-gray-700">USP punkter</label>
+                    <button type="button" onclick="addEditUsp()"
+                            class="text-sm px-3 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200">
+                        + Tilføj USP
+                    </button>
+                </div>
+                <div id="edit-usps-container">
+                    ${uspsHtml}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderTextEditForm(section) {
+    return `
+        <div class="space-y-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Overskrift</label>
+                <input type="text" id="edit-text-header"
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                       value="${escapeHtml(section.header || '')}"
+                       placeholder="Overskrift til afsnit">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Indhold</label>
+                <textarea id="edit-text-content"
+                          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 resize-none"
+                          rows="8"
+                          placeholder="Indhold til afsnit...">${escapeHtml(section.content || '')}</textarea>
+                <div class="flex justify-end mt-1">
+                    <span class="text-xs text-gray-400" id="edit-text-word-count">${countWords(section.content || '')} ord</span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderReviewsEditForm(section) {
+    const reviews = section.reviews || [];
+    const reviewsHtml = reviews.map((r, i) => `
+        <div class="bg-gray-50 rounded-lg p-4 mb-3" data-review-index="${i}">
+            <div class="flex items-center justify-between mb-2">
+                <input type="text" class="edit-review-author px-3 py-2 border border-gray-300 rounded-lg w-1/3"
+                       value="${escapeHtml(r.author || '')}" placeholder="Navn">
+                <select class="edit-review-rating px-3 py-2 border border-gray-300 rounded-lg">
+                    ${[5,4,3,2,1].map(n => `<option value="${n}" ${r.rating === n ? 'selected' : ''}>${'★'.repeat(n)}${'☆'.repeat(5-n)}</option>`).join('')}
+                </select>
+                <button type="button" onclick="removeEditReview(${i})" class="text-red-400 hover:text-red-600 p-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                </button>
+            </div>
+            <textarea class="edit-review-text w-full px-3 py-2 border border-gray-300 rounded-lg resize-none"
+                      rows="2" placeholder="Anmeldelsestekst...">${escapeHtml(r.text || '')}</textarea>
+        </div>
+    `).join('');
+
+    return `
+        <div class="space-y-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Overskrift</label>
+                <input type="text" id="edit-reviews-header"
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                       value="${escapeHtml(section.header || '')}"
+                       placeholder="Hvad siger vores kunder">
+            </div>
+
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <label class="block text-sm font-medium text-gray-700">Anmeldelser</label>
+                    <button type="button" onclick="addEditReview()"
+                            class="text-sm px-3 py-1 bg-pink-100 text-pink-700 rounded-lg hover:bg-pink-200">
+                        + Tilføj anmeldelse
+                    </button>
+                </div>
+                <div id="edit-reviews-container" class="max-h-96 overflow-y-auto">
+                    ${reviewsHtml}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderContactFormEditForm(section) {
+    const allFields = ['name', 'email', 'phone', 'message', 'company', 'subject'];
+    const fieldLabels = {
+        name: 'Navn',
+        email: 'Email',
+        phone: 'Telefon',
+        message: 'Besked',
+        company: 'Firma',
+        subject: 'Emne'
+    };
+    const currentFields = section.fields || ['name', 'email', 'phone', 'message'];
+
+    const fieldsHtml = allFields.map(field => `
+        <label class="flex items-center space-x-2">
+            <input type="checkbox" class="edit-form-field rounded text-purple-600"
+                   value="${field}" ${currentFields.includes(field) ? 'checked' : ''}>
+            <span>${fieldLabels[field]}</span>
+        </label>
+    `).join('');
+
+    return `
+        <div class="space-y-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Overskrift</label>
+                <input type="text" id="edit-form-header"
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                       value="${escapeHtml(section.header || '')}"
+                       placeholder="Kontakt os">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Undertekst</label>
+                <input type="text" id="edit-form-subheader"
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                       value="${escapeHtml(section.subheader || '')}"
+                       placeholder="Udfyld formularen og vi vender tilbage...">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Felter</label>
+                <div class="grid grid-cols-2 gap-3">
+                    ${fieldsHtml}
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Knap tekst</label>
+                <input type="text" id="edit-form-button"
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                       value="${escapeHtml(section.button_text || '')}"
+                       placeholder="Send besked">
+            </div>
+        </div>
+    `;
+}
+
+function renderCtaEditForm(section) {
+    return `
+        <div class="space-y-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Overskrift</label>
+                <input type="text" id="edit-cta-headline"
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                       value="${escapeHtml(section.headline || '')}"
+                       placeholder="Klar til at komme i gang?">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Undertekst</label>
+                <input type="text" id="edit-cta-subheadline"
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                       value="${escapeHtml(section.subheadline || '')}"
+                       placeholder="Få et uforpligtende tilbud i dag">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Knap tekst</label>
+                <input type="text" id="edit-cta-button"
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                       value="${escapeHtml(section.button_text || '')}"
+                       placeholder="Få gratis tilbud">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Knap stil</label>
+                <div class="grid grid-cols-3 gap-3">
+                    <label class="cursor-pointer">
+                        <input type="radio" name="edit-cta-style" value="primary" ${section.button_style === 'primary' || !section.button_style ? 'checked' : ''} class="sr-only peer">
+                        <div class="p-3 border-2 rounded-lg text-center peer-checked:border-purple-500 peer-checked:bg-purple-50">
+                            <div class="h-8 bg-gradient-to-r from-purple-600 to-pink-600 rounded mb-1"></div>
+                            <span class="text-xs">Primary</span>
+                        </div>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="edit-cta-style" value="secondary" ${section.button_style === 'secondary' ? 'checked' : ''} class="sr-only peer">
+                        <div class="p-3 border-2 rounded-lg text-center peer-checked:border-purple-500 peer-checked:bg-purple-50">
+                            <div class="h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded mb-1"></div>
+                            <span class="text-xs">Secondary</span>
+                        </div>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="edit-cta-style" value="outline" ${section.button_style === 'outline' ? 'checked' : ''} class="sr-only peer">
+                        <div class="p-3 border-2 rounded-lg text-center peer-checked:border-purple-500 peer-checked:bg-purple-50">
+                            <div class="h-8 bg-white border-2 border-purple-600 rounded mb-1"></div>
+                            <span class="text-xs">Outline</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderImageEditForm(section) {
+    const layouts = [
+        { value: 'landscape', label: 'Landskab', aspect: 'aspect-video', desc: '16:9' },
+        { value: 'portrait', label: 'Portræt', aspect: 'aspect-[3/4]', desc: '3:4' },
+        { value: 'square', label: 'Kvadrat', aspect: 'aspect-square', desc: '1:1' },
+        { value: 'wide', label: 'Panorama', aspect: 'aspect-[21/9]', desc: '21:9' },
+        { value: 'banner', label: 'Banner', aspect: 'aspect-[4/1]', desc: '4:1' }
+    ];
+
+    const layoutOptions = layouts.map(l => `
+        <label class="cursor-pointer">
+            <input type="radio" name="edit-image-layout" value="${l.value}" ${section.layout === l.value || (!section.layout && l.value === 'landscape') ? 'checked' : ''} class="sr-only peer">
+            <div class="p-3 border-2 rounded-lg text-center peer-checked:border-purple-500 peer-checked:bg-purple-50 transition-all">
+                <div class="${l.aspect} bg-gradient-to-br from-slate-200 to-slate-300 rounded mb-2 border border-slate-300 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                </div>
+                <span class="text-xs font-medium">${l.label}</span>
+                <span class="text-xs text-gray-400 block">${l.desc}</span>
+            </div>
+        </label>
+    `).join('');
+
+    return `
+        <div class="space-y-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-3">Billedformat</label>
+                <div class="grid grid-cols-5 gap-2">
+                    ${layoutOptions}
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Placeholder tekst</label>
+                <input type="text" id="edit-image-placeholder"
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                       value="${escapeHtml(section.placeholder_text || '')}"
+                       placeholder="F.eks. 'Hero billede', 'Produktfoto', 'Team billede'">
+                <p class="text-xs text-gray-500 mt-1">Vises på wireframe som beskrivelse af billedets formål</p>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Alt tekst (SEO)</label>
+                <input type="text" id="edit-image-alt"
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                       value="${escapeHtml(section.alt_text || '')}"
+                       placeholder="Beskrivende tekst til søgemaskiner og skærmlæsere">
+                <p class="text-xs text-gray-500 mt-1">Vigtigt for SEO - beskriv hvad billedet viser</p>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Billedtekst (caption)</label>
+                <input type="text" id="edit-image-caption"
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                       value="${escapeHtml(section.caption || '')}"
+                       placeholder="Valgfri tekst der vises under billedet">
+            </div>
+        </div>
+    `;
+}
+
+// Save edited section
+function saveEditedSection(pagePath, rowId, colIndex, sectionType) {
+    const rows = campaignConfig.seo_pages[pagePath]?.rows;
+    if (!rows) return;
+
+    const row = rows.find(r => r.id === rowId);
+    if (!row || !row.columns[colIndex]) return;
+
+    const section = row.columns[colIndex].section;
+    if (!section) return;
+
+    switch (sectionType) {
+        case 'usp_header':
+            section.headline = document.getElementById('edit-usp-headline')?.value || '';
+            section.intro = document.getElementById('edit-usp-intro')?.value || '';
+            section.usps = Array.from(document.querySelectorAll('.edit-usp-input')).map(input => input.value);
+            break;
+        case 'text':
+            section.header = document.getElementById('edit-text-header')?.value || '';
+            section.content = document.getElementById('edit-text-content')?.value || '';
+            break;
+        case 'reviews':
+            section.header = document.getElementById('edit-reviews-header')?.value || '';
+            section.reviews = Array.from(document.querySelectorAll('#edit-reviews-container > div')).map(div => ({
+                author: div.querySelector('.edit-review-author')?.value || '',
+                rating: parseInt(div.querySelector('.edit-review-rating')?.value) || 5,
+                text: div.querySelector('.edit-review-text')?.value || '',
+                platform: 'Trustpilot'
+            }));
+            break;
+        case 'contact_form':
+            section.header = document.getElementById('edit-form-header')?.value || '';
+            section.subheader = document.getElementById('edit-form-subheader')?.value || '';
+            section.fields = Array.from(document.querySelectorAll('.edit-form-field:checked')).map(cb => cb.value);
+            section.button_text = document.getElementById('edit-form-button')?.value || '';
+            break;
+        case 'cta':
+            section.headline = document.getElementById('edit-cta-headline')?.value || '';
+            section.subheadline = document.getElementById('edit-cta-subheadline')?.value || '';
+            section.button_text = document.getElementById('edit-cta-button')?.value || '';
+            section.button_style = document.querySelector('input[name="edit-cta-style"]:checked')?.value || 'primary';
+            break;
+        case 'image':
+            section.layout = document.querySelector('input[name="edit-image-layout"]:checked')?.value || 'hero';
+            section.placeholder_text = document.getElementById('edit-image-placeholder')?.value || '';
+            section.alt_text = document.getElementById('edit-image-alt')?.value || '';
+            section.caption = document.getElementById('edit-image-caption')?.value || '';
+            break;
+    }
+
+    closeSeoEditSlidePanel();
+    renderActiveSeoContent(pagePath);
+    debouncedSaveState();
+}
+
+// Helper functions for edit panel
+function addEditUsp() {
+    const container = document.getElementById('edit-usps-container');
+    if (!container) return;
+    const index = container.querySelectorAll('.edit-usp-input').length;
+    const html = `
+        <div class="flex items-center space-x-2 mb-2">
+            <span class="text-green-600 font-bold">✓</span>
+            <input type="text" class="edit-usp-input flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                   data-usp-index="${index}" value="" placeholder="USP punkt...">
+            <button type="button" onclick="removeEditUsp(${index})" class="text-red-400 hover:text-red-600 p-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', html);
+}
+
+function removeEditUsp(index) {
+    const inputs = document.querySelectorAll('.edit-usp-input');
+    if (inputs.length <= 1) return;
+    inputs[index]?.closest('.flex')?.remove();
+}
+
+function addEditReview() {
+    const container = document.getElementById('edit-reviews-container');
+    if (!container) return;
+    const index = container.querySelectorAll('[data-review-index]').length;
+    const html = `
+        <div class="bg-gray-50 rounded-lg p-4 mb-3" data-review-index="${index}">
+            <div class="flex items-center justify-between mb-2">
+                <input type="text" class="edit-review-author px-3 py-2 border border-gray-300 rounded-lg w-1/3"
+                       value="" placeholder="Navn">
+                <select class="edit-review-rating px-3 py-2 border border-gray-300 rounded-lg">
+                    ${[5,4,3,2,1].map(n => `<option value="${n}">${'★'.repeat(n)}${'☆'.repeat(5-n)}</option>`).join('')}
+                </select>
+                <button type="button" onclick="removeEditReview(${index})" class="text-red-400 hover:text-red-600 p-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                </button>
+            </div>
+            <textarea class="edit-review-text w-full px-3 py-2 border border-gray-300 rounded-lg resize-none"
+                      rows="2" placeholder="Anmeldelsestekst..."></textarea>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', html);
+}
+
+function removeEditReview(index) {
+    const reviews = document.querySelectorAll('#edit-reviews-container > div');
+    if (reviews.length <= 1) return;
+    reviews[index]?.remove();
+}
+
+// Slide panel open/close
+function openSeoEditSlidePanel(title, pagePath, content, onSave) {
+    // Create slide panel if it doesn't exist
+    let panel = document.getElementById('seo-edit-slide-panel');
+    if (!panel) {
+        const panelHtml = `
+            <div id="seo-edit-slide-panel" class="fixed inset-0 z-50 hidden">
+                <div id="seo-edit-slide-overlay" class="absolute inset-0 bg-black bg-opacity-50 transition-opacity opacity-0"></div>
+                <div id="seo-edit-slide-content" class="absolute right-0 top-0 h-full w-[500px] max-w-full bg-white shadow-2xl transform translate-x-full transition-transform duration-300">
+                    <div class="flex flex-col h-full">
+                        <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                            <h3 id="seo-edit-slide-title" class="text-xl font-bold text-gray-900"></h3>
+                            <button type="button" onclick="closeSeoEditSlidePanel()" class="text-gray-400 hover:text-gray-600">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div id="seo-edit-slide-body" class="flex-1 overflow-y-auto p-6"></div>
+                        <div class="border-t border-gray-200 p-6 flex justify-end space-x-3">
+                            <button type="button" onclick="closeSeoEditSlidePanel()"
+                                    class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all">
+                                Annuller
+                            </button>
+                            <button type="button" id="seo-edit-slide-save"
+                                    class="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:shadow-lg transition-all">
+                                Gem ændringer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', panelHtml);
+        panel = document.getElementById('seo-edit-slide-panel');
+    }
+
+    // Set content
+    document.getElementById('seo-edit-slide-title').textContent = title;
+    document.getElementById('seo-edit-slide-body').innerHTML = content;
+
+    // Set save callback
+    const saveBtn = document.getElementById('seo-edit-slide-save');
+    saveBtn.onclick = onSave;
+
+    // Show panel
+    panel.classList.remove('hidden');
+    setTimeout(() => {
+        document.getElementById('seo-edit-slide-overlay').classList.remove('opacity-0');
+        document.getElementById('seo-edit-slide-content').classList.remove('translate-x-full');
+    }, 10);
+}
+
+function closeSeoEditSlidePanel() {
+    const overlay = document.getElementById('seo-edit-slide-overlay');
+    const content = document.getElementById('seo-edit-slide-content');
+    const panel = document.getElementById('seo-edit-slide-panel');
+
+    if (overlay) overlay.classList.add('opacity-0');
+    if (content) content.classList.add('translate-x-full');
+
+    setTimeout(() => {
+        if (panel) panel.classList.add('hidden');
+    }, 300);
+}
+
+// ========================================
+// Drag-and-Drop Row Reordering
+// ========================================
+
+function initSeoRowsDragDrop() {
+    const container = document.querySelector('.seo-rows-sortable');
+    if (!container || !window.Sortable) return;
+
+    new Sortable(container, {
+        handle: '.row-drag-handle',
+        animation: 150,
+        ghostClass: 'bg-purple-100',
+        onEnd: function(evt) {
+            if (!activeSeoPagePath) return;
+
+            const rows = campaignConfig.seo_pages[activeSeoPagePath]?.rows;
+            if (!rows) return;
+
+            // Reorder rows array
+            const movedRow = rows.splice(evt.oldIndex, 1)[0];
+            rows.splice(evt.newIndex, 0, movedRow);
+
+            debouncedSaveState();
+        }
+    });
 }
 
 // Generate SEO content for a page
@@ -14206,6 +18110,71 @@ function setupSeoEventHandlers() {
             const totalWords = campaignConfig.seo_pages[pagePath].sections.reduce((sum, s) => sum + countWords(s.content || ''), 0);
             $(`#seo-total-words-${safeId}`).text(totalWords);
         }
+        debouncedSaveState();
+    });
+
+    // USP Header - Headline input change
+    $(document).off('input', '.usp-header-headline').on('input', '.usp-header-headline', function() {
+        const pagePath = $(this).data('page-path');
+        if (!pagePath) return;
+
+        const sectionIndex = parseInt($(this).data('section-index'));
+        const value = $(this).val();
+
+        if (campaignConfig.seo_pages[pagePath]?.sections?.[sectionIndex]) {
+            campaignConfig.seo_pages[pagePath].sections[sectionIndex].headline = value;
+        }
+
+        // Update preview
+        const preview = $(`.usp-header-preview[data-page-path="${pagePath}"][data-section-index="${sectionIndex}"]`);
+        preview.find('h2').text(value || 'Overskrift...');
+
+        debouncedSaveState();
+    });
+
+    // USP Header - Intro input change
+    $(document).off('input', '.usp-header-intro').on('input', '.usp-header-intro', function() {
+        const pagePath = $(this).data('page-path');
+        if (!pagePath) return;
+
+        const sectionIndex = parseInt($(this).data('section-index'));
+        const value = $(this).val();
+
+        if (campaignConfig.seo_pages[pagePath]?.sections?.[sectionIndex]) {
+            campaignConfig.seo_pages[pagePath].sections[sectionIndex].intro = value;
+        }
+
+        // Update preview
+        const preview = $(`.usp-header-preview[data-page-path="${pagePath}"][data-section-index="${sectionIndex}"]`);
+        preview.find('p').text(value || 'Intro tekst...');
+
+        debouncedSaveState();
+    });
+
+    // USP Header - USP item input change
+    $(document).off('input', '.usp-header-usp-input').on('input', '.usp-header-usp-input', function() {
+        const pagePath = $(this).data('page-path');
+        if (!pagePath) return;
+
+        const sectionIndex = parseInt($(this).data('section-index'));
+        const uspIndex = parseInt($(this).data('usp-index'));
+        const value = $(this).val();
+
+        if (campaignConfig.seo_pages[pagePath]?.sections?.[sectionIndex]?.usps) {
+            campaignConfig.seo_pages[pagePath].sections[sectionIndex].usps[uspIndex] = value;
+        }
+
+        // Update preview
+        const preview = $(`.usp-header-preview[data-page-path="${pagePath}"][data-section-index="${sectionIndex}"]`);
+        const usps = campaignConfig.seo_pages[pagePath]?.sections?.[sectionIndex]?.usps || [];
+        const previewUspsHtml = usps.filter(u => u && u.trim()).map(usp => `
+            <div class="flex items-center text-sm text-gray-700">
+                <span class="text-green-600 mr-2">✓</span>
+                <span>${escapeHtml(usp)}</span>
+            </div>
+        `).join('');
+        preview.find('.space-y-1').html(previewUspsHtml || '<div class="text-sm text-gray-400">Ingen USP punkter endnu</div>');
+
         debouncedSaveState();
     });
 

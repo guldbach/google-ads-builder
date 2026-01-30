@@ -35,11 +35,1991 @@ def build_completion_kwargs(model: str, messages: list, temperature: float, max_
     }
 
 
-class WebsiteScraper:
-    """Scrape and extract text content from websites."""
+# ============================================================================
+# Layout Extraction Classes for Wireframe Generation
+# ============================================================================
 
-    def __init__(self, max_content_length=6000):
+class PageBuilderDetector:
+    """
+    Detect which page builder was used to create a webpage.
+    Supports Elementor, Divi, WPBakery, Beaver Builder, and generic detection.
+    """
+
+    BUILDER_SIGNATURES = {
+        'elementor': {
+            'classes': ['.elementor-section', '.elementor-column', '.elementor-widget', '.elementor'],
+            'data_attrs': ['data-element_type', 'data-settings', 'data-id'],
+            'scripts': ['elementor-frontend', 'elementor-common'],
+        },
+        'divi': {
+            'classes': ['.et_pb_section', '.et_pb_row', '.et_pb_column', '.et_pb_module'],
+            'data_attrs': ['data-et-multi-view'],
+            'scripts': ['et-builder', 'divi'],
+        },
+        'wpbakery': {
+            'classes': ['.vc_row', '.vc_column', '.wpb_wrapper', '.vc_inner'],
+            'data_attrs': ['data-vc-full-width', 'data-vc-stretch-content'],
+            'scripts': ['js_composer', 'wpb_composer'],
+        },
+        'beaver_builder': {
+            'classes': ['.fl-row', '.fl-col', '.fl-module'],
+            'data_attrs': ['data-node'],
+            'scripts': ['fl-builder'],
+        },
+    }
+
+    def detect(self, soup: BeautifulSoup) -> dict:
+        """
+        Detect page builder from HTML.
+
+        Args:
+            soup: BeautifulSoup object of the page HTML
+
+        Returns:
+            dict with 'builder', 'confidence', 'indicators_found'
+        """
+        results = {}
+
+        for builder_name, signatures in self.BUILDER_SIGNATURES.items():
+            score = 0
+            indicators = []
+
+            # Check CSS classes
+            for css_class in signatures['classes']:
+                selector = css_class.replace('.', '')
+                elements = soup.find_all(class_=lambda x: x and selector in str(x))
+                if elements:
+                    score += len(elements)
+                    indicators.append(f"class:{css_class}={len(elements)}")
+
+            # Check data attributes
+            for data_attr in signatures['data_attrs']:
+                elements = soup.find_all(attrs={data_attr: True})
+                if elements:
+                    score += len(elements) * 2  # Data attrs weighted higher
+                    indicators.append(f"attr:{data_attr}={len(elements)}")
+
+            # Check scripts
+            for script_name in signatures['scripts']:
+                scripts = soup.find_all('script', src=lambda x: x and script_name in str(x))
+                if scripts:
+                    score += 10  # Scripts are strong indicators
+                    indicators.append(f"script:{script_name}")
+
+            results[builder_name] = {
+                'score': score,
+                'indicators': indicators
+            }
+
+        # Find the best match
+        best_builder = None
+        best_score = 0
+        best_indicators = []
+
+        for builder_name, data in results.items():
+            if data['score'] > best_score:
+                best_score = data['score']
+                best_builder = builder_name
+                best_indicators = data['indicators']
+
+        # Calculate confidence (normalize to 0-1)
+        confidence = min(best_score / 50.0, 1.0) if best_score > 0 else 0
+
+        # If no builder detected with confidence, check for generic grid systems
+        if confidence < 0.3:
+            generic_check = self._check_generic_grid(soup)
+            if generic_check['found']:
+                return {
+                    'builder': 'generic',
+                    'confidence': generic_check['confidence'],
+                    'indicators_found': generic_check['indicators']
+                }
+
+        return {
+            'builder': best_builder if confidence > 0.1 else None,
+            'confidence': confidence,
+            'indicators_found': best_indicators
+        }
+
+    def _check_generic_grid(self, soup: BeautifulSoup) -> dict:
+        """Check for generic CSS grid frameworks (Bootstrap, Tailwind, Foundation)."""
+        indicators = []
+        score = 0
+
+        # Bootstrap
+        bootstrap_cols = soup.find_all(class_=lambda x: x and any(
+            c in str(x) for c in ['col-md-', 'col-lg-', 'col-sm-', 'col-xs-', 'col-12', 'col-6', 'col-4']
+        ))
+        if bootstrap_cols:
+            score += len(bootstrap_cols)
+            indicators.append(f"bootstrap-grid={len(bootstrap_cols)}")
+
+        # Tailwind
+        tailwind_cols = soup.find_all(class_=lambda x: x and any(
+            c in str(x) for c in ['w-1/2', 'w-1/3', 'w-2/3', 'w-1/4', 'w-3/4', 'w-full', 'md:w-', 'lg:w-']
+        ))
+        if tailwind_cols:
+            score += len(tailwind_cols)
+            indicators.append(f"tailwind-grid={len(tailwind_cols)}")
+
+        # Foundation
+        foundation_cols = soup.find_all(class_=lambda x: x and any(
+            c in str(x) for c in ['large-', 'medium-', 'small-', 'cell']
+        ))
+        if foundation_cols:
+            score += len(foundation_cols)
+            indicators.append(f"foundation-grid={len(foundation_cols)}")
+
+        return {
+            'found': score > 0,
+            'confidence': min(score / 20.0, 0.8),
+            'indicators': indicators
+        }
+
+
+# Elementor widget type mapping til generiske kategorier
+WIDGET_CATEGORY_MAP = {
+    # Karruseller (alle typer)
+    'testimonial-carousel': 'carousel',
+    'nested-carousel': 'carousel',
+    'media-carousel': 'carousel',
+    'slides': 'carousel',
+    'image-carousel': 'carousel',
+
+    # Formularer
+    'form': 'form',
+    'wp-form': 'form',
+    'wpforms': 'form',
+    'contact-form-7': 'form',
+
+    # Tekst elementer
+    'heading': 'heading',
+    'text-editor': 'text',
+
+    # Lister
+    'icon-list': 'list',
+    'icon-box': 'card',
+    'price-list': 'list',
+
+    # Billeder
+    'image': 'image',
+    'image-box': 'image_card',
+    'image-gallery': 'gallery',
+
+    # Interaktive
+    'toggle': 'accordion',
+    'accordion': 'accordion',
+    'tabs': 'tabs',
+
+    # Buttons
+    'button': 'button',
+    'call-to-action': 'cta',
+
+    # Video
+    'video': 'video',
+    'video-playlist': 'video',
+
+    # Reviews/Testimonials
+    'testimonial': 'testimonial',
+    'reviews': 'testimonial',
+
+    # Navigation
+    'nav-menu': 'navigation',
+    'menu': 'navigation',
+
+    # Dividers og spacers
+    'divider': 'spacer',
+    'spacer': 'spacer',
+
+    # Social
+    'social-icons': 'social',
+    'share-buttons': 'social',
+
+    # Flip boxes og cards
+    'flip-box': 'flip_card',
+    'call-to-action': 'cta',
+}
+
+
+class ElementorLayoutExtractor:
+    """
+    Extract layout structure from Elementor-built pages.
+    Supports both classic structure (.elementor-section/.elementor-column)
+    and new container structure (e-con, introduced in Elementor 3.6+).
+    """
+
+    # Elementor width mapping (percentage to fraction)
+    WIDTH_MAP = {
+        100: '1/1',
+        83.33: '1/1',  # Close to full
+        75: '3/4',
+        66.666: '2/3',
+        66.67: '2/3',
+        66.66: '2/3',
+        60: '2/3',
+        50: '1/2',
+        40: '1/3',
+        33.333: '1/3',
+        33.33: '1/3',
+        33.34: '1/3',
+        25: '1/4',
+        20: '1/4',
+        16.66: '1/6',
+    }
+
+    def extract_layout(self, soup: BeautifulSoup) -> list:
+        """
+        Extract layout structure from Elementor HTML.
+
+        Returns:
+            List of sections with width and content info:
+            [
+                {
+                    'width': '1/3',
+                    'html_content': str,
+                    'header': str or None,
+                    'text_content': str,
+                    'has_testimonials': bool,
+                    'has_form': bool,
+                    'has_images': bool,
+                    'position': int,
+                }
+            ]
+        """
+        # Try new container structure first (Elementor 3.6+)
+        sections = self._extract_from_new_containers(soup)
+
+        # If no sections found, try classic structure
+        if not sections:
+            sections = self._extract_from_classic_structure(soup)
+
+        return sections
+
+    def _should_skip_section(self, element) -> bool:
+        """
+        Check if a section should be skipped (headers, footers, popups, sticky elements).
+
+        Returns True if the section should be excluded from wireframe extraction.
+        """
+        # Check if inside header, footer, or popup
+        wrapper = element.find_parent(attrs={'data-elementor-type': True})
+        if wrapper:
+            elementor_type = wrapper.get('data-elementor-type', '').lower()
+            # Skip header, footer, popup, and template types - only include wp-page/wp-post content
+            if elementor_type in ['header', 'footer', 'popup', 'section', 'loop-item']:
+                return True
+
+        # Check element's own data-elementor-type attribute
+        own_type = element.get('data-elementor-type', '').lower()
+        if own_type in ['header', 'footer', 'popup']:
+            return True
+
+        # Check if element has elementor-popup-modal class or is inside one
+        if element.find_parent(class_=lambda x: x and 'popup' in str(x).lower()):
+            return True
+
+        # Check for CSS classes indicating sticky/fixed elements
+        classes = ' '.join(element.get('class', []))
+        if 'elementor-sticky' in classes or 'e-sticky' in classes:
+            return True
+
+        # Check inline style for position: fixed/sticky
+        style = element.get('style', '').lower()
+        if 'position: fixed' in style or 'position:fixed' in style:
+            return True
+        if 'position: sticky' in style or 'position:sticky' in style:
+            return True
+
+        return False
+
+    def _extract_from_new_containers(self, soup: BeautifulSoup) -> list:
+        """
+        Extract layout from new Elementor container structure (e-con, 3.6+).
+        Uses e-con with e-parent/e-child classes and flex layouts.
+        Filters out header, footer, popup, and sticky sections.
+        """
+        sections = []
+        position = 0
+
+        # Find parent containers (top-level e-con with e-parent class)
+        # These are in the main content area, not header/footer
+        main_content = soup.find('main') or soup.find(id='content') or soup.find(class_='site-main') or soup
+
+        # Find all parent containers
+        parent_containers = main_content.find_all(class_=lambda x: x and 'e-con' in str(x) and 'e-parent' in str(x))
+
+        if not parent_containers:
+            # Alternative: find containers with data-element_type="container" that have child containers
+            parent_containers = main_content.find_all(attrs={'data-element_type': 'container'})
+            parent_containers = [p for p in parent_containers if p.find(class_=lambda x: x and 'e-child' in str(x))]
+
+        for parent in parent_containers:
+            # Skip header, footer, popup, and sticky sections
+            if self._should_skip_section(parent):
+                continue
+            # Find child containers (columns) within this parent
+            children = parent.find_all(class_=lambda x: x and 'e-con' in str(x) and 'e-child' in str(x), recursive=False)
+
+            # If parent has direct e-child containers, process them as columns
+            if children:
+                # Calculate widths based on number of children (flex layout)
+                num_children = len(children)
+                for child in children:
+                    width = self._get_container_width(child, num_children)
+                    section_data = self._extract_section_data(child, width, position)
+                    if section_data.get('text_content', '').strip():  # Only add if has content
+                        sections.append(section_data)
+                        position += 1
+            else:
+                # Parent container without children - treat as single column section
+                width = '1/1'
+                section_data = self._extract_section_data(parent, width, position)
+                if section_data.get('text_content', '').strip():
+                    sections.append(section_data)
+                    position += 1
+
+        return sections
+
+    def _extract_from_classic_structure(self, soup: BeautifulSoup) -> list:
+        """Extract layout from classic Elementor section/column structure.
+        Filters out header, footer, popup, and sticky sections."""
+        sections = []
+        position = 0
+
+        # Find all Elementor sections (top-level)
+        elementor_sections = soup.find_all(class_=lambda x: x and 'elementor-section' in str(x) and 'elementor-inner-section' not in str(x))
+
+        for section in elementor_sections:
+            # Skip header, footer, popup, and sticky sections
+            if self._should_skip_section(section):
+                continue
+
+            # Find columns within this section
+            columns = section.find_all(class_=lambda x: x and 'elementor-column' in str(x), recursive=False)
+
+            # If no direct columns, try finding them in section wrap
+            if not columns:
+                section_wrap = section.find(class_=lambda x: x and 'elementor-container' in str(x))
+                if section_wrap:
+                    columns = section_wrap.find_all(class_=lambda x: x and 'elementor-column' in str(x), recursive=False)
+
+            # If still no columns, treat entire section as one column
+            if not columns:
+                columns = [section]
+
+            for column in columns:
+                width = self._get_column_width(column)
+                section_data = self._extract_section_data(column, width, position)
+                if section_data.get('text_content', '').strip():
+                    sections.append(section_data)
+                    position += 1
+
+        return sections
+
+    def _extract_section_data(self, element, width: str, position: int) -> dict:
+        """Extract comprehensive section data from an element including all content."""
+        html_content = str(element)
+        text_content = element.get_text(separator=' ', strip=True)
+
+        # Find all headers with their tag types
+        headers = []
+        header = None
+        subheader = None
+        for tag in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
+            for header_elem in element.find_all(tag):
+                header_text = header_elem.get_text(strip=True)
+                if header_text:
+                    headers.append({'tag': tag, 'text': header_text})
+                    if header is None:
+                        header = header_text
+                    elif subheader is None and tag in ['h3', 'h4', 'h5', 'h6']:
+                        subheader = header_text
+
+        # Extract all paragraphs with full text
+        paragraphs = []
+        for p in element.find_all('p'):
+            p_text = p.get_text(strip=True)
+            if p_text and len(p_text) > 10:  # Skip very short paragraphs
+                paragraphs.append(p_text)
+
+        # Extract all images with URLs and alt text
+        images = []
+        for img in element.find_all('img'):
+            src = img.get('src', '')
+            if src and not src.startswith('data:'):  # Skip data URLs
+                images.append({
+                    'src': src,
+                    'alt': img.get('alt', ''),
+                    'width': img.get('width', ''),
+                    'height': img.get('height', ''),
+                })
+
+        # Extract all buttons and links with text and href
+        buttons = []
+        for btn in element.find_all(['a', 'button']):
+            btn_text = btn.get_text(strip=True)
+            if btn_text:
+                # Check if it's a button-style link
+                classes = ' '.join(btn.get('class', []))
+                is_button = 'button' in classes.lower() or btn.name == 'button'
+                buttons.append({
+                    'text': btn_text,
+                    'href': btn.get('href', ''),
+                    'is_button': is_button,
+                })
+
+        # Extract list items (for USPs, trust badges, features)
+        # PRIORITET 1: Elementor icon-list-text (mest præcis)
+        list_items = []
+        for icon_text in element.find_all(class_='elementor-icon-list-text'):
+            text = icon_text.get_text(strip=True)
+            if text and text not in list_items:
+                list_items.append(text)
+
+        # PRIORITET 2: Standard <li> tags (hvis ikke allerede fundet)
+        if not list_items:
+            for li in element.find_all('li'):
+                li_text = li.get_text(strip=True)
+                if li_text and li_text not in list_items:
+                    list_items.append(li_text)
+
+        # Check for special content types
+        has_testimonials = bool(element.find(class_=lambda x: x and any(
+            t in str(x).lower() for t in ['testimonial', 'review', 'trustpilot']
+        )))
+        has_form = bool(element.find(['form', 'input']) or element.find(class_=lambda x: x and 'form' in str(x).lower()))
+        has_images = len(images) > 0
+
+        # NY: Detekter H1 tag (for hero-sektion prioritering)
+        has_h1 = bool(element.find('h1'))
+
+        # NY: Detekter carousel/slider
+        has_carousel = bool(element.find(class_=lambda x: x and any(
+            c in str(x).lower() for c in ['swiper', 'carousel', 'slider', 'e-n-carousel']
+        )))
+
+        # NY: Detekter Elementor widgets
+        widgets = self._detect_widgets(element)
+
+        return {
+            'width': width,
+            'html_content': html_content,
+            'header': header,
+            'subheader': subheader,
+            'headers': headers,  # All headers with tags
+            'paragraphs': paragraphs,  # Full paragraph texts
+            'images': images,  # Image data with URLs
+            'buttons': buttons,  # Button/link data
+            'list_items': list_items,  # USPs, trust badges, etc.
+            'text_content': text_content[:3000],  # Increased limit
+            'has_testimonials': has_testimonials,
+            'has_form': has_form,
+            'has_images': has_images,
+            'has_h1': has_h1,  # NY: For hero-detektion
+            'has_carousel': has_carousel,  # NY: For carousel-detektion
+            'widgets': widgets,  # NY: Detaljeret widget-info
+            'position': position,
+        }
+
+    def _detect_widgets(self, element) -> list:
+        """
+        Detekter alle Elementor widgets i en sektion.
+        Returnerer liste med widget-type, kategori og ekstraheret indhold.
+        """
+        widgets = []
+
+        # Find alle elementer med data-widget_type attribut
+        for widget_elem in element.find_all(attrs={'data-widget_type': True}):
+            widget_type_full = widget_elem.get('data-widget_type', '')
+            # Fjern .default suffix (fx 'heading.default' -> 'heading')
+            widget_type = widget_type_full.split('.')[0]
+
+            if not widget_type:
+                continue
+
+            # Map til generisk kategori
+            category = WIDGET_CATEGORY_MAP.get(widget_type, 'generic')
+
+            # Ekstraher widget-specifikt indhold
+            widget_content = self._extract_widget_content(widget_elem, widget_type, category)
+
+            widgets.append({
+                'type': widget_type,
+                'category': category,
+                'content': widget_content
+            })
+
+        return widgets
+
+    def _extract_widget_content(self, widget_elem, widget_type: str, category: str) -> dict:
+        """
+        Ekstraher indhold baseret på widget-type.
+        Returnerer struktureret data for hvert widget-type.
+        """
+        content = {}
+
+        if category == 'heading':
+            # Find overskrift-tag og tekst
+            for tag in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
+                header = widget_elem.find(tag)
+                if header:
+                    content['tag'] = tag
+                    content['text'] = header.get_text(strip=True)
+                    break
+
+        elif category == 'text':
+            # Tekst-editor indhold (paragraffer)
+            paragraphs = []
+            for p in widget_elem.find_all('p'):
+                text = p.get_text(strip=True)
+                if text:
+                    paragraphs.append(text)
+            content['paragraphs'] = paragraphs
+
+        elif category == 'list':
+            # Icon-list items
+            items = []
+            for item in widget_elem.find_all(class_='elementor-icon-list-text'):
+                text = item.get_text(strip=True)
+                if text:
+                    items.append(text)
+            # Fallback til li tags
+            if not items:
+                for li in widget_elem.find_all('li'):
+                    text = li.get_text(strip=True)
+                    if text:
+                        items.append(text)
+            content['items'] = items
+
+        elif category == 'image':
+            # Billede URL og alt tekst
+            img = widget_elem.find('img')
+            if img:
+                content['src'] = img.get('src', '')
+                content['alt'] = img.get('alt', '')
+
+        elif category == 'button' or category == 'cta':
+            # Button tekst og link
+            link = widget_elem.find('a')
+            if link:
+                content['text'] = link.get_text(strip=True)
+                content['href'] = link.get('href', '')
+
+        elif category == 'form':
+            # Form felter
+            fields = []
+            for inp in widget_elem.find_all(['input', 'textarea', 'select']):
+                field_type = inp.get('type', inp.name)
+                field_name = inp.get('name', '')
+                placeholder = inp.get('placeholder', '')
+                if field_name or placeholder:
+                    fields.append({
+                        'type': field_type,
+                        'name': field_name,
+                        'placeholder': placeholder
+                    })
+            content['fields'] = fields
+
+        elif category == 'carousel':
+            # Carousel items
+            items = []
+            # Prøv at finde swiper slides
+            for slide in widget_elem.find_all(class_=lambda x: x and 'swiper-slide' in str(x)):
+                slide_content = {}
+                # Overskrift i slide
+                for tag in ['h2', 'h3', 'h4', 'h5']:
+                    h = slide.find(tag)
+                    if h:
+                        slide_content['title'] = h.get_text(strip=True)
+                        break
+                # Tekst i slide
+                p = slide.find('p')
+                if p:
+                    slide_content['text'] = p.get_text(strip=True)
+                # Button i slide
+                btn = slide.find('a', class_=lambda x: x and 'button' in str(x).lower())
+                if btn:
+                    slide_content['button'] = btn.get_text(strip=True)
+                    slide_content['button_href'] = btn.get('href', '')
+                # Billede i slide
+                img = slide.find('img')
+                if img:
+                    slide_content['image'] = img.get('src', '')
+
+                if slide_content:
+                    items.append(slide_content)
+
+            # Fallback: e-child containers (nested carousel)
+            if not items:
+                for child in widget_elem.find_all(class_=lambda x: x and 'e-child' in str(x)):
+                    child_content = {}
+                    for tag in ['h3', 'h4', 'h5']:
+                        h = child.find(tag)
+                        if h:
+                            child_content['title'] = h.get_text(strip=True)
+                            break
+                    p = child.find('p')
+                    if p:
+                        child_content['text'] = p.get_text(strip=True)
+                    if child_content:
+                        items.append(child_content)
+
+            content['items'] = items
+
+        elif category == 'testimonial':
+            # Testimonial indhold
+            content['text'] = ''
+            content['author'] = ''
+            # Prøv forskellige strukturer
+            text_elem = widget_elem.find(class_=lambda x: x and 'testimonial-content' in str(x).lower())
+            if text_elem:
+                content['text'] = text_elem.get_text(strip=True)
+            author_elem = widget_elem.find(class_=lambda x: x and 'testimonial-name' in str(x).lower())
+            if author_elem:
+                content['author'] = author_elem.get_text(strip=True)
+
+        elif category == 'flip_card':
+            # Flip box - front og back indhold
+            front = widget_elem.find(class_=lambda x: x and 'flip-box-front' in str(x).lower())
+            back = widget_elem.find(class_=lambda x: x and 'flip-box-back' in str(x).lower())
+            if front:
+                content['front_title'] = ''
+                content['front_text'] = ''
+                h = front.find(['h3', 'h4'])
+                if h:
+                    content['front_title'] = h.get_text(strip=True)
+                p = front.find('p')
+                if p:
+                    content['front_text'] = p.get_text(strip=True)
+            if back:
+                content['back_title'] = ''
+                content['back_text'] = ''
+                h = back.find(['h3', 'h4'])
+                if h:
+                    content['back_title'] = h.get_text(strip=True)
+                p = back.find('p')
+                if p:
+                    content['back_text'] = p.get_text(strip=True)
+
+        elif category == 'accordion' or category == 'tabs':
+            # Accordion/tabs items
+            items = []
+            # Elementor accordion structure
+            for item in widget_elem.find_all(class_=lambda x: x and ('accordion-item' in str(x).lower() or 'tab-title' in str(x).lower())):
+                title = item.get_text(strip=True)
+                if title:
+                    items.append({'title': title})
+            content['items'] = items
+
+        elif category == 'card':
+            # Icon-box / info card
+            content['icon'] = ''
+            content['title'] = ''
+            content['text'] = ''
+            # Prøv at finde indhold
+            for tag in ['h3', 'h4', 'h5']:
+                h = widget_elem.find(tag)
+                if h:
+                    content['title'] = h.get_text(strip=True)
+                    break
+            p = widget_elem.find('p')
+            if p:
+                content['text'] = p.get_text(strip=True)
+            # Icon (ofte en i-tag eller svg)
+            icon = widget_elem.find('i') or widget_elem.find('svg')
+            if icon:
+                icon_class = ' '.join(icon.get('class', []))
+                content['icon'] = icon_class
+
+        # Map category to _inferred_type for UI display
+        category_to_inferred = {
+            'heading': 'text_with_title',
+            'text': 'text_long',
+            'list': 'list',
+            'image': 'image',
+            'button': 'text_short',
+            'cta': 'text_with_title',
+            'form': 'form',
+            'carousel': 'gallery',
+            'testimonial': 'text_with_title',
+            'flip_card': 'mixed',
+            'accordion': 'accordion',
+            'tabs': 'accordion',
+            'card': 'text_with_title',
+            'gallery': 'gallery',
+            'video': 'mixed',
+            'logo_slider': 'gallery',
+            'divider': 'empty',
+            'spacer': 'empty',
+        }
+        content['_inferred_type'] = category_to_inferred.get(category, 'text_long')
+
+        return content
+
+    def _get_container_width(self, container, num_siblings: int = 1) -> str:
+        """
+        Get width from new container structure.
+        Checks CSS custom properties, data-settings, and flex basis.
+        """
+        # Method 1: Check for --container-widget-width or --width in data-settings
+        data_settings = container.get('data-settings', '{}')
+        try:
+            settings = json.loads(data_settings)
+            # Check for flex_size settings
+            if 'flex_size' in settings:
+                return self._normalize_width(float(settings['flex_size']))
+            if 'content_width' in settings:
+                width_val = settings['content_width'].get('size', 100)
+                return self._normalize_width(float(width_val))
+        except (json.JSONDecodeError, ValueError, AttributeError):
+            pass
+
+        # Method 2: Check inline style for width or flex-basis
+        style = container.get('style', '')
+        flex_match = re.search(r'flex-basis:\s*([\d.]+)%', style)
+        if flex_match:
+            return self._normalize_width(float(flex_match.group(1)))
+
+        width_match = re.search(r'(?<!max-)width:\s*([\d.]+)%', style)
+        if width_match:
+            return self._normalize_width(float(width_match.group(1)))
+
+        # Method 3: Check CSS custom property in style
+        css_var_match = re.search(r'--container-widget-width:\s*([\d.]+)%', style)
+        if css_var_match:
+            return self._normalize_width(float(css_var_match.group(1)))
+
+        # Method 4: Infer from number of siblings (common flex patterns)
+        if num_siblings > 1:
+            # Common patterns: 2 columns = 1/2, 3 columns = 1/3, 4 columns = 1/4
+            width_map = {2: '1/2', 3: '1/3', 4: '1/4', 5: '1/4', 6: '1/6'}
+            return width_map.get(num_siblings, '1/1')
+
+        # Default
+        return '1/1'
+
+    def _get_column_width(self, column_element) -> str:
+        """
+        Extract column width from Elementor column.
+        Checks data-settings, inline styles, and CSS classes.
+        """
+        # Method 1: Check data-settings JSON
+        data_settings = column_element.get('data-settings')
+        if data_settings:
+            try:
+                settings = json.loads(data_settings)
+                if '_column_size' in settings:
+                    return self._normalize_width(float(settings['_column_size']))
+            except (json.JSONDecodeError, ValueError):
+                pass
+
+        # Method 2: Check CSS classes for width patterns
+        classes = column_element.get('class', [])
+        if isinstance(classes, list):
+            classes = ' '.join(classes)
+
+        # Elementor uses classes like "elementor-col-33"
+        width_match = re.search(r'elementor-col-(\d+)', classes)
+        if width_match:
+            return self._normalize_width(float(width_match.group(1)))
+
+        # Method 3: Check inline style
+        style = column_element.get('style', '')
+        width_style = re.search(r'width:\s*([\d.]+)%', style)
+        if width_style:
+            return self._normalize_width(float(width_style.group(1)))
+
+        # Default to full width
+        return '1/1'
+
+    def _normalize_width(self, width_percent: float) -> str:
+        """Convert percentage width to fraction string."""
+        # Find closest match in WIDTH_MAP
+        closest_key = min(self.WIDTH_MAP.keys(), key=lambda x: abs(x - width_percent))
+        if abs(closest_key - width_percent) < 5:  # Within 5% tolerance
+            return self.WIDTH_MAP[closest_key]
+
+        # If no close match, calculate based on 12-column grid
+        cols = round(width_percent / 100 * 12)
+        cols = max(1, min(12, cols))  # Clamp to 1-12
+
+        fraction_map = {
+            12: '1/1', 11: '1/1', 10: '1/1',
+            9: '3/4', 8: '2/3', 7: '2/3',
+            6: '1/2', 5: '1/2',
+            4: '1/3', 3: '1/4', 2: '1/6', 1: '1/6'
+        }
+        return fraction_map.get(cols, '1/1')
+
+
+class DiviLayoutExtractor:
+    """
+    Extract layout structure from Divi-built pages.
+    Parses .et_pb_section, .et_pb_row, .et_pb_column classes.
+    """
+
+    # Divi uses class-based column widths
+    DIVI_WIDTH_CLASSES = {
+        'et_pb_column_4_4': '1/1',
+        'et_pb_column_3_4': '3/4',
+        'et_pb_column_2_3': '2/3',
+        'et_pb_column_1_2': '1/2',
+        'et_pb_column_1_3': '1/3',
+        'et_pb_column_1_4': '1/4',
+        'et_pb_column_1_5': '1/4',
+        'et_pb_column_1_6': '1/6',
+        'et_pb_column_2_5': '1/3',
+        'et_pb_column_3_5': '1/2',
+    }
+
+    def extract_layout(self, soup: BeautifulSoup) -> list:
+        """Extract layout from Divi HTML structure."""
+        sections = []
+        position = 0
+
+        # Find all Divi sections
+        divi_sections = soup.find_all(class_=lambda x: x and 'et_pb_section' in str(x))
+
+        for section in divi_sections:
+            # Find rows within this section
+            rows = section.find_all(class_=lambda x: x and 'et_pb_row' in str(x), recursive=False)
+
+            for row in rows:
+                # Find columns
+                columns = row.find_all(class_=lambda x: x and 'et_pb_column' in str(x), recursive=False)
+
+                for column in columns:
+                    width = self._get_column_width(column)
+                    text_content = column.get_text(separator=' ', strip=True)
+
+                    # Find header
+                    header = None
+                    for tag in ['h1', 'h2', 'h3', 'h4']:
+                        header_elem = column.find(tag)
+                        if header_elem:
+                            header = header_elem.get_text(strip=True)
+                            break
+
+                    # Check for special content
+                    has_testimonials = bool(column.find(class_=lambda x: x and 'testimonial' in str(x).lower()))
+                    has_form = bool(column.find(['form', 'input']) or column.find(class_=lambda x: x and 'form' in str(x).lower()))
+                    has_images = bool(column.find('img'))
+
+                    sections.append({
+                        'width': width,
+                        'html_content': str(column),
+                        'header': header,
+                        'text_content': text_content[:2000],
+                        'has_testimonials': has_testimonials,
+                        'has_form': has_form,
+                        'has_images': has_images,
+                        'position': position,
+                    })
+                    position += 1
+
+        return sections
+
+    def _get_column_width(self, column_element) -> str:
+        """Extract width from Divi column classes."""
+        classes = column_element.get('class', [])
+        if isinstance(classes, list):
+            classes = ' '.join(classes)
+
+        for divi_class, width in self.DIVI_WIDTH_CLASSES.items():
+            if divi_class in classes:
+                return width
+
+        return '1/1'
+
+
+class WPBakeryLayoutExtractor:
+    """
+    Extract layout structure from WPBakery (Visual Composer) pages.
+    Parses .vc_row, .vc_column with vc_col-sm-* classes for widths.
+    """
+
+    # WPBakery uses Bootstrap-like 12-column grid
+    VC_WIDTH_CLASSES = {
+        'vc_col-sm-12': '1/1',
+        'vc_col-sm-10': '1/1',
+        'vc_col-sm-9': '3/4',
+        'vc_col-sm-8': '2/3',
+        'vc_col-sm-7': '2/3',
+        'vc_col-sm-6': '1/2',
+        'vc_col-sm-5': '1/2',
+        'vc_col-sm-4': '1/3',
+        'vc_col-sm-3': '1/4',
+        'vc_col-sm-2': '1/6',
+        'vc_col-sm-1': '1/6',
+    }
+
+    def extract_layout(self, soup: BeautifulSoup) -> list:
+        """Extract layout from WPBakery HTML structure."""
+        sections = []
+        position = 0
+
+        # Find all WPBakery rows
+        vc_rows = soup.find_all(class_=lambda x: x and 'vc_row' in str(x))
+
+        for row in vc_rows:
+            # Find columns
+            columns = row.find_all(class_=lambda x: x and 'vc_column' in str(x) or 'vc_col-' in str(x), recursive=False)
+
+            for column in columns:
+                width = self._get_column_width(column)
+                text_content = column.get_text(separator=' ', strip=True)
+
+                # Find header
+                header = None
+                for tag in ['h1', 'h2', 'h3', 'h4']:
+                    header_elem = column.find(tag)
+                    if header_elem:
+                        header = header_elem.get_text(strip=True)
+                        break
+
+                # Check for special content
+                has_testimonials = bool(column.find(class_=lambda x: x and 'testimonial' in str(x).lower()))
+                has_form = bool(column.find(['form', 'input']) or column.find(class_=lambda x: x and 'form' in str(x).lower()))
+                has_images = bool(column.find('img'))
+
+                sections.append({
+                    'width': width,
+                    'html_content': str(column),
+                    'header': header,
+                    'text_content': text_content[:2000],
+                    'has_testimonials': has_testimonials,
+                    'has_form': has_form,
+                    'has_images': has_images,
+                    'position': position,
+                })
+                position += 1
+
+        return sections
+
+    def _get_column_width(self, column_element) -> str:
+        """Extract width from WPBakery column classes."""
+        classes = column_element.get('class', [])
+        if isinstance(classes, list):
+            classes = ' '.join(classes)
+
+        for vc_class, width in self.VC_WIDTH_CLASSES.items():
+            if vc_class in classes:
+                return width
+
+        return '1/1'
+
+
+class GenericLayoutExtractor:
+    """
+    Extract layout from generic HTML/CSS when no specific builder detected.
+    Looks for common grid patterns, flexbox containers, and Bootstrap classes.
+    """
+
+    # Common CSS grid/flex patterns
+    BOOTSTRAP_WIDTHS = {
+        'col-12': '1/1', 'col-lg-12': '1/1', 'col-md-12': '1/1', 'col-sm-12': '1/1',
+        'col-10': '1/1', 'col-lg-10': '1/1', 'col-md-10': '1/1',
+        'col-9': '3/4', 'col-lg-9': '3/4', 'col-md-9': '3/4',
+        'col-8': '2/3', 'col-lg-8': '2/3', 'col-md-8': '2/3',
+        'col-7': '2/3', 'col-lg-7': '2/3', 'col-md-7': '2/3',
+        'col-6': '1/2', 'col-lg-6': '1/2', 'col-md-6': '1/2',
+        'col-5': '1/2', 'col-lg-5': '1/2', 'col-md-5': '1/2',
+        'col-4': '1/3', 'col-lg-4': '1/3', 'col-md-4': '1/3',
+        'col-3': '1/4', 'col-lg-3': '1/4', 'col-md-3': '1/4',
+        'col-2': '1/6', 'col-lg-2': '1/6', 'col-md-2': '1/6',
+    }
+
+    TAILWIND_WIDTHS = {
+        'w-full': '1/1',
+        'w-1/2': '1/2',
+        'w-1/3': '1/3',
+        'w-2/3': '2/3',
+        'w-1/4': '1/4',
+        'w-3/4': '3/4',
+    }
+
+    def extract_layout(self, soup: BeautifulSoup) -> list:
+        """
+        Attempt to extract layout from generic HTML.
+        Falls back to treating each section as full-width.
+        """
+        sections = []
+        position = 0
+
+        # Try Bootstrap grid
+        rows = soup.find_all(class_=lambda x: x and 'row' in str(x).split())
+
+        for row in rows:
+            # Find columns
+            columns = row.find_all(class_=lambda x: x and any(c in str(x) for c in ['col-', 'col ']), recursive=False)
+
+            for column in columns:
+                width = self._get_column_width(column)
+                text_content = column.get_text(separator=' ', strip=True)
+
+                if not text_content.strip():
+                    continue
+
+                # Find header
+                header = None
+                for tag in ['h1', 'h2', 'h3', 'h4']:
+                    header_elem = column.find(tag)
+                    if header_elem:
+                        header = header_elem.get_text(strip=True)
+                        break
+
+                # Check for special content
+                has_testimonials = bool(column.find(class_=lambda x: x and any(
+                    t in str(x).lower() for t in ['testimonial', 'review']
+                )))
+                has_form = bool(column.find(['form', 'input']))
+                has_images = bool(column.find('img'))
+
+                sections.append({
+                    'width': width,
+                    'html_content': str(column),
+                    'header': header,
+                    'text_content': text_content[:2000],
+                    'has_testimonials': has_testimonials,
+                    'has_form': has_form,
+                    'has_images': has_images,
+                    'position': position,
+                })
+                position += 1
+
+        return sections
+
+    def _get_column_width(self, column_element) -> str:
+        """Extract width from generic CSS classes."""
+        classes = column_element.get('class', [])
+        if isinstance(classes, list):
+            classes = ' '.join(classes)
+
+        # Check Bootstrap
+        for bs_class, width in self.BOOTSTRAP_WIDTHS.items():
+            if bs_class in classes:
+                return width
+
+        # Check Tailwind
+        for tw_class, width in self.TAILWIND_WIDTHS.items():
+            if tw_class in classes:
+                return width
+
+        return '1/1'
+
+
+class ContentTypeClassifier:
+    """
+    Classify section content into block types.
+    Uses pattern matching for heuristic classification.
+    """
+
+    # Content type indicators (heuristic-based)
+    TYPE_PATTERNS = {
+        'hero': {
+            'header_patterns': [
+                r'din\s+lokale', r'velkommen\s+til', r'vi\s+er\s+din',
+                r'din\s+(?:el-?installatør|elektriker|vvs|maler|tømrer|håndværker)',
+                r'professionel\s+(?:el-?installatør|elektriker|vvs|maler|tømrer|håndværker)'
+            ],
+            'content_patterns': [
+                r'\d+\s*års?\s*erfaring', r'autoriseret', r'garanti',
+                r'gratis\s+tilbud', r'ring\s+til\s+os', r'kontakt\s+os\s+i\s+dag'
+            ],
+        },
+        'reviews': {
+            'header_patterns': [
+                r'anmeldelse', r'hvad\s+siger', r'kunder?\s+siger', r'testimonial',
+                r'trustpilot', r'google\s+anmeldelse', r'kundeanmeldelse',
+                r'stjerne', r'bedømmelse'
+            ],
+            'content_patterns': [
+                r'\d\s*stjerner?', r'\d+/\d+', r'★', r'⭐',
+                r'"[^"]{20,}"', r'«[^»]{20,}»'  # Quoted text
+            ],
+        },
+        'contact_form': {
+            'header_patterns': [
+                r'kontakt', r'skriv\s+til', r'send\s+besked', r'få\s+tilbud',
+                r'kontakt\s*(?:os|mig)', r'book\s+(?:tid|møde)', r'gratis\s+tilbud'
+            ],
+            'content_patterns': [
+                r'udfyld', r'formular', r'email|e-mail', r'telefon', r'besked'
+            ],
+        },
+        'usp_header': {
+            'header_patterns': [
+                r'^(?:vi\s+)?(?:tilbyder|leverer|sikrer)', r'hvorfor\s+vælge',
+                r'fordele', r'vores\s+(?:fordele|styrker)', r'det\s+får\s+du',
+                r'hvad\s+(?:kan|gør|tilbyder)\s+(?:vi|vores)'
+            ],
+            'content_patterns': [
+                r'✓|✔|•|\*', r'\d+\s*års?\s*erfaring', r'garanti',
+                r'gratis', r'hurtig', r'professionel'
+            ],
+        },
+        'cta': {
+            'header_patterns': [
+                r'kom\s+i\s+gang', r'bestil', r'book\s+nu', r'ring\s+(?:nu|i\s+dag)',
+                r'gratis\s+(?:tilbud|konsultation)', r'klar\s+til'
+            ],
+            'content_patterns': [
+                r'(?:ring|kontakt)\s+(?:nu|i\s+dag)', r'\d{2}\s*\d{2}\s*\d{2}\s*\d{2}'  # Phone number
+            ],
+        },
+    }
+
+    def classify(self, header: str, content: str, has_testimonials: bool = False,
+                 has_form: bool = False, has_images: bool = False,
+                 has_h1: bool = False, has_carousel: bool = False,
+                 widgets: list = None, list_items: list = None) -> dict:
+        """
+        Classify a section's content type.
+
+        Args:
+            header: Section header text
+            content: Section content text
+            has_testimonials: Whether testimonial elements were detected
+            has_form: Whether form elements were detected
+            has_images: Whether images were detected
+            has_h1: Whether H1 tag was detected (prioritizes hero)
+            has_carousel: Whether carousel/slider was detected
+            widgets: List of detected Elementor widgets
+            list_items: List of extracted list items (from icon-list or li tags)
+
+        Returns:
+            {
+                'type': str,  # 'hero', 'carousel', 'usp_header', 'text', 'reviews', 'contact_form', 'cta', 'image'
+                'confidence': float,
+                'matched_patterns': list,
+            }
+        """
+        # Check if we have actual list items (for USP sections)
+        has_list_items = bool(list_items and len(list_items) > 0)
+
+        # Check if widgets include a list type
+        has_list_widget = False
+        if widgets:
+            has_list_widget = any(w.get('category') == 'list' for w in widgets)
+
+        # PRIORITET 1: H1 tag = Hero sektion (uanset andre elementer som form)
+        if has_h1:
+            return {
+                'type': 'hero',
+                'confidence': 1.0,
+                'matched_patterns': ['element:h1']
+            }
+
+        # PRIORITET 2: Carousel detektion
+        if has_carousel:
+            return {
+                'type': 'carousel',
+                'confidence': 0.9,
+                'matched_patterns': ['element:carousel']
+            }
+
+        # PRIORITET 3: Widget-baseret klassificering
+        if widgets:
+            # Tæl widget-kategorier for at bestemme sektion-type
+            category_counts = {}
+            for widget in widgets:
+                cat = widget.get('category', 'generic')
+                category_counts[cat] = category_counts.get(cat, 0) + 1
+
+            # Carousel widgets (nested-carousel, testimonial-carousel, etc.)
+            if category_counts.get('carousel', 0) > 0:
+                return {
+                    'type': 'carousel',
+                    'confidence': 0.9,
+                    'matched_patterns': ['widget:carousel']
+                }
+
+            # Testimonial widgets
+            if category_counts.get('testimonial', 0) > 0:
+                return {
+                    'type': 'reviews',
+                    'confidence': 0.9,
+                    'matched_patterns': ['widget:testimonial']
+                }
+
+            # Accordion/tabs
+            if category_counts.get('accordion', 0) > 0:
+                return {
+                    'type': 'accordion',
+                    'confidence': 0.9,
+                    'matched_patterns': ['widget:accordion']
+                }
+
+            if category_counts.get('tabs', 0) > 0:
+                return {
+                    'type': 'tabs',
+                    'confidence': 0.9,
+                    'matched_patterns': ['widget:tabs']
+                }
+
+            # Flip cards
+            if category_counts.get('flip_card', 0) > 0:
+                return {
+                    'type': 'flip_cards',
+                    'confidence': 0.9,
+                    'matched_patterns': ['widget:flip_card']
+                }
+
+        header_lower = (header or '').lower()
+        content_lower = (content or '').lower()[:1000]  # Limit for matching
+
+        scores = {}
+        matched = {}
+
+        # Check each type
+        for content_type, patterns in self.TYPE_PATTERNS.items():
+            score = 0
+            type_matched = []
+
+            # Check header patterns
+            for pattern in patterns.get('header_patterns', []):
+                if re.search(pattern, header_lower, re.IGNORECASE):
+                    score += 3
+                    type_matched.append(f"header:{pattern}")
+
+            # Check content patterns
+            for pattern in patterns.get('content_patterns', []):
+                if re.search(pattern, content_lower, re.IGNORECASE):
+                    score += 1
+                    type_matched.append(f"content:{pattern}")
+
+            scores[content_type] = score
+            matched[content_type] = type_matched
+
+        # Boost based on detected elements
+        if has_testimonials:
+            scores['reviews'] = scores.get('reviews', 0) + 5
+            matched.setdefault('reviews', []).append('element:testimonial')
+
+        if has_form:
+            scores['contact_form'] = scores.get('contact_form', 0) + 5
+            matched.setdefault('contact_form', []).append('element:form')
+
+        # Find best match
+        best_type = 'text'  # Default
+        best_score = 0
+
+        for content_type, score in scores.items():
+            # VIGTIG: usp_header kræver faktiske list_items eller list widget
+            # Ellers falder den tilbage til 'text'
+            if content_type == 'usp_header' and not has_list_items and not has_list_widget:
+                continue  # Skip usp_header hvis ingen list items
+
+            if score > best_score:
+                best_score = score
+                best_type = content_type
+
+        # Confidence based on score
+        confidence = min(best_score / 10.0, 1.0)
+
+        # If only images and low text, mark as image
+        if has_images and len(content_lower) < 50 and best_score < 2:
+            best_type = 'image'
+            confidence = 0.7
+
+        return {
+            'type': best_type,
+            'confidence': confidence,
+            'matched_patterns': matched.get(best_type, [])
+        }
+
+    def classify_batch(self, sections: list) -> list:
+        """Classify multiple sections."""
+        results = []
+        for section in sections:
+            classification = self.classify(
+                header=section.get('header', ''),
+                content=section.get('text_content', ''),
+                has_testimonials=section.get('has_testimonials', False),
+                has_form=section.get('has_form', False),
+                has_images=section.get('has_images', False),
+                has_h1=section.get('has_h1', False),
+                has_carousel=section.get('has_carousel', False),
+                widgets=section.get('widgets', []),
+                list_items=section.get('list_items', [])
+            )
+            results.append({
+                **section,
+                'content_type': classification['type'],
+                'type_confidence': classification['confidence'],
+                'matched_patterns': classification['matched_patterns']
+            })
+        return results
+
+
+class SectionClassifier:
+    """
+    AI-powered section classifier that identifies section types and extracts
+    structured values (stats, USPs, etc.) from website sections.
+
+    Section types supported:
+    - hero: Main headline/header section
+    - stats: Statistics/numbers (+1200 customers, 5 stars, etc.)
+    - services: List of services/offerings
+    - about: About the company text
+    - testimonials: Customer reviews/testimonials
+    - team: Team members
+    - process: Work process/steps
+    - cta: Call to action
+    - faq: Frequently asked questions
+    - contact: Contact information
+    - gallery: Image gallery
+    - pricing: Pricing tables
+    - features: Features/benefits list
+    - partners: Partner/client logos
+    - blog: Blog/news section
+    - other: Unclassified
+    """
+
+    SECTION_TYPES = [
+        'hero', 'stats', 'services', 'about', 'testimonials', 'team',
+        'process', 'cta', 'faq', 'contact', 'gallery', 'pricing',
+        'features', 'partners', 'blog', 'other'
+    ]
+
+    def __init__(self):
+        from django.conf import settings
+        self.openai_api_key = getattr(settings, 'OPENAI_API_KEY', None)
+        self.openai_client = None
+        if self.openai_api_key:
+            from openai import OpenAI
+            self.openai_client = OpenAI(api_key=self.openai_api_key)
+
+    def _get_prompt_from_db(self, prompt_type):
+        """Get prompt template from database."""
+        from .models import AIPromptTemplate
+
+        try:
+            template = AIPromptTemplate.objects.filter(
+                prompt_type=prompt_type,
+                is_active=True
+            ).first()
+
+            if template:
+                return template.get_prompt_text(), template.model_settings
+            return None, {}
+        except Exception as e:
+            print(f"[SectionClassifier] Error loading prompt: {e}")
+            return None, {}
+
+    def classify_sections(self, sections: list, page_url: str = '') -> list:
+        """
+        Classify multiple sections using AI.
+
+        Args:
+            sections: List of section dicts with 'header' and 'content' keys
+            page_url: Optional URL for context
+
+        Returns:
+            List of classified section dicts with added:
+                - section_type: str
+                - ai_confidence: float (0-1)
+                - extracted_values: dict (stats, etc.)
+        """
+        if not sections:
+            return []
+
+        if not self.openai_client:
+            print("[SectionClassifier] OpenAI client not available - using heuristic classification")
+            return self._classify_heuristic(sections)
+
+        # Build sections text for AI
+        sections_text = self._build_sections_text(sections)
+
+        # Get prompt from database or use default
+        db_prompt, model_settings = self._get_prompt_from_db('classify_sections')
+
+        if not db_prompt:
+            # Use hardcoded default prompt
+            prompt = self._get_default_prompt(sections_text, page_url)
+        else:
+            prompt = db_prompt.format(sections_text=sections_text, page_url=page_url)
+
+        model = model_settings.get('model') or 'gpt-4o-mini'
+        temperature = model_settings.get('temperature', 0.2)
+        max_tokens = model_settings.get('max_tokens', 4000)
+
+        try:
+            response = self.openai_client.chat.completions.create(
+                model=model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": """Du er en ekspert i at analysere website-indhold og klassificere sektioner.
+Du identificerer sektionstyper og ekstraherer strukturerede værdier.
+Svar KUN med valid JSON."""
+                    },
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=temperature,
+                max_tokens=max_tokens,
+                timeout=60.0  # 60 sekunder timeout
+            )
+
+            result_text = response.choices[0].message.content.strip()
+
+            # Clean up JSON if wrapped in markdown code blocks
+            if result_text.startswith('```'):
+                result_text = re.sub(r'^```(?:json)?\s*', '', result_text)
+                result_text = re.sub(r'\s*```$', '', result_text)
+
+            ai_result = json.loads(result_text)
+            classified = ai_result.get('sections', [])
+
+            # Merge AI results with original sections
+            return self._merge_classifications(sections, classified)
+
+        except json.JSONDecodeError as e:
+            print(f"[SectionClassifier] JSON parse error: {e}")
+            return self._classify_heuristic(sections)
+        except Exception as e:
+            print(f"[SectionClassifier] AI classification error: {e}")
+            return self._classify_heuristic(sections)
+
+    def _build_sections_text(self, sections: list) -> str:
+        """Build formatted text for AI analysis."""
+        text_parts = []
+        for i, section in enumerate(sections):
+            header = section.get('header', '').strip()
+            content = section.get('content', '').strip()[:800]  # Limit per section
+            text_parts.append(f"[SEKTION {i}]\nOverskrift: {header}\nIndhold: {content}\n")
+        return '\n'.join(text_parts)
+
+    def _get_default_prompt(self, sections_text: str, page_url: str) -> str:
+        """Return default classification prompt."""
+        return f"""Analysér følgende sektioner fra en hjemmeside og klassificér hver sektion.
+
+URL: {page_url}
+
+SEKTIONER:
+{sections_text}
+
+For HVER sektion, identificér:
+1. section_type: En af følgende typer:
+   - hero: Hovedoverskrift/header sektion med primært budskab
+   - stats: Statistikker/tal (fx "+1200 kunder", "5 stjerner", "20 års erfaring")
+   - services: Liste af ydelser/services
+   - about: Om virksomheden tekst
+   - testimonials: Kundeanmeldelser/udtalelser
+   - team: Teammedlemmer
+   - process: Arbejdsproces/steps
+   - cta: Call to action (kontakt os, få tilbud)
+   - faq: Ofte stillede spørgsmål
+   - contact: Kontaktinformation
+   - gallery: Billede galleri
+   - pricing: Priser/prisliste
+   - features: Features/fordele liste
+   - partners: Partnere/kunde logoer
+   - blog: Blog/nyheder
+   - other: Andet/uklassificeret
+
+2. confidence: Tal fra 0.0 til 1.0 der angiver sikkerhed
+
+3. extracted_values: For stats-sektioner, ekstraher strukturerede værdier:
+   - Tal med labels (fx {{"number": "+1200", "label": "loyale kunder"}})
+   - Ratings (fx {{"rating": "5", "platform": "Trustpilot"}})
+   - Års erfaring (fx {{"years": "20", "type": "erfaring"}})
+
+Svar i dette JSON format:
+{{
+    "sections": [
+        {{
+            "index": 0,
+            "section_type": "hero",
+            "confidence": 0.95,
+            "extracted_values": {{}}
+        }},
+        {{
+            "index": 1,
+            "section_type": "stats",
+            "confidence": 0.9,
+            "extracted_values": {{
+                "stats": [
+                    {{"number": "+1200", "label": "loyale kunder"}},
+                    {{"number": "5", "label": "stjerner på Trustpilot"}},
+                    {{"number": "+50", "label": "dygtige fagfolk"}}
+                ]
+            }}
+        }}
+    ]
+}}"""
+
+    def _merge_classifications(self, original_sections: list, ai_classifications: list) -> list:
+        """Merge AI classifications back into original sections."""
+        # Build index lookup for AI results
+        ai_by_index = {c.get('index', i): c for i, c in enumerate(ai_classifications)}
+
+        result = []
+        for i, section in enumerate(original_sections):
+            ai_data = ai_by_index.get(i, {})
+            classified = {
+                **section,
+                'section_type': ai_data.get('section_type', 'other'),
+                'ai_confidence': ai_data.get('confidence', 0.0),
+                'extracted_values': ai_data.get('extracted_values', {})
+            }
+            result.append(classified)
+
+        return result
+
+    def _classify_heuristic(self, sections: list) -> list:
+        """Fallback heuristic classification when AI is not available."""
+        classifier = ContentTypeClassifier()
+        result = []
+
+        for section in sections:
+            header = section.get('header', '')
+            content = section.get('content', '')
+
+            # Use existing ContentTypeClassifier
+            classification = classifier.classify(
+                header=header,
+                content=content,
+                has_h1=section.get('has_h1', False),
+                has_testimonials=section.get('has_testimonials', False),
+                has_form=section.get('has_form', False)
+            )
+
+            # Map ContentTypeClassifier types to SectionClassifier types
+            type_mapping = {
+                'hero': 'hero',
+                'reviews': 'testimonials',
+                'contact_form': 'contact',
+                'usp_header': 'features',
+                'cta': 'cta',
+                'text': 'other',
+                'image': 'gallery',
+                'carousel': 'testimonials',
+            }
+
+            section_type = type_mapping.get(classification['type'], 'other')
+
+            # Try to detect stats heuristically
+            stats_patterns = [
+                r'\+?\d+\s*(?:år|års|years?)',
+                r'\+?\d+\s*(?:kunder?|customers?)',
+                r'\d+[,.]?\d*\s*(?:stjerner?|stars?)',
+                r'\+?\d+\s*(?:projekter?|projects?)',
+                r'\d+/\d+\s*(?:rating|anmeldelse)',
+            ]
+
+            combined_text = f"{header} {content}".lower()
+            stats_matches = sum(1 for p in stats_patterns if re.search(p, combined_text, re.IGNORECASE))
+            if stats_matches >= 2:
+                section_type = 'stats'
+
+            classified = {
+                **section,
+                'section_type': section_type,
+                'ai_confidence': classification['confidence'],
+                'extracted_values': {}
+            }
+            result.append(classified)
+
+        return result
+
+    def save_classifications(self, client_id: int, page_url: str, classified_sections: list):
+        """
+        Save classified sections to database.
+
+        Args:
+            client_id: Client ID to link sections to
+            page_url: URL of the page
+            classified_sections: List of classified section dicts
+        """
+        from .models import ClassifiedSection
+        from campaigns.models import Client
+        from urllib.parse import urlparse
+
+        try:
+            client = Client.objects.get(id=client_id)
+        except Client.DoesNotExist:
+            print(f"[SectionClassifier] Client {client_id} not found")
+            return []
+
+        path = urlparse(page_url).path or '/'
+        saved = []
+
+        for i, section in enumerate(classified_sections):
+            classified = ClassifiedSection.objects.create(
+                client=client,
+                page_url=page_url,
+                page_path=path,
+                section_type=section.get('section_type', 'other'),
+                section_index=i,
+                ai_confidence=section.get('ai_confidence', 0.0),
+                original_header=section.get('header', '')[:500],
+                original_content=section.get('content', ''),
+                extracted_values=section.get('extracted_values', {})
+            )
+            saved.append(classified)
+
+        print(f"[SectionClassifier] Saved {len(saved)} classified sections for {page_url}")
+        return saved
+
+
+class FlatSectionsConverter:
+    """
+    Convert extracted layout and content into flatSections structure.
+    Matches the JavaScript structure used in campaign_builder_wizard.html.
+    """
+
+    def __init__(self):
+        self.content_classifier = ContentTypeClassifier()
+
+    def convert(self, layout_sections: list, reviews: list = None) -> list:
+        """
+        Convert extracted data to flatSections format.
+
+        Args:
+            layout_sections: From layout extractors (with width info)
+            reviews: Optional extracted reviews to inject
+
+        Returns:
+            flatSections structure matching JavaScript format
+        """
+        import time
+        import random
+        import string
+
+        flat_sections = []
+        reviews_injected = False
+
+        # Classify content types for all sections
+        classified_sections = self.content_classifier.classify_batch(layout_sections)
+
+        for i, section in enumerate(classified_sections):
+            section_id = self._generate_section_id()
+            content_type = section.get('content_type', 'text')
+
+            # Create content block with full section data
+            block = self._create_content_block(
+                content_type=content_type,
+                section_data=section,  # Pass full section data
+                reviews=reviews if content_type == 'reviews' and reviews else None
+            )
+
+            # Track if we injected reviews
+            if content_type == 'reviews' and reviews:
+                reviews_injected = True
+
+            flat_sections.append({
+                'id': section_id,
+                'width': section.get('width', '1/1'),
+                'position': section.get('position', i),  # Bevar position for korrekt rækkefølge
+                'contents': [block]
+            })
+
+        # If reviews weren't placed but we have them, add as separate section
+        if reviews and not reviews_injected:
+            review_block = self._create_content_block(
+                content_type='reviews',
+                section_data={'header': 'Hvad siger vores kunder'},
+                reviews=reviews
+            )
+            flat_sections.append({
+                'id': self._generate_section_id(),
+                'width': '1/1',
+                'position': len(flat_sections),  # Placer reviews til sidst
+                'contents': [review_block]
+            })
+
+        # Sortér efter original DOM position for korrekt rækkefølge
+        flat_sections.sort(key=lambda x: x.get('position', 0))
+        return flat_sections
+
+    def _generate_section_id(self) -> str:
+        """Generate unique section ID: sec_<timestamp>_<random>"""
+        import time
+        import random
+        import string
+        timestamp = int(time.time() * 1000)
+        random_str = ''.join(random.choices(string.ascii_lowercase + string.digits, k=9))
+        return f"sec_{timestamp}_{random_str}"
+
+    def _generate_block_id(self) -> str:
+        """Generate unique block ID: block_<timestamp>_<random>"""
+        import time
+        import random
+        import string
+        timestamp = int(time.time() * 1000)
+        random_str = ''.join(random.choices(string.ascii_lowercase + string.digits, k=9))
+        return f"block_{timestamp}_{random_str}"
+
+    def _map_content_type_to_inferred(self, content_type: str) -> str:
+        """
+        Map FlatSectionsConverter content types to UI _inferred_type.
+
+        UI'ens INFERRED_DISPLAY_MAP understøtter:
+        - 'form', 'accordion', 'gallery', 'image', 'list', 'link_list'
+        - 'text_with_title', 'text_long', 'text_short', 'mixed', 'empty'
+        """
+        mapping = {
+            'usp_header': 'list',           # USPs vises som liste
+            'hero': 'text_with_title',      # Hero har titel + tekst
+            'text': 'text_long',            # Tekst sektioner
+            'reviews': 'text_with_title',   # Reviews som tekst (ingen testimonial i map)
+            'contact_form': 'form',         # Kontaktformular
+            'cta': 'text_with_title',       # CTA som tekst (ingen button i map)
+            'image': 'image',               # Billeder
+            'carousel': 'gallery',          # Karrusel som galleri
+            'accordion': 'accordion',       # Accordion
+            'gallery': 'gallery',           # Galleri
+        }
+        return mapping.get(content_type, 'text_long')  # Default til tekst
+
+    def _create_content_block(self, content_type: str, section_data: dict, reviews: list = None) -> dict:
+        """
+        Create a content block with type-specific properties preserving full content.
+
+        Args:
+            content_type: The classified content type (usp_header, text, reviews, etc.)
+            section_data: Full section data including paragraphs, images, buttons, list_items
+            reviews: Optional reviews data for review sections
+
+        Returns block matching createNewSection() in JavaScript with full content preserved.
+        """
+        header = section_data.get('header', '')
+        subheader = section_data.get('subheader', '')
+        paragraphs = section_data.get('paragraphs', [])
+        images = section_data.get('images', [])
+        buttons = section_data.get('buttons', [])
+        list_items = section_data.get('list_items', [])
+        text_content = section_data.get('text_content', '')
+
+        block = {
+            'id': self._generate_block_id(),
+            'type': content_type,
+            '_inferred_type': self._map_content_type_to_inferred(content_type),
+        }
+
+        if content_type == 'usp_header':
+            # Use list_items for USPs if available, otherwise extract from content
+            usps = list_items[:6] if list_items else self._extract_usps_from_content(text_content)
+            intro_text = paragraphs[0] if paragraphs else ''
+            block.update({
+                'headline': header or 'Vores fordele',
+                'subheadline': subheader or '',
+                'intro': intro_text,
+                'usps': usps[:6] if usps else ['Professionel service', 'Konkurrencedygtige priser', 'Hurtig levering', 'Garanti på arbejdet'],
+                'paragraphs': paragraphs,
+                'images': images,
+                'buttons': buttons,
+            })
+
+        elif content_type == 'text':
+            # Preserve full paragraph content
+            full_content = '\n\n'.join(paragraphs) if paragraphs else text_content
+            block.update({
+                'header': header or '',
+                'subheader': subheader or '',
+                'content': full_content,
+                'paragraphs': paragraphs,
+                'images': images,
+                'buttons': buttons,
+                'list_items': list_items,
+            })
+
+        elif content_type == 'reviews':
+            block.update({
+                'header': header or 'Hvad siger vores kunder',
+                'subheader': subheader or '',
+                'reviews': reviews if reviews else [
+                    {'author': '', 'rating': 5, 'text': '', 'platform': 'Trustpilot'}
+                ],
+                'paragraphs': paragraphs,
+            })
+
+        elif content_type == 'contact_form':
+            # Extract button text from buttons if available
+            form_button = next((b['text'] for b in buttons if b.get('is_button')), 'Send besked')
+            intro_text = paragraphs[0] if paragraphs else ''
+            block.update({
+                'header': header or 'Kontakt os',
+                'subheader': subheader or intro_text or 'Udfyld formularen og vi vender tilbage inden for 24 timer',
+                'intro': intro_text,
+                'fields': ['name', 'email', 'phone', 'message'],
+                'button_text': form_button,
+                'list_items': list_items,  # Trust badges etc.
+                'images': images,
+            })
+
+        elif content_type == 'cta':
+            # Extract button text and href from buttons
+            cta_button = buttons[0] if buttons else {}
+            block.update({
+                'headline': header or 'Klar til at komme i gang?',
+                'subheadline': subheader or paragraphs[0] if paragraphs else 'Få et uforpligtende tilbud i dag',
+                'button_text': cta_button.get('text', 'Få gratis tilbud'),
+                'button_href': cta_button.get('href', ''),
+                'button_style': 'primary',
+                'paragraphs': paragraphs,
+            })
+
+        elif content_type == 'hero':
+            # Hero section - preserve all content including trust badges
+            usps = list_items[:6] if list_items else self._extract_usps_from_content(text_content)
+            intro_text = paragraphs[0] if paragraphs else ''
+            cta_button = next((b for b in buttons if b.get('is_button')), buttons[0] if buttons else {})
+            block.update({
+                'type': 'usp_header',  # Map to usp_header for JS rendering
+                'headline': header or 'Velkommen',
+                'subheadline': subheader or '',
+                'intro': intro_text,
+                'usps': usps[:6] if usps else ['Professionel service', 'Hurtig responstid', 'Konkurrencedygtige priser', 'Garanti på arbejdet'],
+                'paragraphs': paragraphs,
+                'images': images,
+                'buttons': buttons,
+                'button_text': cta_button.get('text', ''),
+                'button_href': cta_button.get('href', ''),
+                'is_hero': True,
+            })
+
+        elif content_type == 'image':
+            # Use first image if available
+            first_image = images[0] if images else {}
+            block.update({
+                'layout': 'landscape',
+                'src': first_image.get('src', ''),
+                'alt_text': first_image.get('alt', '') or header or '',
+                'caption': paragraphs[0] if paragraphs else '',
+                'images': images,  # All images
+            })
+
+        elif content_type == 'carousel':
+            # Carousel/slider sektion - ekstraher items fra widgets
+            widgets = section_data.get('widgets', [])
+            carousel_items = []
+
+            # Find carousel widget og ekstraher items
+            for widget in widgets:
+                if widget.get('category') == 'carousel':
+                    carousel_items = widget.get('content', {}).get('items', [])
+                    break
+
+            # Fallback: byg items fra child sections hvis ingen widget items
+            if not carousel_items and paragraphs:
+                for p in paragraphs[:5]:
+                    carousel_items.append({'text': p})
+
+            block.update({
+                'header': header or 'Vores services',
+                'subheader': subheader or '',
+                'carousel_items': carousel_items,
+                'images': images,
+                'buttons': buttons,
+                'widgets': widgets,  # Bevar fuld widget-data
+            })
+
+        elif content_type == 'accordion':
+            # Accordion sektion
+            widgets = section_data.get('widgets', [])
+            accordion_items = []
+
+            for widget in widgets:
+                if widget.get('category') == 'accordion':
+                    accordion_items = widget.get('content', {}).get('items', [])
+                    break
+
+            block.update({
+                'header': header or '',
+                'subheader': subheader or '',
+                'accordion_items': accordion_items,
+                'paragraphs': paragraphs,
+                'widgets': widgets,
+            })
+
+        elif content_type == 'tabs':
+            # Tabs sektion
+            widgets = section_data.get('widgets', [])
+            tab_items = []
+
+            for widget in widgets:
+                if widget.get('category') == 'tabs':
+                    tab_items = widget.get('content', {}).get('items', [])
+                    break
+
+            block.update({
+                'header': header or '',
+                'subheader': subheader or '',
+                'tab_items': tab_items,
+                'paragraphs': paragraphs,
+                'widgets': widgets,
+            })
+
+        elif content_type == 'flip_cards':
+            # Flip box sektion
+            widgets = section_data.get('widgets', [])
+            flip_cards = []
+
+            for widget in widgets:
+                if widget.get('category') == 'flip_card':
+                    content = widget.get('content', {})
+                    flip_cards.append({
+                        'front_title': content.get('front_title', ''),
+                        'front_text': content.get('front_text', ''),
+                        'back_title': content.get('back_title', ''),
+                        'back_text': content.get('back_text', ''),
+                    })
+
+            block.update({
+                'header': header or '',
+                'subheader': subheader or '',
+                'flip_cards': flip_cards,
+                'images': images,
+                'widgets': widgets,
+            })
+
+        # Tilføj widgets til alle block types for maksimal fleksibilitet
+        if 'widgets' not in block and section_data.get('widgets'):
+            block['widgets'] = section_data.get('widgets', [])
+
+        return block
+
+    def _extract_usps_from_content(self, content: str) -> list:
+        """Extract USP bullet points from content text."""
+        usps = []
+
+        # Look for bullet points (•, *, ✓, ✔, -)
+        bullet_patterns = [
+            r'[•\*✓✔\-]\s*([^\n•\*✓✔\-]{5,50})',
+            r'\n\s*[\-\*•]\s*([^\n]{5,50})',
+        ]
+
+        for pattern in bullet_patterns:
+            matches = re.findall(pattern, content)
+            for match in matches:
+                cleaned = match.strip()
+                if cleaned and len(cleaned) > 5:
+                    usps.append(cleaned)
+
+        return usps[:4]  # Max 4 USPs
+
+
+class WebsiteScraper:
+    """
+    Scrape and extract text content from websites.
+
+    Features:
+    - Static crawl with requests + BeautifulSoup
+    - Playwright fallback for JavaScript-rendered content
+    - Automatic detection of empty/insufficient content triggering fallback
+    """
+
+    # Minimum content length to consider scrape successful
+    MIN_CONTENT_LENGTH = 100
+    # Minimum number of sections to consider extraction successful
+    MIN_SECTIONS_COUNT = 1
+
+    def __init__(self, max_content_length=6000, use_playwright_fallback=True):
         self.max_content_length = max_content_length
+        self.use_playwright_fallback = use_playwright_fallback
+        self._universal_crawler = None
         # Initialize OpenAI client for AI-based review classification
         api_key = settings.OPENAI_API_KEY
         self.openai_client = OpenAI(api_key=api_key) if api_key else None
@@ -80,6 +2060,57 @@ class WebsiteScraper:
             '24 timer', 'døgnvagt',
             'etableret', 'grundlagt',
         ]
+
+    @property
+    def universal_crawler(self):
+        """Lazy-load UniversalCrawler only when needed."""
+        if self._universal_crawler is None:
+            from crawler.universal_crawler import UniversalCrawler
+            self._universal_crawler = UniversalCrawler(timeout=30000)
+        return self._universal_crawler
+
+    def _scrape_with_playwright(self, url: str) -> dict:
+        """
+        Fallback scraper using Playwright for JavaScript-rendered content.
+
+        Args:
+            url: URL to scrape
+
+        Returns:
+            Dict with content, sections, meta info, etc.
+        """
+        try:
+            result = self.universal_crawler.crawl_page(url)
+            if 'error' in result:
+                print(f"[WebsiteScraper] Playwright error: {result['error']}")
+                return None
+
+            # Convert UniversalCrawler format to WebsiteScraper format
+            sections = []
+            for section in result.get('sections', []):
+                # Only include sections with actual content
+                if section.get('content') and len(section.get('content', [])) > 0:
+                    content_text = '\n'.join(section.get('content', []))
+                    if len(content_text.strip()) > 10:  # Skip very short sections
+                        sections.append({
+                            'tag': section.get('tag', 'h2'),
+                            'header': section.get('heading', ''),
+                            'content': content_text
+                        })
+
+            return {
+                'content': result.get('main_content', ''),
+                'meta_title': result.get('title', ''),
+                'meta_description': result.get('meta_description', ''),
+                'sections': sections,
+                'reviews': result.get('reviews', []),
+                'usps': result.get('usps', []),
+                'html': result.get('html', ''),
+                'used_playwright': True
+            }
+        except Exception as e:
+            print(f"[WebsiteScraper] Playwright fallback failed: {e}")
+            return None
 
     def _get_prompt_from_db(self, prompt_type):
         """
@@ -1073,7 +3104,8 @@ class WebsiteScraper:
                     {"role": "user", "content": prompt}
                 ],
                 temperature=temperature,
-                max_tokens=max_tokens
+                max_tokens=max_tokens,
+                timeout=60.0  # 60 sekunder timeout
             )
 
             result_text = response.choices[0].message.content.strip()
@@ -1136,13 +3168,673 @@ class WebsiteScraper:
 
         return merged
 
-    def scrape_with_meta(self, url, timeout=10):
+    def extract_layout_to_flat_sections(self, soup: BeautifulSoup, existing_sections: list = None, reviews: list = None) -> dict:
+        """
+        Main entry point: Extract page layout and convert to flatSections.
+
+        New approach (Elementor-native):
+        1. For Elementor sites: Use ElementorJsonExtractor to preserve structure 1:1
+        2. Convert to flatSections format for wireframe visualization
+        3. Store raw Elementor JSON for export
+
+        Args:
+            soup: BeautifulSoup object of page HTML
+            existing_sections: Optional pre-extracted sections from extract_all_sections()
+            reviews: Optional pre-extracted reviews
+
+        Returns:
+            dict with:
+                'flat_sections': flatSections structure ready for campaign_builder_wizard.html
+                'builder_detected': dict with builder info
+                'sections_count': number of sections extracted
+                'elementor_json': Raw Elementor JSON for export (only for Elementor sites)
+        """
+        from .elementor_extractor import ElementorJsonExtractor, get_display_info
+
+        # Detect page builder
+        detector = PageBuilderDetector()
+        builder_info = detector.detect(soup)
+
+        print(f"[LayoutExtractor] Detected builder: {builder_info['builder']} (confidence: {builder_info['confidence']:.2f})")
+
+        elementor_json = None
+        flat_sections = []
+
+        # NEW: For Elementor sites, use the new native extractor
+        if builder_info['builder'] == 'elementor' and builder_info['confidence'] > 0.3:
+            extractor = ElementorJsonExtractor()
+            elementor_json = extractor.extract(soup)
+            print(f"[LayoutExtractor] Elementor JSON extracted {len(elementor_json.get('content', []))} top-level elements")
+
+            # Convert Elementor JSON to flatSections format
+            flat_sections = self._convert_elementor_to_flat_sections(elementor_json, reviews)
+            print(f"[LayoutExtractor] Converted to {len(flat_sections)} flatSections")
+
+        else:
+            # Fallback to old approach for non-Elementor sites
+            layout_sections = []
+
+            if builder_info['builder'] == 'divi' and builder_info['confidence'] > 0.3:
+                extractor = DiviLayoutExtractor()
+                layout_sections = extractor.extract_layout(soup)
+                print(f"[LayoutExtractor] Divi extracted {len(layout_sections)} sections")
+
+            elif builder_info['builder'] == 'wpbakery' and builder_info['confidence'] > 0.3:
+                extractor = WPBakeryLayoutExtractor()
+                layout_sections = extractor.extract_layout(soup)
+                print(f"[LayoutExtractor] WPBakery extracted {len(layout_sections)} sections")
+
+            elif builder_info['builder'] == 'generic':
+                extractor = GenericLayoutExtractor()
+                layout_sections = extractor.extract_layout(soup)
+                print(f"[LayoutExtractor] Generic grid extracted {len(layout_sections)} sections")
+
+            # If no builder layout detected, fall back to existing sections with default widths
+            if not layout_sections and existing_sections:
+                print("[LayoutExtractor] No builder layout found, using existing sections with default widths")
+                for i, section in enumerate(existing_sections):
+                    layout_sections.append({
+                        'width': '1/1',
+                        'header': section.get('header', ''),
+                        'text_content': section.get('content', ''),
+                        'has_testimonials': False,
+                        'has_form': False,
+                        'has_images': False,
+                        'position': i,
+                    })
+
+            # Filter out empty sections
+            layout_sections = [s for s in layout_sections if s.get('text_content', '').strip() or s.get('header', '').strip()]
+
+            # Convert to flatSections using old converter
+            converter = FlatSectionsConverter()
+            flat_sections = converter.convert(layout_sections, reviews)
+
+        result = {
+            'flat_sections': flat_sections,
+            'builder_detected': builder_info,
+            'sections_count': len(flat_sections)
+        }
+
+        # Include Elementor JSON for export if available
+        if elementor_json:
+            result['elementor_json'] = elementor_json
+
+        return result
+
+    def _convert_elementor_to_flat_sections(self, elementor_json: dict, reviews: list = None) -> list:
+        """
+        Convert Elementor JSON structure to flatSections format for wireframe visualization.
+
+        IMPORTANT: Each top-level container becomes ONE visual section.
+        Widgets within the same container are grouped together.
+
+        Args:
+            elementor_json: Extracted Elementor JSON from ElementorJsonExtractor
+            reviews: Optional pre-extracted reviews
+
+        Returns:
+            list of flatSections matching campaign_builder_wizard.html format
+        """
+        from .elementor_extractor import get_display_info
+        import time
+        import random
+        import string
+
+        def generate_id(prefix: str) -> str:
+            timestamp = int(time.time() * 1000)
+            random_str = ''.join(random.choices(string.ascii_lowercase + string.digits, k=9))
+            return f"{prefix}_{timestamp}_{random_str}"
+
+        def collect_all_widgets(element: dict) -> list:
+            """Recursively collect ALL widgets from an element and its children."""
+            widgets = []
+
+            if element.get('elType') == 'widget':
+                widgets.append(element)
+
+            for child in element.get('elements', []):
+                widgets.extend(collect_all_widgets(child))
+
+            return widgets
+
+        def get_column_structure(element: dict) -> list:
+            """Get the column structure of a container (child containers with their widths)."""
+            columns = []
+            children = element.get('elements', [])
+
+            # Count container children to determine default widths
+            container_children = [c for c in children if c.get('elType') in ['container', 'section', 'column']]
+            num_columns = len(container_children)
+
+            # Default widths based on column count
+            default_widths = {
+                1: '1/1',
+                2: '1/2',
+                3: '1/3',
+                4: '1/4',
+                5: '1/5',
+                6: '1/6'
+            }
+            default_width = default_widths.get(num_columns, '1/1')
+
+            for child in children:
+                if child.get('elType') in ['container', 'section', 'column']:
+                    settings = child.get('settings', {})
+                    # Try to get width from settings, fall back to calculated default
+                    width = self._calculate_element_width(settings, default_width)
+                    child_widgets = collect_all_widgets(child)
+
+                    column_data = {
+                        'width': width,
+                        'widgets': child_widgets,
+                        'id': child.get('id', generate_id('col'))
+                    }
+
+                    # Check for background image on empty containers
+                    if child.get('hasBackgroundImage') and not child_widgets:
+                        column_data['hasBackgroundImage'] = True
+                        column_data['backgroundImage'] = child.get('backgroundImage', {})
+
+                    columns.append(column_data)
+
+            return columns
+
+        def determine_section_type(widgets: list) -> dict:
+            """Determine the primary type of a section based on its widgets."""
+            widget_types = [w.get('widgetType', '') for w in widgets]
+
+            # Check for hero section (H1 + icon-list/USPs)
+            has_heading = any(t == 'heading' for t in widget_types)
+            has_icon_list = any(t == 'icon-list' for t in widget_types)
+            has_form = any(t in ['form', 'wpforms', 'contact-form-7'] for t in widget_types)
+            has_carousel = any('carousel' in t for t in widget_types)
+            has_testimonial = any('testimonial' in t for t in widget_types)
+            has_image = any(t == 'image' for t in widget_types)
+            has_text = any(t == 'text-editor' for t in widget_types)
+
+            # Check for logo slider (media-carousel with only images)
+            is_logo_slider = False
+            for w in widgets:
+                if w.get('widgetType') == 'media-carousel':
+                    carousel_type = w.get('content', {}).get('carousel_type', '')
+                    if carousel_type == 'logo_slider':
+                        is_logo_slider = True
+                        break
+
+            # Check for H1 in heading widgets
+            has_h1 = False
+            for w in widgets:
+                if w.get('widgetType') == 'heading':
+                    content = w.get('content', {})
+                    if content.get('tag') == 'h1':
+                        has_h1 = True
+                        break
+
+            # Determine primary type
+            if has_h1 and has_icon_list:
+                return {'type': 'hero', 'color': 'green'}
+            elif has_form:
+                return {'type': 'contact_form', 'color': 'blue'}
+            elif has_testimonial or (has_carousel and 'testimonial' in str(widget_types)):
+                return {'type': 'reviews', 'color': 'amber'}
+            elif is_logo_slider:
+                return {'type': 'logo_slider', 'color': 'indigo'}
+            elif has_carousel:
+                return {'type': 'carousel', 'color': 'blue'}
+            elif has_icon_list:
+                return {'type': 'list', 'color': 'green'}
+            # Image-only column (no text or heading)
+            elif has_image and not has_text and not has_heading:
+                return {'type': 'image', 'color': 'slate'}
+            elif has_heading:
+                return {'type': 'text', 'color': 'gray'}
+            else:
+                # Check for inferred types from generic content extraction
+                for widget in widgets:
+                    widget_content = widget.get('content', {})
+                    inferred_type = widget_content.get('_inferred_type', '')
+                    if inferred_type:
+                        inferred_type_map = {
+                            'form': {'type': 'contact_form', 'color': 'purple'},
+                            'accordion': {'type': 'accordion', 'color': 'purple'},
+                            'gallery': {'type': 'gallery', 'color': 'blue'},
+                            'image': {'type': 'image', 'color': 'gray'},
+                            'list': {'type': 'list', 'color': 'green'},
+                            'link_list': {'type': 'list', 'color': 'cyan'},
+                            'text_with_title': {'type': 'text', 'color': 'gray'},
+                            'text_long': {'type': 'text', 'color': 'gray'},
+                            'text_short': {'type': 'text', 'color': 'gray'},
+                            'mixed': {'type': 'generic', 'color': 'orange'},
+                        }
+                        if inferred_type in inferred_type_map:
+                            return inferred_type_map[inferred_type]
+                return {'type': 'generic', 'color': 'gray'}
+
+        def create_section_content(widgets: list, section_type: dict) -> dict:
+            """Create the content dict for a section based on its widgets."""
+            # Map section type to _inferred_type for UI display
+            type_to_inferred = {
+                'hero': 'text_with_title',
+                'usp_header': 'list',
+                'text': 'text_long',
+                'reviews': 'text_with_title',
+                'contact_form': 'form',
+                'form': 'form',
+                'cta': 'text_with_title',
+                'image': 'image',
+                'carousel': 'gallery',
+                'gallery': 'gallery',
+                'accordion': 'accordion',
+                'list': 'list',
+                'generic': 'mixed',
+                'header': 'text_with_title',
+                'button': 'text_short',
+                'video': 'mixed',
+                'testimonial': 'text_with_title',
+            }
+            content = {
+                'type': section_type['type'],
+                'color': section_type['color'],
+                '_inferred_type': type_to_inferred.get(section_type['type'], 'text_long'),
+                'widgets': []  # Store widget info for reference
+            }
+
+            # Extract key content from widgets
+            for w in widgets:
+                widget_type = w.get('widgetType', '')
+                widget_content = w.get('content', {})
+
+                if widget_type == 'heading':
+                    tag = widget_content.get('tag', 'h2')
+                    title = widget_content.get('title', '')
+                    if tag == 'h1' and not content.get('headline'):
+                        content['headline'] = title
+                        content['is_hero'] = True
+                    elif not content.get('header'):
+                        content['header'] = title
+                    content['widgets'].append({'type': 'heading', 'tag': tag, 'title': title})
+
+                elif widget_type == 'text-editor':
+                    text = widget_content.get('text', '')
+                    if not content.get('content'):
+                        content['content'] = text  # Used by renderFlatText
+                        content['intro'] = text    # Backwards compatibility
+                    else:
+                        # Append additional paragraphs
+                        content['content'] += '\n\n' + text
+                        content['intro'] = content['content']
+                    content['widgets'].append({'type': 'text', 'text': text[:200]})
+
+                elif widget_type == 'icon-list':
+                    items = widget_content.get('items', [])
+                    if items:
+                        content['usps'] = items
+                        content['list_items'] = items
+                    content['widgets'].append({'type': 'list', 'items': items})
+
+                elif widget_type in ['form', 'wpforms', 'contact-form-7']:
+                    fields = widget_content.get('fields', [])
+                    content['fields'] = [f.get('name') or f.get('type') for f in fields]
+                    content['widgets'].append({'type': 'form', 'fields': len(fields)})
+
+                elif 'carousel' in widget_type or 'testimonial' in widget_type:
+                    items = widget_content.get('items', [])
+                    carousel_type = widget_content.get('carousel_type', 'content')
+
+                    if 'testimonial' in widget_type or carousel_type == 'testimonial':
+                        content['reviews'] = items
+                        content['widgets'].append({'type': 'carousel', 'subtype': 'testimonial', 'slides': len(items)})
+                    elif carousel_type == 'logo_slider':
+                        # Extract logo images
+                        content['logos'] = [item.get('image', '') for item in items if item.get('image')]
+                        content['logo_count'] = len(content['logos'])
+                        content['widgets'].append({'type': 'carousel', 'subtype': 'logo_slider', 'slides': len(items)})
+                    else:
+                        content['carousel_items'] = items
+                        content['widgets'].append({'type': 'carousel', 'subtype': carousel_type, 'slides': len(items)})
+
+                    content['total_slides'] = len(items)
+                    content['carousel_type'] = carousel_type
+
+                elif widget_type == 'button':
+                    btn_text = widget_content.get('text', '')
+                    if not content.get('button_text'):
+                        content['button_text'] = btn_text
+                    content['widgets'].append({'type': 'button', 'text': btn_text})
+
+                elif widget_type == 'image':
+                    img_src = widget_content.get('src', '')
+                    img_alt = widget_content.get('alt', '')
+                    # For image-only sections, set src/alt on content
+                    if section_type['type'] == 'image' and not content.get('src'):
+                        content['src'] = img_src
+                        content['alt_text'] = img_alt
+                    content['widgets'].append({'type': 'image', 'src': img_src, 'alt': img_alt})
+
+                elif widget_type in ['accordion', 'toggle', 'pp-advanced-accordion']:
+                    items = widget_content.get('items', [])
+                    if items:
+                        content['accordion_items'] = items
+                    content['widgets'].append({'type': 'accordion', 'items': len(items)})
+
+                else:
+                    # Handle unknown widgets with generic content extraction
+                    inferred_type = widget_content.get('_inferred_type', 'empty')
+
+                    # Pass through widgetType for display
+                    content['widgetType'] = widget_type
+
+                    # Extract generic content fields
+                    if widget_content.get('title') and not content.get('header'):
+                        content['header'] = widget_content.get('title', '')
+                        content['headline'] = widget_content.get('title', '')
+
+                    if widget_content.get('text') and not content.get('content'):
+                        content['content'] = widget_content.get('text', '')
+                        content['intro'] = widget_content.get('text', '')
+
+                    if widget_content.get('items') and not content.get('list_items'):
+                        content['list_items'] = widget_content.get('items', [])
+                        content['usps'] = widget_content.get('items', [])[:6]
+
+                    if widget_content.get('accordion_items'):
+                        content['accordion_items'] = widget_content.get('accordion_items', [])
+
+                    if widget_content.get('form_fields'):
+                        content['fields'] = [f.get('name') or f.get('placeholder') or f.get('type') for f in widget_content.get('form_fields', [])]
+
+                    if widget_content.get('links'):
+                        content['links'] = widget_content.get('links', [])
+
+                    if widget_content.get('images'):
+                        content['images'] = widget_content.get('images', [])
+                        if len(content['images']) == 1 and not content.get('src'):
+                            content['src'] = content['images'][0].get('src', '')
+                            content['alt_text'] = content['images'][0].get('alt', '')
+
+                    # Store full widget content in a separate key for renderFlatGeneric
+                    # (don't overwrite 'content' as that's used for text strings)
+                    content['_widget_content'] = widget_content
+
+                    # Add widget info for reference
+                    content['widgets'].append({
+                        'type': inferred_type,
+                        'widgetType': widget_type,
+                        '_inferred_type': inferred_type
+                    })
+
+            return content
+
+        flat_sections = []
+
+        # Process each TOP-LEVEL container as ONE visual section
+        for i, top_element in enumerate(elementor_json.get('content', [])):
+            if top_element.get('elType') not in ['container', 'section']:
+                continue
+
+            # Get column structure
+            columns = get_column_structure(top_element)
+
+            if columns:
+                # Multi-column layout
+                for col in columns:
+                    # Handle background image containers (no widgets but has background image)
+                    if not col['widgets'] and col.get('hasBackgroundImage'):
+                        content = {
+                            'id': generate_id('block'),
+                            'type': 'image',
+                            'color': 'slate',
+                            'is_background_image': True,
+                            'widgets': [{'type': 'image', 'src': col.get('backgroundImage', {}).get('url', '')}]
+                        }
+                        flat_sections.append({
+                            'id': generate_id('sec'),
+                            'width': col['width'],
+                            'position': len(flat_sections),
+                            'contents': [content]
+                        })
+                        continue
+                    elif not col['widgets']:
+                        continue
+
+                    section_type = determine_section_type(col['widgets'])
+                    content = create_section_content(col['widgets'], section_type)
+                    content['id'] = generate_id('block')
+
+                    flat_sections.append({
+                        'id': generate_id('sec'),
+                        'width': col['width'],
+                        'position': len(flat_sections),
+                        'contents': [content]
+                    })
+            else:
+                # Single-column or direct widgets
+                all_widgets = collect_all_widgets(top_element)
+                if not all_widgets:
+                    continue
+
+                section_type = determine_section_type(all_widgets)
+                content = create_section_content(all_widgets, section_type)
+                content['id'] = generate_id('block')
+
+                flat_sections.append({
+                    'id': generate_id('sec'),
+                    'width': '1/1',
+                    'position': len(flat_sections),
+                    'contents': [content]
+                })
+
+        print(f"[LayoutExtractor] Created {len(flat_sections)} visual sections from {len(elementor_json.get('content', []))} top-level containers")
+        return flat_sections
+
+    def _calculate_element_width(self, settings: dict, parent_width: str) -> str:
+        """Calculate element width from settings."""
+        # Try flex_size first
+        if 'flex_size' in settings:
+            try:
+                flex = float(settings['flex_size'])
+                return self._normalize_percentage_to_fraction(flex)
+            except (ValueError, TypeError):
+                pass
+
+        # Try _column_size
+        if '_column_size' in settings:
+            try:
+                size = float(settings['_column_size'])
+                return self._normalize_percentage_to_fraction(size)
+            except (ValueError, TypeError):
+                pass
+
+        return parent_width
+
+    def _normalize_percentage_to_fraction(self, percent: float) -> str:
+        """Convert percentage to fraction string."""
+        if percent >= 95:
+            return '1/1'
+        elif percent >= 70:
+            return '3/4'
+        elif percent >= 60:
+            return '2/3'
+        elif percent >= 45:
+            return '1/2'
+        elif percent >= 30:
+            return '1/3'
+        elif percent >= 20:
+            return '1/4'
+        else:
+            return '1/6'
+
+    def _create_flat_section_from_widgets(self, widgets: list, width: str, pos: int, section_id: str) -> dict:
+        """Create a flatSection from a list of widgets."""
+        from .elementor_extractor import get_display_info
+        import time
+        import random
+        import string
+
+        def generate_id(prefix: str) -> str:
+            timestamp = int(time.time() * 1000)
+            random_str = ''.join(random.choices(string.ascii_lowercase + string.digits, k=9))
+            return f"{prefix}_{timestamp}_{random_str}"
+
+        if not widgets:
+            return None
+
+        # Find primary widget (heading or first significant widget)
+        primary_widget = None
+        for w in widgets:
+            wt = w.get('widgetType', '')
+            if wt == 'heading':
+                primary_widget = w
+                break
+            elif wt in ['icon-list', 'testimonial-carousel', 'nested-carousel', 'form']:
+                primary_widget = w
+                break
+
+        if not primary_widget:
+            primary_widget = widgets[0]
+
+        primary_type = primary_widget.get('widgetType', 'text-editor')
+        display_info = get_display_info(primary_type)
+
+        # Aggregate content from all widgets
+        header = ''
+        text_content = ''
+        list_items = []
+        images = []
+        buttons = []
+        carousel_items = []
+
+        for w in widgets:
+            wt = w.get('widgetType', '')
+            content = w.get('content', {})
+
+            if wt == 'heading':
+                if not header:
+                    header = content.get('title', '')
+
+            elif wt == 'text-editor':
+                text = content.get('text', '')
+                if text:
+                    text_content += text + '\n\n'
+
+            elif wt == 'icon-list':
+                items = content.get('items', [])
+                list_items.extend(items)
+
+            elif wt == 'image':
+                images.append({
+                    'src': content.get('src', ''),
+                    'alt': content.get('alt', '')
+                })
+
+            elif wt == 'button':
+                buttons.append({
+                    'text': content.get('text', ''),
+                    'href': content.get('href', '')
+                })
+
+            elif wt in ['testimonial-carousel', 'nested-carousel', 'media-carousel']:
+                carousel_items = content.get('items', [])
+
+        # Build section content
+        block = {
+            'id': generate_id('block'),
+            'type': display_info['display_type'],
+            'widgetType': primary_type,
+            'color': display_info['color'],
+            'header': header,
+            'headline': header,
+            'content': text_content.strip(),
+            'list_items': list_items,
+            'usps': list_items[:6] if list_items else [],
+            'images': images,
+            'buttons': buttons,
+            'widgets': widgets,  # Preserve all widgets for reference
+        }
+
+        # Add type-specific fields
+        if carousel_items:
+            block['carousel_items'] = carousel_items
+
+        return {
+            'id': section_id,
+            'width': width,
+            'position': pos,
+            'contents': [block]
+        }
+
+    def _map_widget_content_to_block(self, widget_type: str, content: dict) -> dict:
+        """Map widget content to block format for visualization."""
+        block = {}
+
+        if widget_type == 'heading':
+            block['header'] = content.get('title', '')
+            block['headline'] = content.get('title', '')
+            block['tag'] = content.get('tag', 'h2')
+
+        elif widget_type == 'text-editor':
+            block['content'] = content.get('text', '')
+            block['paragraphs'] = content.get('paragraphs', [])
+
+        elif widget_type == 'icon-list':
+            block['list_items'] = content.get('items', [])
+            block['usps'] = content.get('items', [])[:6]
+
+        elif widget_type == 'image':
+            block['src'] = content.get('src', '')
+            block['alt_text'] = content.get('alt', '')
+
+        elif widget_type == 'button':
+            block['button_text'] = content.get('text', '')
+            block['button_href'] = content.get('href', '')
+
+        elif widget_type in ['form', 'wpforms', 'contact-form-7']:
+            block['fields'] = content.get('fields', [])
+            block['button_text'] = content.get('submit_text', 'Send')
+
+        elif widget_type in ['testimonial-carousel', 'nested-carousel', 'media-carousel', 'slides']:
+            block['carousel_items'] = content.get('items', [])
+            block['total_slides'] = content.get('total_slides', 0)
+
+        elif widget_type in ['accordion', 'toggle']:
+            block['accordion_items'] = content.get('items', [])
+
+        elif widget_type == 'tabs':
+            block['tab_items'] = content.get('tabs', [])
+
+        elif widget_type == 'flip-box':
+            block['front_title'] = content.get('front_title', '')
+            block['front_text'] = content.get('front_text', '')
+            block['back_title'] = content.get('back_title', '')
+            block['back_text'] = content.get('back_text', '')
+
+        elif widget_type == 'testimonial':
+            block['testimonial_text'] = content.get('text', '')
+            block['testimonial_author'] = content.get('author', '')
+
+        elif widget_type == 'video':
+            block['video_src'] = content.get('src', '')
+
+        elif widget_type == 'social-icons':
+            block['social_icons'] = content.get('icons', [])
+
+        elif widget_type == 'call-to-action':
+            block['headline'] = content.get('title', '')
+            block['subheadline'] = content.get('description', '')
+            block['button_text'] = content.get('button_text', '')
+            block['button_href'] = content.get('button_href', '')
+
+        return block
+
+    def scrape_with_meta(self, url, timeout=10, extract_layout=False):
         """
         Fetch and extract text content, meta tags, structured sections, AND reviews from a website.
 
         Args:
             url: Website URL to scrape
             timeout: Request timeout in seconds
+            extract_layout: If True, also extract layout as flatSections wireframe
 
         Returns:
             dict: {
@@ -1150,11 +3842,17 @@ class WebsiteScraper:
                 'meta_title': str or None,
                 'meta_description': str or None,
                 'sections': list of {'tag', 'header', 'content'},
-                'reviews': list of review dicts (from Elementor testimonials etc.)
+                'reviews': list of review dicts (from Elementor testimonials etc.),
+                'flat_sections': list (only if extract_layout=True),
+                'builder_detected': dict (only if extract_layout=True),
             }
         """
         if not url:
-            return {'content': '', 'meta_title': None, 'meta_description': None, 'sections': [], 'reviews': [], 'review_section_position': None, 'review_iframes': []}
+            result = {'content': '', 'meta_title': None, 'meta_description': None, 'sections': [], 'reviews': [], 'review_section_position': None, 'review_iframes': []}
+            if extract_layout:
+                result['flat_sections'] = []
+                result['builder_detected'] = None
+            return result
 
         # Ensure URL has protocol
         if not url.startswith('http'):
@@ -1219,22 +3917,100 @@ class WebsiteScraper:
             if html_reviews:
                 review_section_position = self._detect_review_section_position(soup, sections)
 
+            # Extract layout to flatSections if requested (do this BEFORE scrape_website modifies soup)
+            flat_sections = None
+            builder_detected = None
+            elementor_json = None
+            if extract_layout:
+                try:
+                    layout_result = self.extract_layout_to_flat_sections(soup, sections, html_reviews)
+                    flat_sections = layout_result.get('flat_sections', [])
+                    builder_detected = layout_result.get('builder_detected')
+                    elementor_json = layout_result.get('elementor_json')  # Elementor native JSON for export
+                    print(f"[WebsiteScraper] Layout extraction: {len(flat_sections)} flatSections from {builder_detected.get('builder', 'unknown') if builder_detected else 'unknown'}")
+                    print(f"[WebsiteScraper] elementor_json present: {elementor_json is not None}, content count: {len(elementor_json.get('content', [])) if elementor_json else 0}")
+                except Exception as layout_error:
+                    print(f"[WebsiteScraper] Layout extraction failed: {layout_error}")
+                    import traceback
+                    traceback.print_exc()
+                    flat_sections = []
+                    builder_detected = None
+
             # Now get content using existing method (which modifies soup)
             content = self.scrape_website(url, timeout)
 
-            return {
+            # Check if we need Playwright fallback
+            # Conditions: content is too short OR no meaningful sections found
+            needs_playwright = False
+            if self.use_playwright_fallback:
+                content_too_short = len(content) < self.MIN_CONTENT_LENGTH
+                no_sections = len(sections) < self.MIN_SECTIONS_COUNT
+                # Check if sections have content (not just headers)
+                sections_have_content = any(
+                    s.get('content') and len(str(s.get('content', '')).strip()) > 20
+                    for s in sections
+                )
+
+                if content_too_short or (no_sections and not sections_have_content):
+                    needs_playwright = True
+                    print(f"[WebsiteScraper] Static scrape insufficient (content={len(content)} chars, sections={len(sections)}). Trying Playwright...")
+
+            used_playwright = False
+            if needs_playwright:
+                playwright_result = self._scrape_with_playwright(url)
+                if playwright_result:
+                    pw_content = playwright_result.get('content', '')
+                    pw_sections = playwright_result.get('sections', [])
+
+                    # Use Playwright results if better
+                    if len(pw_content) > len(content):
+                        content = pw_content
+                        print(f"[WebsiteScraper] Playwright returned {len(content)} chars of content")
+
+                    if len(pw_sections) > len(sections):
+                        sections = pw_sections
+                        print(f"[WebsiteScraper] Playwright returned {len(sections)} sections")
+
+                    # Use Playwright meta if we didn't get it from static scrape
+                    if not meta_title and playwright_result.get('meta_title'):
+                        meta_title = playwright_result.get('meta_title')
+                    if not meta_description and playwright_result.get('meta_description'):
+                        meta_description = playwright_result.get('meta_description')
+
+                    # Merge reviews
+                    pw_reviews = playwright_result.get('reviews', [])
+                    if pw_reviews:
+                        html_reviews = self._merge_reviews(html_reviews, pw_reviews)
+
+                    used_playwright = True
+
+            result = {
                 'content': content,
                 'meta_title': meta_title,
                 'meta_description': meta_description,
                 'sections': sections,
                 'reviews': html_reviews,  # Only HTML-detected reviews (AI classification happens in batch later)
                 'review_section_position': review_section_position,
-                'review_iframes': review_iframes
+                'review_iframes': review_iframes,
+                'used_playwright': used_playwright
             }
+
+            # Add layout data if extracted
+            if extract_layout:
+                result['flat_sections'] = flat_sections
+                result['builder_detected'] = builder_detected
+                if elementor_json:
+                    result['elementor_json'] = elementor_json
+
+            return result
 
         except Exception as e:
             print(f"Website parsing error for {url}: {e}")
-            return {'content': '', 'meta_title': None, 'meta_description': None, 'sections': [], 'reviews': [], 'review_section_position': None, 'review_iframes': []}
+            result = {'content': '', 'meta_title': None, 'meta_description': None, 'sections': [], 'reviews': [], 'review_section_position': None, 'review_iframes': []}
+            if extract_layout:
+                result['flat_sections'] = []
+                result['builder_detected'] = None
+            return result
 
 
 class USPAnalyzer:
@@ -1331,7 +4107,8 @@ class USPAnalyzer:
             try:
                 print(f"[USPAnalyzer] Trying {provider} ({model})...")
                 response = client.chat.completions.create(
-                    **build_completion_kwargs(model, [{"role": "user", "content": prompt}], temperature, max_tokens)
+                    **build_completion_kwargs(model, [{"role": "user", "content": prompt}], temperature, max_tokens),
+                    timeout=60.0  # 60 sekunder timeout
                 )
 
                 content = response.choices[0].message.content.strip()
@@ -1498,7 +4275,8 @@ class ServiceDetector:
             try:
                 print(f"[ServiceDetector] Trying {provider} ({model})...")
                 response = client.chat.completions.create(
-                    **build_completion_kwargs(model, [{"role": "user", "content": prompt}], temperature, max_tokens)
+                    **build_completion_kwargs(model, [{"role": "user", "content": prompt}], temperature, max_tokens),
+                    timeout=60.0  # 60 sekunder timeout for at undgå uendelig ventetid
                 )
 
                 content = response.choices[0].message.content.strip()
@@ -1624,7 +4402,8 @@ class PerplexityResearcher:
 
         try:
             response = self.client.chat.completions.create(
-                **build_completion_kwargs(model, [{"role": "user", "content": prompt}], temperature, max_tokens)
+                **build_completion_kwargs(model, [{"role": "user", "content": prompt}], temperature, max_tokens),
+                timeout=60.0  # 60 sekunder timeout
             )
             return response.choices[0].message.content.strip()
         except Exception as e:
@@ -1684,7 +4463,8 @@ class DescriptionGenerator:
             try:
                 print(f"[{method_name}] Trying {provider} ({model})...")
                 response = client.chat.completions.create(
-                    **build_completion_kwargs(model, [{"role": "user", "content": prompt}], temperature, max_tokens)
+                    **build_completion_kwargs(model, [{"role": "user", "content": prompt}], temperature, max_tokens),
+                    timeout=60.0  # 60 sekunder timeout
                 )
                 content = response.choices[0].message.content.strip()
                 print(f"[{method_name}] Success with {provider}")
@@ -2250,7 +5030,8 @@ Brug informationen fra online research til at supplere med eksterne anmeldelser 
         try:
             # Try OpenAI first
             response = self.client.chat.completions.create(
-                **build_completion_kwargs(model, [{"role": "user", "content": prompt}], temperature, max_tokens)
+                **build_completion_kwargs(model, [{"role": "user", "content": prompt}], temperature, max_tokens),
+                timeout=60.0  # 60 sekunder timeout
             )
             ai_response = response.choices[0].message.content.strip()
         except Exception as openai_error:
@@ -2262,7 +5043,8 @@ Brug informationen fra online research til at supplere med eksterne anmeldelser 
                         model='sonar',
                         messages=[{"role": "user", "content": prompt}],
                         temperature=temperature,
-                        max_tokens=max_tokens
+                        max_tokens=max_tokens,
+                        timeout=60.0  # 60 sekunder timeout
                     )
                     ai_response = response.choices[0].message.content.strip()
                 except Exception as perplexity_error:
@@ -2323,7 +5105,7 @@ class ComprehensiveWebsiteScraper:
         self.page_scraper = WebsiteScraper(max_content_length=8000)
         self.cache_days = cache_days
 
-    def scrape_website(self, url, max_pages=10, client_id=None, use_playwright=False):
+    def scrape_website(self, url, max_pages=10, client_id=None, use_playwright=False, extract_layout=True):
         """
         Scrape a website comprehensively.
 
@@ -2332,9 +5114,10 @@ class ComprehensiveWebsiteScraper:
             max_pages: Maximum pages to scrape (10, 50, 100, or 0/None for all)
             client_id: If set, save permanently to Client model
             use_playwright: DEPRECATED - no longer used, review iframes are detected automatically
+            extract_layout: If True, extract page builder layout as flatSections wireframe
 
         Returns:
-            Dict with scraped data structure including review_iframes
+            Dict with scraped data structure including review_iframes and flat_sections
         """
         from campaigns.sitemap_service import SitemapCrawler
         from django.core.cache import cache
@@ -2391,8 +5174,8 @@ class ComprehensiveWebsiteScraper:
             try:
                 print(f"[ComprehensiveScraper] Scraping ({i+1}/{len(urls_to_scrape)}): {page_url}")
 
-                # Scrape page with meta info, sections, reviews, and iframes
-                scraped = self.page_scraper.scrape_with_meta(page_url)
+                # Scrape page with meta info, sections, reviews, iframes, and layout
+                scraped = self.page_scraper.scrape_with_meta(page_url, extract_layout=extract_layout)
 
                 # Extract reviews (Elementor testimonials, Trustpilot widgets etc.)
                 page_reviews = scraped.get('reviews', [])
@@ -2421,6 +5204,9 @@ class ComprehensiveWebsiteScraper:
                         'page_type': self._detect_page_type(path),
                         'sections': scraped.get('sections', []),  # Strukturerede sektioner fra siden
                         'review_section_position': scraped.get('review_section_position'),  # Position af reviews på siden
+                        'flat_sections': scraped.get('flat_sections', []),  # Layout wireframe med korrekte kolonnebredder
+                        'builder_detected': scraped.get('builder_detected'),  # Page builder info (Elementor, Divi etc.)
+                        'elementor_json': scraped.get('elementor_json'),  # Elementor native JSON for export
                     }
                     pages_data[path] = page_info
                     combined_content_parts.append(f"--- {path} ---\n{content}")
@@ -2428,6 +5214,21 @@ class ComprehensiveWebsiteScraper:
             except Exception as e:
                 print(f"[ComprehensiveScraper] Error scraping {page_url}: {e}")
                 continue
+
+        # Deduplicate reviews from multiple pages (same testimonials often appear on every page)
+        if all_extracted_reviews:
+            seen_texts = set()
+            unique_reviews = []
+            for review in all_extracted_reviews:
+                # Use first 50 chars of text as key (same logic as _merge_reviews)
+                text_key = review.get('text', '')[:50].lower().strip()
+                if text_key and text_key not in seen_texts:
+                    unique_reviews.append(review)
+                    seen_texts.add(text_key)
+
+            if len(unique_reviews) < len(all_extracted_reviews):
+                print(f"[ComprehensiveScraper] Deduplicated reviews: {len(all_extracted_reviews)} -> {len(unique_reviews)}")
+            all_extracted_reviews = unique_reviews
 
         # Combine all content
         combined_content = '\n\n'.join(combined_content_parts)
@@ -2461,14 +5262,60 @@ class ComprehensiveWebsiteScraper:
                 })
 
         # Run ONE AI classification on all sections (if any exist)
+        classified_sections_by_page = {}
         if all_sections_for_ai:
             print(f"[ComprehensiveScraper] Running batch AI classification on {len(all_sections_for_ai)} sections from {len(pages_data)} pages...")
+
+            # 1. Review classification (existing functionality)
             ai_result = self.page_scraper.classify_sections_with_ai(all_sections_for_ai)
             ai_reviews = ai_result.get('reviews', [])
             if ai_reviews:
                 print(f"[ComprehensiveScraper] AI found {len(ai_reviews)} additional reviews")
                 # Merge with HTML-detected reviews (avoiding duplicates)
                 all_extracted_reviews = self.page_scraper._merge_reviews(all_extracted_reviews, ai_reviews)
+
+            # 2. Section type classification (NEW)
+            section_classifier = SectionClassifier()
+
+            # Group sections by page for classification
+            sections_by_page = {}
+            for section in all_sections_for_ai:
+                page = section.get('page', '/')
+                if page not in sections_by_page:
+                    sections_by_page[page] = []
+                sections_by_page[page].append(section)
+
+            # Classify sections for each page
+            for page_path, page_sections in sections_by_page.items():
+                page_url_full = url.rstrip('/') + page_path if page_path != '/' else url
+                print(f"[ComprehensiveScraper] Classifying {len(page_sections)} sections for {page_path}...")
+
+                classified = section_classifier.classify_sections(page_sections, page_url_full)
+                classified_sections_by_page[page_path] = classified
+
+                # Save to database if client_id provided
+                if client_id:
+                    section_classifier.save_classifications(client_id, page_url_full, classified)
+
+                # Count section types for logging
+                type_counts = {}
+                for s in classified:
+                    st = s.get('section_type', 'other')
+                    type_counts[st] = type_counts.get(st, 0) + 1
+                if type_counts:
+                    print(f"[ComprehensiveScraper] Section types found: {type_counts}")
+
+            # Update pages_data with classified sections
+            for path, page_info in pages_data.items():
+                if path in classified_sections_by_page:
+                    page_info['classified_sections'] = classified_sections_by_page[path]
+
+        # Build section type summary
+        all_section_types = {}
+        for path, classified in classified_sections_by_page.items():
+            for s in classified:
+                st = s.get('section_type', 'other')
+                all_section_types[st] = all_section_types.get(st, 0) + 1
 
         # Build result structure
         result = {
@@ -2482,6 +5329,8 @@ class ComprehensiveWebsiteScraper:
             'service_summary': service_summary,  # Condensed summary for service detection
             'extracted_reviews': all_extracted_reviews,  # Reviews from Trustpilot/Google etc.
             'review_iframes': all_review_iframes,  # Review widget iframes (Trustpilot, Google etc.)
+            'section_types_summary': all_section_types,  # Summary of all section types found
+            'classified_sections_count': sum(len(v) for v in classified_sections_by_page.values()),
         }
 
         # Save data
